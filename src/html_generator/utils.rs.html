@@ -319,10 +319,7 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a></pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions for HTML and Markdown processing.
+<a href="#321" id="321">321</a></pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions for HTML and Markdown processing.
 //!
 //! This module provides various utility functions for tasks such as
 //! extracting front matter from Markdown content and formatting HTML headers.
@@ -386,7 +383,6 @@
 /// let result = extract_front_matter(content).unwrap();
 /// assert_eq!(result, "# Hello, world!\n\nThis is a test.");
 /// ```
-</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>extract_front_matter(content: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
     <span class="kw">if </span>content.is_empty() {
         <span class="kw">return </span><span class="prelude-val">Err</span>(HtmlError::InvalidInput(<span class="string">"Empty input"</span>.to_string()));
@@ -438,7 +434,6 @@
 /// let result = format_header_with_id_class(header, None, None).unwrap();
 /// assert_eq!(result, "&lt;h2 id=\"hello-world\" class=\"hello-world\"&gt;Hello, World!&lt;/h2&gt;");
 /// ```
-</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>format_header_with_id_class(
     header: <span class="kw-2">&amp;</span>str,
     id_generator: <span class="prelude-ty">Option</span>&lt;<span class="kw">fn</span>(<span class="kw-2">&amp;</span>str) -&gt; String&gt;,
@@ -491,7 +486,6 @@
 /// let result = generate_table_of_contents(html).unwrap();
 /// assert_eq!(result, r#"&lt;ul&gt;&lt;li class="toc-h1"&gt;&lt;a href="\#title"&gt;Title&lt;/a&gt;&lt;/li&gt;&lt;li class="toc-h2"&gt;&lt;a href="\#subtitle"&gt;Subtitle&lt;/a&gt;&lt;/li&gt;&lt;li class="toc-h3"&gt;&lt;a href="\#sub-subtitle"&gt;Sub-subtitle&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;"#);
 /// ```
-</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>generate_table_of_contents(html: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
     <span class="kw">if </span>html.is_empty() {
         <span class="kw">return </span><span class="prelude-val">Err</span>(HtmlError::InvalidInput(<span class="string">"Empty input"</span>.to_string()));

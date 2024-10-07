@@ -177,7 +177,11 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a></pre></div><pre class="rust"><code><span class="doccomment">//! Error types for HTML generation and processing.
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a></pre></div><pre class="rust"><code><span class="doccomment">//! Error types for HTML generation and processing.
 //!
 //! This module defines custom error types used throughout the HTML generation library.
 //! It provides a centralized location for all error definitions, making it easier to
@@ -306,6 +310,10 @@
     /// This variant is used for errors that do not fit into other categories.
     </span><span class="attr">#[error(<span class="string">"Unexpected error: {0}"</span>)]
     </span>UnexpectedError(String),
+
+    <span class="doccomment">/// An SEO-related error.
+    </span><span class="attr">#[error(<span class="string">"SEO error: {0}"</span>)]
+    </span>SeoError(String),
 }
 
 <span class="doccomment">/// Type alias for a result using the `HtmlError` error type.
