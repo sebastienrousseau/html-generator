@@ -1,0 +1,97 @@
+# -----------------------------------------------------------------------------
+# HTML Generator - A Rust-based HTML generation and optimization library.
+# -----------------------------------------------------------------------------
+
+[package]
+name = "html-generator"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.56.0"
+license = "MIT OR Apache-2.0"
+description = """
+A robust Rust library designed for transforming Markdown into SEO-optimized, accessible HTML. Featuring front matter extraction, custom header processing, table of contents generation, and performance optimization for web projects of any scale.
+"""
+homepage = "https://html-generator.co/"
+documentation = "https://doc.html-generator.co/html_generator/"
+repository = "https://github.com/sebastienrousseau/html-generator"
+readme = "README.md"
+build = "build.rs"
+
+# -----------------------------------------------------------------------------
+# Crate Configuration
+# -----------------------------------------------------------------------------
+categories = [
+    "web-programming",
+    "command-line-utilities",
+    "data-structures",
+    "parsing",
+    "development-tools"
+]
+
+keywords = ["html", "web_development", "static_page ", "html-generator"]
+
+[lib]
+name = "html_generator"
+path = "src/lib.rs"
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+
+[dependencies]
+# Dependencies required for building and running the project.
+comrak = "0.28"
+frontmatter-gen = "0.0.2"
+lazy_static = "1.5"
+mdx-gen = "0.0.1"
+minify-html = "0.15"
+once_cell = "1.20"
+regex = "1.11"
+scraper = "0.20"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.13"
+thiserror = "1.0"
+tokio = { version = "1.40", features = ["full"] }
+
+# -----------------------------------------------------------------------------
+# Build Dependencies
+# -----------------------------------------------------------------------------
+
+[build-dependencies]
+# Dependencies for build scripts.
+version_check = "0.9.4"
+
+# -----------------------------------------------------------------------------
+# Development Dependencies
+# -----------------------------------------------------------------------------
+
+[dev-dependencies]
+# Dependencies required for testing and development.
+criterion = "0.5"
+
+# -----------------------------------------------------------------------------
+# Examples
+# -----------------------------------------------------------------------------
+
+# [[example]]
+# name = "error_example"
+# path = "examples/error_example.rs"
+
+
+# -----------------------------------------------------------------------------
+# Features
+# -----------------------------------------------------------------------------
+
+[features]
+# Features that can be enabled or disabled.
+default = []
+async = []
+
+# -----------------------------------------------------------------------------
+# Documentation Configuration
+# -----------------------------------------------------------------------------
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
