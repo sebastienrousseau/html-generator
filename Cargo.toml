@@ -28,7 +28,7 @@ categories = [
     "development-tools"
 ]
 
-keywords = ["html", "web_development", "static_page ", "html-generator"]
+keywords = ["html", "web_development", "seo", "html-generator"]
 
 [lib]
 name = "html_generator"
@@ -74,44 +74,10 @@ criterion = "0.5"
 # Examples
 # -----------------------------------------------------------------------------
 
-[[example]]
-name = "accessibility_example"
-path = "examples/accessibility_example.rs"
+# [[example]]
+# name = "error_example"
+# path = "examples/error_example.rs"
 
-[[example]]
-name = "error_example"
-path = "examples/error_example.rs"
-
-[[example]]
-name = "generator_example"
-path = "examples/generator_example.rs"
-
-[[example]]
-name = "lib_example"
-path = "examples/lib_example.rs"
-
-[[example]]
-name = "performance_example"
-path = "examples/performance_example.rs"
-
-[[example]]
-name = "seo_example"
-path = "examples/seo_example.rs"
-
-[[example]]
-name = "utils_example"
-path = "examples/utils_example.rs"
-
-# -----------------------------------------------------------------------------
-# Criterion Benchmark
-# -----------------------------------------------------------------------------
-
-[[bench]]
-name = "html_benchmark"
-harness = false
-
-[profile.bench]
-debug = true
 
 # -----------------------------------------------------------------------------
 # Features
