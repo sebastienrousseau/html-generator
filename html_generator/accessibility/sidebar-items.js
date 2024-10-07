@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AccessibilityError"],"fn":["add_aria_attributes","validate_wcag"],"type":["Result"]};

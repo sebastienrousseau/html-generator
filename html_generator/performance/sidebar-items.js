@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["async_generate_html","generate_html","minify_html"]};
