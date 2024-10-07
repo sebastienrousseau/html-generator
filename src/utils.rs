@@ -62,7 +62,6 @@ const MAX_INPUT_SIZE: usize = 1_000_000; // 1 MB
 /// let result = extract_front_matter(content).unwrap();
 /// assert_eq!(result, "# Hello, world!\n\nThis is a test.");
 /// ```
-#[must_use]
 pub fn extract_front_matter(content: &str) -> Result<String> {
     if content.is_empty() {
         return Err(HtmlError::InvalidInput("Empty input".to_string()));
@@ -114,7 +113,6 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
 /// let result = format_header_with_id_class(header, None, None).unwrap();
 /// assert_eq!(result, "<h2 id=\"hello-world\" class=\"hello-world\">Hello, World!</h2>");
 /// ```
-#[must_use]
 pub fn format_header_with_id_class(
     header: &str,
     id_generator: Option<fn(&str) -> String>,
@@ -167,7 +165,6 @@ pub fn format_header_with_id_class(
 /// let result = generate_table_of_contents(html).unwrap();
 /// assert_eq!(result, r#"<ul><li class="toc-h1"><a href="\#title">Title</a></li><li class="toc-h2"><a href="\#subtitle">Subtitle</a></li><li class="toc-h3"><a href="\#sub-subtitle">Sub-subtitle</a></li></ul>"#);
 /// ```
-#[must_use]
 pub fn generate_table_of_contents(html: &str) -> Result<String> {
     if html.is_empty() {
         return Err(HtmlError::InvalidInput("Empty input".to_string()));

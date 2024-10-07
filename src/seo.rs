@@ -90,15 +90,8 @@ pub fn generate_meta_tags(html: &str) -> Result<String> {
 
     let title = extract_title(&document)?;
     let description = extract_description(&document)?;
-
-    // Ensure that escape_html is applied only once
-    println!("Original title: {}", title);
     let escaped_title = escape_html(&title);
-    println!("Escaped title: {}", escaped_title);
-
-    println!("Original description: {}", description);
     let escaped_description = escape_html(&description);
-    println!("Escaped description: {}", escaped_description);
 
     meta_tags.push_str(&format!(
         r#"<meta name="title" content="{}">"#,

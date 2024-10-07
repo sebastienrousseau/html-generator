@@ -127,6 +127,10 @@ pub enum HtmlError {
     /// This variant is used for errors that do not fit into other categories.
     #[error("Unexpected error: {0}")]
     UnexpectedError(String),
+
+    /// An SEO-related error.
+    #[error("SEO error: {0}")]
+    SeoError(String),
 }
 
 /// Type alias for a result using the `HtmlError` error type.
