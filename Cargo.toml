@@ -41,7 +41,7 @@ path = "src/lib.rs"
 [dependencies]
 # Dependencies required for building and running the project.
 comrak = "0.29"
-frontmatter-gen = "0.0.3"
+frontmatter-gen = "0.0.5"
 lazy_static = "1.5"
 mdx-gen = "0.0.1"
 minify-html = "0.15"
