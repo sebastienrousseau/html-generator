@@ -36,7 +36,7 @@ pub use utils::{extract_front_matter, format_header_with_id_class};
 use thiserror::Error;
 
 /// Configuration options for HTML generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct HtmlConfig {
     /// Enable syntax highlighting for code blocks
     pub enable_syntax_highlighting: bool,
