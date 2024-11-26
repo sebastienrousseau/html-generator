@@ -59,9 +59,10 @@ fn default_minify_cfg() -> Cfg {
 pub fn minify_html(file_path: &Path) -> Result<String> {
     // Read the file content
     let content = fs::read_to_string(file_path).map_err(|e| {
-        HtmlError::MinificationError(
-            format!("Failed to read file: {}", e).into(),
-        )
+        HtmlError::MinificationError(format!(
+            "Failed to read file: {}",
+            e
+        ))
     })?;
 
     // Minify the content

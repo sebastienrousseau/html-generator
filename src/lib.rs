@@ -554,9 +554,13 @@ mod tests {
 
         #[test]
         fn test_result_ok() {
-            let result: Result<i32> = Ok(42);
+            let value = 42;
+            let result: Result<i32> = Ok(value);
             assert!(result.is_ok());
-            assert_eq!(result.unwrap(), 42);
+            match result {
+                Ok(val) => assert_eq!(val, 42),
+                Err(_) => panic!("Expected Ok value"),
+            }
         }
 
         #[test]
@@ -565,10 +569,12 @@ mod tests {
                 HtmlError::InvalidInput("test error".to_string());
             let result: Result<i32> = Err(error);
             assert!(result.is_err());
-            assert!(matches!(
-                result.unwrap_err(),
-                HtmlError::InvalidInput(_)
-            ));
+            match result {
+                Ok(_) => panic!("Expected Err value"),
+                Err(e) => {
+                    assert!(matches!(e, HtmlError::InvalidInput(_)))
+                }
+            }
         }
     }
 
