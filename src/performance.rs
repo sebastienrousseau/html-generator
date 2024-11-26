@@ -59,10 +59,9 @@ fn default_minify_cfg() -> Cfg {
 pub fn minify_html(file_path: &Path) -> Result<String> {
     // Read the file content
     let content = fs::read_to_string(file_path).map_err(|e| {
-        HtmlError::MinificationError(format!(
-            "Failed to read file: {}",
-            e
-        ))
+        HtmlError::MinificationError(
+            format!("Failed to read file: {}", e).into(),
+        )
     })?;
 
     // Minify the content
@@ -114,7 +113,13 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
         Ok(markdown_to_html(&markdown, &options))
     })
     .await
-    .map_err(|e| HtmlError::MarkdownConversionError(e.to_string()))?
+    .map_err(|e| HtmlError::MarkdownConversion {
+        message: "Failed to generate HTML asynchronously".to_string(),
+        source: Some(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            e.to_string(),
+        )),
+    })?
 }
 
 /// Synchronously generate HTML from Markdown.

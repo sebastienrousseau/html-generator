@@ -3,9 +3,10 @@
 #![allow(missing_docs)]
 
 use html_generator::{
-    add_aria_attributes, async_generate_html, generate_html,
-    generate_meta_tags, generate_structured_data, HtmlConfig,
-    HtmlError, Result,
+    add_aria_attributes, async_generate_html,
+    error::{AccessibilityErrorKind, HtmlError},
+    generate_html, generate_meta_tags, generate_structured_data,
+    HtmlConfig, Result,
 };
 
 /// Entry point for the html-generator library usage examples.
@@ -32,7 +33,7 @@ async fn main() -> Result<()> {
 
 /// Demonstrates basic HTML generation from Markdown content.
 fn basic_html_generation_example() -> Result<()> {
-    println!("🦀 Basic HTML Generation Example");
+    println!("� Basic HTML Generation Example");
     println!("---------------------------------------------");
 
     let markdown = "# Welcome to html-generator!";
@@ -52,11 +53,15 @@ fn accessibility_example() -> Result<()> {
     let html = "<button>Click me</button>";
 
     // Map the error from `add_aria_attributes` to `HtmlError::AccessibilityError`
-    let updated_html = add_aria_attributes(html)
-        .map_err(|e| HtmlError::AccessibilityError(e.to_string()))?;
+    let updated_html = add_aria_attributes(html).map_err(|e| {
+        HtmlError::accessibility(
+            AccessibilityErrorKind::MissingAriaAttributes,
+            e.to_string(),
+            None,
+        )
+    })?;
 
     println!("Updated HTML with ARIA attributes: \n{}", updated_html);
-
     Ok(())
 }
 
@@ -81,9 +86,9 @@ fn seo_optimization_example() -> Result<()> {
 
     // Use a closure to convert the error type to HtmlError::SeoError, which expects a String
     let meta_tags = generate_meta_tags(html)
-        .map_err(|e| HtmlError::SeoError(e.to_string()))?;
+        .map_err(|e| HtmlError::MinificationError(e.to_string()))?;
     let structured_data = generate_structured_data(html)
-        .map_err(|e| HtmlError::SeoError(e.to_string()))?;
+        .map_err(|e| HtmlError::MinificationError(e.to_string()))?;
 
     println!("Generated Meta Tags: \n{}", meta_tags);
     println!("Generated Structured Data: \n{}", structured_data);

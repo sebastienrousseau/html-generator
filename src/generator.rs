@@ -4,8 +4,8 @@
 //! using the `mdx-gen` library. It supports various Markdown extensions
 //! and custom configuration options.
 
+use crate::error::HtmlError;
 use crate::extract_front_matter;
-use crate::HtmlError;
 use crate::Result;
 use mdx_gen::{process_markdown, ComrakOptions, MarkdownOptions};
 
@@ -82,7 +82,11 @@ pub fn markdown_to_html_with_extensions(
     match process_markdown(&content_without_front_matter, &options) {
         Ok(html_output) => Ok(html_output),
         Err(err) => {
-            Err(HtmlError::MarkdownConversionError(err.to_string()))
+            // Using the helper method
+            Err(HtmlError::markdown_conversion(
+                err.to_string(),
+                None, // If err is not io::Error, use None
+            ))
         }
     }
 }
