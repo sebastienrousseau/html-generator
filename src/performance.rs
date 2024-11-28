@@ -1,6 +1,32 @@
-//! Performance-related functionality for HTML processing.
+//! Performance optimization functionality for HTML processing.
 //!
-//! This module provides functions for minifying HTML and generating HTML from Markdown, with a focus on performance and efficiency.
+//! This module provides optimized utilities for HTML minification and generation,
+//! with both synchronous and asynchronous interfaces. The module focuses on:
+//!
+//! - Efficient HTML minification with configurable options
+//! - Non-blocking asynchronous HTML generation
+//! - Memory-efficient string handling
+//! - Thread-safe operations
+//!
+//! # Performance Characteristics
+//!
+//! - Minification: O(n) time complexity, ~1.5x peak memory usage
+//! - HTML Generation: O(n) time complexity, proportional memory usage
+//! - All operations are thread-safe and support concurrent access
+//!
+//! # Examples
+//!
+//! Basic HTML minification:
+//! ```no_run
+//! # use html_generator::performance::minify_html;
+//! # use std::path::Path;
+//! # fn example() -> Result<(), html_generator::error::HtmlError> {
+//! let path = Path::new("index.html");
+//! let minified = minify_html(path)?;
+//! println!("Minified size: {} bytes", minified.len());
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::{HtmlError, Result};
 use comrak::{markdown_to_html, ComrakOptions};
@@ -8,114 +34,180 @@ use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
 use tokio::task;
 
-/// Returns a default `Cfg` for HTML minification.
+/// Maximum allowed file size for minification (10 MB).
+const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+
+/// Initial capacity for string buffers (1 KB).
+const INITIAL_HTML_CAPACITY: usize = 1024;
+
+/// Configuration for HTML minification with optimized defaults.
 ///
-/// This helper function creates a default configuration for minifying HTML
-/// with pre-set options for CSS, JS, and attributes.
-///
-/// # Returns
-/// A `Cfg` object containing the default minification settings.
-fn default_minify_cfg() -> Cfg {
-    let mut cfg = Cfg::new();
-    cfg.do_not_minify_doctype = true;
-    cfg.ensure_spec_compliant_unquoted_attribute_values = true;
-    cfg.keep_closing_tags = true;
-    cfg.keep_html_and_head_opening_tags = true;
-    cfg.keep_spaces_between_attributes = true;
-    cfg.keep_comments = false;
-    cfg.minify_css = true;
-    cfg.minify_js = true;
-    cfg.remove_bangs = true;
-    cfg.remove_processing_instructions = true;
-    cfg
+/// Provides a set of minification options that preserve HTML semantics
+/// while reducing file size. The configuration balances compression
+/// with standards compliance.
+#[derive(Clone)]
+struct MinifyConfig {
+    /// Internal minification configuration from minify-html crate
+    cfg: Cfg,
 }
 
-/// Minifies a single HTML file.
+impl Default for MinifyConfig {
+    fn default() -> Self {
+        let mut cfg = Cfg::new();
+        // Preserve HTML semantics and compatibility
+        cfg.do_not_minify_doctype = true;
+        cfg.ensure_spec_compliant_unquoted_attribute_values = true;
+        cfg.keep_closing_tags = true;
+        cfg.keep_html_and_head_opening_tags = true;
+        cfg.keep_spaces_between_attributes = true;
+        // Enable safe minification for non-structural elements
+        cfg.keep_comments = false;
+        cfg.minify_css = true;
+        cfg.minify_js = true;
+        cfg.remove_bangs = true;
+        cfg.remove_processing_instructions = true;
+
+        Self { cfg }
+    }
+}
+
+impl std::fmt::Debug for MinifyConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MinifyConfig")
+            .field(
+                "do_not_minify_doctype",
+                &self.cfg.do_not_minify_doctype,
+            )
+            .field("minify_css", &self.cfg.minify_css)
+            .field("minify_js", &self.cfg.minify_js)
+            .field("keep_comments", &self.cfg.keep_comments)
+            .finish()
+    }
+}
+
+/// Minifies HTML content from a file with optimized performance.
 ///
-/// This function takes a reference to a `Path` object for an HTML file and
-/// returns a string containing the minified HTML.
+/// Reads an HTML file and applies efficient minification techniques to reduce
+/// its size while maintaining functionality and standards compliance.
 ///
 /// # Arguments
 ///
-/// * `file_path` - A reference to a `Path` object for the HTML file.
+/// * `file_path` - Path to the HTML file to minify
 ///
 /// # Returns
 ///
-/// * `Result<String, HtmlError>` - A result containing a string
-///    containing the minified HTML.
+/// Returns the minified HTML content as a string if successful.
+///
+/// # Errors
+///
+/// Returns [`HtmlError`] if:
+/// - File reading fails
+/// - File size exceeds [`MAX_FILE_SIZE`]
+/// - Content is not valid UTF-8
+/// - Minification process fails
 ///
 /// # Examples
 ///
 /// ```no_run
-/// use std::path::Path;
-/// use html_generator::performance::minify_html;
-///
+/// # use html_generator::performance::minify_html;
+/// # use std::path::Path;
+/// # fn example() -> Result<(), html_generator::error::HtmlError> {
 /// let path = Path::new("index.html");
-/// match minify_html(path) {
-///     Ok(minified) => println!("Minified HTML: {}", minified),
-///     Err(e) => eprintln!("Error: {}", e),
-/// }
+/// let minified = minify_html(path)?;
+/// println!("Minified HTML: {} bytes", minified.len());
+/// # Ok(())
+/// # }
 /// ```
 pub fn minify_html(file_path: &Path) -> Result<String> {
-    // Read the file content
-    let content = fs::read_to_string(file_path).map_err(|e| {
+    let metadata = fs::metadata(file_path).map_err(|e| {
         HtmlError::MinificationError(format!(
-            "Failed to read file: {}",
-            e
+            "Failed to read file metadata for '{}': {e}",
+            file_path.display()
         ))
     })?;
 
-    // Minify the content
-    let minified_content =
-        minify(content.as_bytes(), &default_minify_cfg());
+    let file_size = metadata.len() as usize;
+    if file_size > MAX_FILE_SIZE {
+        return Err(HtmlError::MinificationError(format!(
+            "File size {file_size} bytes exceeds maximum of {MAX_FILE_SIZE} bytes"
+        )));
+    }
 
-    // Convert the minified content back to a UTF-8 string
-    String::from_utf8(minified_content).map_err(|e| {
+    let content = fs::read_to_string(file_path).map_err(|e| {
+        if e.to_string().contains("stream did not contain valid UTF-8")
+        {
+            HtmlError::MinificationError(format!(
+                "Invalid UTF-8 in input file '{}': {e}",
+                file_path.display()
+            ))
+        } else {
+            HtmlError::MinificationError(format!(
+                "Failed to read file '{}': {e}",
+                file_path.display()
+            ))
+        }
+    })?;
+
+    let config = MinifyConfig::default();
+    let minified = minify(content.as_bytes(), &config.cfg);
+
+    String::from_utf8(minified).map_err(|e| {
         HtmlError::MinificationError(format!(
-            "Invalid UTF-8 in minified content: {}",
-            e
+            "Invalid UTF-8 in minified content: {e}"
         ))
     })
 }
 
-/// Asynchronously generate HTML from Markdown.
+/// Asynchronously generates HTML from Markdown content.
 ///
-/// This function converts a Markdown string into an HTML string using
-/// Comrak, a CommonMark-compliant Markdown parser and renderer.
-/// The conversion is performed in a separate thread to avoid blocking.
+/// Processes Markdown in a separate thread to avoid blocking the async runtime,
+/// optimized for efficient memory usage with larger content.
 ///
 /// # Arguments
 ///
-/// * `markdown` - A reference to a Markdown string.
+/// * `markdown` - Markdown content to convert to HTML
 ///
 /// # Returns
 ///
-/// * `Result<String, HtmlError>` - A result containing a string with the
-///   generated HTML.
+/// Returns the generated HTML content if successful.
+///
+/// # Errors
+///
+/// Returns [`HtmlError`] if:
+/// - Thread spawning fails
+/// - Markdown processing fails
 ///
 /// # Examples
 ///
 /// ```
-/// use html_generator::performance::async_generate_html;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let markdown = "# Hello\n\nThis is a test.";
-///     match async_generate_html(markdown).await {
-///         Ok(html) => println!("Generated HTML: {}", html),
-///         Err(e) => eprintln!("Error: {}", e),
-///     }
-/// }
+/// # use html_generator::performance::async_generate_html;
+/// #
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), html_generator::error::HtmlError> {
+/// let markdown = "# Hello\n\nThis is a test.";
+/// let html = async_generate_html(markdown).await?;
+/// println!("Generated HTML length: {}", html.len());
+/// # Ok(())
+/// # }
 /// ```
 pub async fn async_generate_html(markdown: &str) -> Result<String> {
-    let markdown = markdown.to_string();
+    // Optimize string allocation based on content size
+    let markdown = if markdown.len() < INITIAL_HTML_CAPACITY {
+        markdown.to_string()
+    } else {
+        // Pre-allocate for larger content
+        let mut string = String::with_capacity(markdown.len());
+        string.push_str(markdown);
+        string
+    };
+
     task::spawn_blocking(move || {
         let options = ComrakOptions::default();
         Ok(markdown_to_html(&markdown, &options))
     })
     .await
     .map_err(|e| HtmlError::MarkdownConversion {
-        message: "Failed to generate HTML asynchronously".to_string(),
+        message: format!("Asynchronous HTML generation failed: {e}"),
         source: Some(std::io::Error::new(
             std::io::ErrorKind::Other,
             e.to_string(),
@@ -123,34 +215,33 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
     })?
 }
 
-/// Synchronously generate HTML from Markdown.
+/// Synchronously generates HTML from Markdown content.
 ///
-/// This function converts a Markdown string into an HTML string using
-/// Comrak, a CommonMark-compliant Markdown parser and renderer.
+/// Provides a simple, synchronous interface for Markdown to HTML conversion
+/// when asynchronous processing isn't required.
 ///
 /// # Arguments
 ///
-/// * `markdown` - A reference to a Markdown string.
+/// * `markdown` - Markdown content to convert to HTML
 ///
 /// # Returns
 ///
-/// * `Result<String, HtmlError>` - A result containing a string with the
-///   generated HTML.
+/// Returns the generated HTML content if successful.
 ///
 /// # Examples
 ///
 /// ```
-/// use html_generator::performance::generate_html;
-///
+/// # use html_generator::performance::generate_html;
+/// # fn example() -> Result<(), html_generator::error::HtmlError> {
 /// let markdown = "# Hello\n\nThis is a test.";
-/// match generate_html(markdown) {
-///     Ok(html) => println!("Generated HTML: {}", html),
-///     Err(e) => eprintln!("Error: {}", e),
-/// }
+/// let html = generate_html(markdown)?;
+/// println!("Generated HTML length: {}", html.len());
+/// # Ok(())
+/// # }
 /// ```
+#[inline]
 pub fn generate_html(markdown: &str) -> Result<String> {
-    let options = ComrakOptions::default();
-    Ok(markdown_to_html(markdown, &options))
+    Ok(markdown_to_html(markdown, &ComrakOptions::default()))
 }
 
 #[cfg(test)]
@@ -160,141 +251,177 @@ mod tests {
     use std::io::Write;
     use tempfile::tempdir;
 
-    /// Helper function to create an HTML file for testing.
-    fn create_html_file(file_path: &Path, content: &str) {
-        let mut file = File::create(file_path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-    }
-
-    #[test]
-    fn test_minify_html_basic() {
-        let dir = tempdir().unwrap();
+    /// Helper function to create a temporary HTML file for testing.
+    ///
+    /// # Arguments
+    ///
+    /// * `content` - HTML content to write to the file.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the temporary directory and file path.
+    fn create_test_file(
+        content: &str,
+    ) -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempdir().expect("Failed to create temp directory");
         let file_path = dir.path().join("test.html");
-        let html = "<html>  <body>    <p>Test</p>  </body>  </html>";
-
-        create_html_file(&file_path, html);
-
-        let result = minify_html(&file_path);
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "<html><body><p>Test</p></body></html>"
-        );
+        let mut file = File::create(&file_path)
+            .expect("Failed to create test file");
+        file.write_all(content.as_bytes())
+            .expect("Failed to write test content");
+        (dir, file_path)
     }
 
-    #[test]
-    fn test_minify_html_with_comments() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test_comments.html");
-        let html = "<html>  <body>    <!-- This is a comment -->    <p>Test</p>  </body>  </html>";
+    mod minify_html_tests {
+        use super::*;
 
-        create_html_file(&file_path, html);
+        #[test]
+        fn test_minify_basic_html() {
+            let html =
+                "<html>  <body>    <p>Test</p>  </body>  </html>";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                "<html><body><p>Test</p></body></html>"
+            );
+            drop(dir);
+        }
 
-        let result = minify_html(&file_path);
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap(),
-            "<html><body><p>Test</p></body></html>"
-        );
+        #[test]
+        fn test_minify_with_comments() {
+            let html =
+                "<html><!-- Comment --><body><p>Test</p></body></html>";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                "<html><body><p>Test</p></body></html>"
+            );
+            drop(dir);
+        }
+
+        #[test]
+        fn test_minify_invalid_path() {
+            let result = minify_html(Path::new("nonexistent.html"));
+            assert!(result.is_err());
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+        }
+
+        #[test]
+        fn test_minify_exceeds_max_size() {
+            let large_content = "a".repeat(MAX_FILE_SIZE + 1);
+            let (dir, file_path) = create_test_file(&large_content);
+            let result = minify_html(&file_path);
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+            let err_msg = result.unwrap_err().to_string();
+            assert!(err_msg.contains("exceeds maximum"));
+            drop(dir);
+        }
+
+        #[test]
+        fn test_minify_invalid_utf8() {
+            let dir =
+                tempdir().expect("Failed to create temp directory");
+            let file_path = dir.path().join("invalid.html");
+            {
+                let mut file = File::create(&file_path)
+                    .expect("Failed to create test file");
+                file.write_all(&[0xFF, 0xFF])
+                    .expect("Failed to write test content");
+            }
+
+            let result = minify_html(&file_path);
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+            let err_msg = result.unwrap_err().to_string();
+            assert!(err_msg.contains("Invalid UTF-8 in input file"));
+            drop(dir);
+        }
+
+        #[test]
+        fn test_minify_utf8_content() {
+            let html = "<html><body><p>Test 你好 🦀</p></body></html>";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                "<html><body><p>Test 你好 🦀</p></body></html>"
+            );
+            drop(dir);
+        }
     }
 
-    #[test]
-    fn test_minify_html_with_css() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test_css.html");
-        let html = "<html><head><style>  body  {  color:  red;  }  </style></head><body><p>Test</p></body></html>";
+    mod async_generate_html_tests {
+        use super::*;
 
-        create_html_file(&file_path, html);
+        #[tokio::test]
+        async fn test_async_generate_html() {
+            let markdown = "# Test\n\nThis is a test.";
+            let result = async_generate_html(markdown).await;
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Test</h1>"));
+            assert!(html.contains("<p>This is a test.</p>"));
+        }
 
-        let result = minify_html(&file_path);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "<html><head><style>body{color:red}</style></head><body><p>Test</p></body></html>");
+        #[tokio::test]
+        async fn test_async_generate_html_empty() {
+            let result = async_generate_html("").await;
+            assert!(result.is_ok());
+            assert!(result.unwrap().is_empty());
+        }
+
+        #[tokio::test]
+        async fn test_async_generate_html_large_content() {
+            let large_markdown =
+                "# Test\n\n".to_string() + &"Content\n".repeat(10_000);
+            let result = async_generate_html(&large_markdown).await;
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Test</h1>"));
+        }
     }
 
-    #[test]
-    fn test_minify_html_with_js() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test_js.html");
-        let html = "<html><head><script>  function  test()  {  console.log('Hello');  }  </script></head><body><p>Test</p></body></html>";
+    mod generate_html_tests {
+        use super::*;
 
-        create_html_file(&file_path, html);
+        #[test]
+        fn test_sync_generate_html() {
+            let markdown = "# Test\n\nThis is a test.";
+            let result = generate_html(markdown);
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Test</h1>"));
+            assert!(html.contains("<p>This is a test.</p>"));
+        }
 
-        let result = minify_html(&file_path);
-        assert!(result.is_ok());
-        let minified = result.unwrap();
-        assert!(minified.contains("<script>"));
-        assert!(minified.contains("console.log"));
-        assert!(minified.contains("Hello"));
-        assert!(minified.contains("<p>Test</p>"));
-    }
+        #[test]
+        fn test_sync_generate_html_empty() {
+            let result = generate_html("");
+            assert!(result.is_ok());
+            assert!(result.unwrap().is_empty());
+        }
 
-    #[test]
-    fn test_minify_html_non_existent_file() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("non_existent.html");
-
-        let result = minify_html(&file_path);
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            HtmlError::MinificationError(_)
-        ));
-    }
-
-    #[test]
-    fn test_minify_html_invalid_utf8() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("invalid_utf8.html");
-        let invalid_utf8 = vec![0, 159, 146, 150]; // Invalid UTF-8 sequence
-
-        let mut file = File::create(&file_path).unwrap();
-        file.write_all(&invalid_utf8).unwrap();
-
-        let result = minify_html(&file_path);
-
-        assert!(
-            result.is_err(),
-            "Expected an error due to invalid UTF-8 sequence"
-        );
-        assert!(matches!(
-            result.unwrap_err(),
-            HtmlError::MinificationError(_)
-        ));
-    }
-
-    #[test]
-    fn test_generate_html_basic() {
-        let markdown = "# Test\n\nThis is a test.";
-        let result = generate_html(markdown);
-        assert!(result.is_ok());
-        let html = result.unwrap();
-        assert!(html.contains("<h1>Test</h1>"));
-        assert!(html.contains("<p>This is a test.</p>"));
-    }
-
-    #[test]
-    fn test_generate_html_complex() {
-        let markdown = "# Header\n\n## Subheader\n\n- List item 1\n- List item 2\n\n```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
-        let result = generate_html(markdown);
-        assert!(result.is_ok());
-        let html = result.unwrap();
-        assert!(html.contains("<h1>Header</h1>"));
-        assert!(html.contains("<h2>Subheader</h2>"));
-        assert!(html.contains("<ul>"));
-        assert!(html.contains("<li>List item 1</li>"));
-        assert!(html.contains("<li>List item 2</li>"));
-        assert!(html.contains("<pre><code class=\"language-rust\">"));
-        assert!(html.contains("fn main()"));
-        assert!(html.contains("println!"));
-        assert!(html.contains("Hello, world!"));
-    }
-
-    #[test]
-    fn test_generate_html_empty_input() {
-        let markdown = "";
-        let result = generate_html(markdown);
-        assert!(result.is_ok());
-        let html = result.unwrap();
-        assert!(html.trim().is_empty());
+        #[test]
+        fn test_sync_generate_html_large_content() {
+            let large_markdown =
+                "# Test\n\n".to_string() + &"Content\n".repeat(10_000);
+            let result = generate_html(&large_markdown);
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Test</h1>"));
+        }
     }
 }

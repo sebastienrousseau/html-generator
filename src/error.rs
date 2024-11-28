@@ -80,7 +80,7 @@ pub enum HtmlError {
     #[error("Accessibility check failed: {kind}: {message}")]
     Accessibility {
         /// The kind of accessibility error
-        kind: AccessibilityErrorKind,
+        kind: ErrorKind,
         /// The error message
         message: String,
         /// The relevant WCAG guideline, if available
@@ -169,6 +169,8 @@ pub enum HtmlError {
 pub enum SeoErrorKind {
     /// Missing required meta tags
     MissingMetaTags,
+    /// Invalid input
+    InvalidInput,
     /// Invalid structured data
     InvalidStructuredData,
     /// Missing title
@@ -181,7 +183,7 @@ pub enum SeoErrorKind {
 
 /// Types of accessibility-related errors
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum AccessibilityErrorKind {
+pub enum ErrorKind {
     /// Missing ARIA attributes
     MissingAriaAttributes,
     /// Invalid ARIA attribute values
@@ -196,25 +198,25 @@ pub enum AccessibilityErrorKind {
     Other,
 }
 
-impl std::fmt::Display for AccessibilityErrorKind {
+impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AccessibilityErrorKind::MissingAriaAttributes => {
+            ErrorKind::MissingAriaAttributes => {
                 write!(f, "Missing ARIA attributes")
             }
-            AccessibilityErrorKind::InvalidAriaValue => {
+            ErrorKind::InvalidAriaValue => {
                 write!(f, "Invalid ARIA attribute values")
             }
-            AccessibilityErrorKind::MissingAltText => {
+            ErrorKind::MissingAltText => {
                 write!(f, "Missing alternative text")
             }
-            AccessibilityErrorKind::HeadingStructure => {
+            ErrorKind::HeadingStructure => {
                 write!(f, "Incorrect heading structure")
             }
-            AccessibilityErrorKind::MissingFormLabels => {
+            ErrorKind::MissingFormLabels => {
                 write!(f, "Missing form labels")
             }
-            AccessibilityErrorKind::Other => {
+            ErrorKind::Other => {
                 write!(f, "Other accessibility-related errors")
             }
         }
@@ -231,6 +233,7 @@ impl std::fmt::Display for SeoErrorKind {
                 write!(f, "Invalid structured data")
             }
             SeoErrorKind::MissingTitle => write!(f, "Missing title"),
+            SeoErrorKind::InvalidInput => write!(f, "Invalid input"),
             SeoErrorKind::MissingDescription => {
                 write!(f, "Missing description")
             }
@@ -270,7 +273,7 @@ impl HtmlError {
 
     /// Creates a new Accessibility error
     pub fn accessibility(
-        kind: AccessibilityErrorKind,
+        kind: ErrorKind,
         message: impl Into<String>,
         wcag_guideline: Option<String>,
     ) -> Self {
@@ -457,7 +460,7 @@ mod tests {
         #[test]
         fn test_accessibility_error_with_guideline() {
             let error = HtmlError::accessibility(
-                AccessibilityErrorKind::MissingAltText,
+                ErrorKind::MissingAltText,
                 "Images must have alt text",
                 Some("WCAG 1.1.1".to_string()),
             );
@@ -469,7 +472,7 @@ mod tests {
         #[test]
         fn test_accessibility_error_without_guideline() {
             let error = HtmlError::accessibility(
-                AccessibilityErrorKind::InvalidAriaValue,
+                ErrorKind::InvalidAriaValue,
                 "Invalid ARIA value",
                 None,
             );
@@ -481,12 +484,12 @@ mod tests {
         #[test]
         fn test_all_accessibility_error_kinds() {
             let kinds = [
-                AccessibilityErrorKind::MissingAriaAttributes,
-                AccessibilityErrorKind::InvalidAriaValue,
-                AccessibilityErrorKind::MissingAltText,
-                AccessibilityErrorKind::HeadingStructure,
-                AccessibilityErrorKind::MissingFormLabels,
-                AccessibilityErrorKind::Other,
+                ErrorKind::MissingAriaAttributes,
+                ErrorKind::InvalidAriaValue,
+                ErrorKind::MissingAltText,
+                ErrorKind::HeadingStructure,
+                ErrorKind::MissingFormLabels,
+                ErrorKind::Other,
             ];
             for kind in kinds {
                 assert!(!kind.to_string().is_empty());

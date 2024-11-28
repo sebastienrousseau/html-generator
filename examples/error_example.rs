@@ -1,9 +1,7 @@
 // src/examples/error_example.rs
 #![allow(missing_docs)]
 
-use html_generator::error::{
-    AccessibilityErrorKind, HtmlError, SeoErrorKind,
-};
+use html_generator::error::{ErrorKind, HtmlError, SeoErrorKind};
 
 /// Entry point for the html-generator error handling examples.
 ///
@@ -181,7 +179,7 @@ fn accessibility_error_example() -> Result<(), HtmlError> {
 
     let error = HtmlError::Accessibility {
         message: "Failed to add ARIA attributes".to_string(),
-        kind: AccessibilityErrorKind::Other,
+        kind: ErrorKind::Other,
         wcag_guideline: Some("1.1.1".to_string()),
     };
     println!("    ✅ Created Accessibility Error: {}", error);

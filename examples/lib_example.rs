@@ -4,7 +4,7 @@
 
 use html_generator::{
     add_aria_attributes, async_generate_html,
-    error::{AccessibilityErrorKind, HtmlError},
+    error::{ErrorKind, HtmlError},
     generate_html, generate_meta_tags, generate_structured_data,
     HtmlConfig, Result,
 };
@@ -52,14 +52,15 @@ fn accessibility_example() -> Result<()> {
 
     let html = "<button>Click me</button>";
 
-    // Map the error from `add_aria_attributes` to `HtmlError::AccessibilityError`
-    let updated_html = add_aria_attributes(html).map_err(|e| {
-        HtmlError::accessibility(
-            AccessibilityErrorKind::MissingAriaAttributes,
-            e.to_string(),
-            None,
-        )
-    })?;
+    // Map the error from `add_aria_attributes` to `HtmlError::Error`
+    let updated_html =
+        add_aria_attributes(html, None).map_err(|e| {
+            HtmlError::accessibility(
+                ErrorKind::MissingAriaAttributes,
+                e.to_string(),
+                None,
+            )
+        })?;
 
     println!("Updated HTML with ARIA attributes: \n{}", updated_html);
     Ok(())
@@ -87,7 +88,7 @@ fn seo_optimization_example() -> Result<()> {
     // Use a closure to convert the error type to HtmlError::SeoError, which expects a String
     let meta_tags = generate_meta_tags(html)
         .map_err(|e| HtmlError::MinificationError(e.to_string()))?;
-    let structured_data = generate_structured_data(html)
+    let structured_data = generate_structured_data(html, None)
         .map_err(|e| HtmlError::MinificationError(e.to_string()))?;
 
     println!("Generated Meta Tags: \n{}", meta_tags);

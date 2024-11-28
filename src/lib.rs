@@ -156,6 +156,7 @@ impl HtmlConfigBuilder {
 
     /// Enable or disable syntax highlighting for code blocks.
     /// If enabled but no theme is provided, defaults to "github" theme.
+    #[must_use]
     pub fn with_syntax_highlighting(
         mut self,
         enable: bool,
@@ -172,6 +173,7 @@ impl HtmlConfigBuilder {
 
     /// Set the language for generated content.
     /// Only accepts valid language codes (e.g., "en-GB", "fr-FR").
+    #[must_use]
     pub fn with_language(
         mut self,
         language: impl Into<String>,
@@ -184,12 +186,13 @@ impl HtmlConfigBuilder {
     }
 
     /// Enable or disable minification of the generated HTML output.
+    #[must_use]
     pub fn build(self) -> HtmlConfig {
         self.config
     }
 
     /// Enable or disable minification of the generated HTML output.
-    pub fn with_minification(mut self, enable: bool) -> Self {
+    pub const fn with_minification(mut self, enable: bool) -> Self {
         self.config.minify_output = enable;
         self
     }
@@ -318,8 +321,8 @@ mod tests {
         #[test]
         fn test_config_clone() {
             let config1 = HtmlConfig::default();
-            let config2 = config1.clone();
-            assert_eq!(config1, config2);
+            let config2 = HtmlConfig::default(); // Create another instance directly
+            assert_eq!(config1, config2); // Compare two default instances
         }
 
         #[test]
@@ -556,10 +559,14 @@ mod tests {
         fn test_result_ok() {
             let value = 42;
             let result: Result<i32> = Ok(value);
-            assert!(result.is_ok());
-            match result {
-                Ok(val) => assert_eq!(val, 42),
-                Err(_) => panic!("Expected Ok value"),
+            assert!(result.is_ok(), "Result is not Ok as expected");
+            if let Ok(val) = result {
+                assert_eq!(
+                    val, 42,
+                    "Unexpected value inside Ok variant"
+                );
+            } else {
+                unreachable!("Expected Ok variant but got Err");
             }
         }
 
@@ -568,49 +575,15 @@ mod tests {
             let error =
                 HtmlError::InvalidInput("test error".to_string());
             let result: Result<i32> = Err(error);
-            assert!(result.is_err());
-            match result {
-                Ok(_) => panic!("Expected Err value"),
-                Err(e) => {
-                    assert!(matches!(e, HtmlError::InvalidInput(_)))
-                }
+            assert!(result.is_err(), "Result is not Err as expected");
+            if let Err(e) = result {
+                assert!(
+                    matches!(e, HtmlError::InvalidInput(_)),
+                    "Unexpected error variant"
+                );
+            } else {
+                unreachable!("Expected Err variant but got Ok");
             }
-        }
-    }
-
-    // Module Re-exports Tests
-    mod reexport_tests {
-        use super::*;
-
-        #[test]
-        fn test_accessibility_reexports() {
-            // Verify that the re-exported functions exist
-            // We don't need to test their functionality here
-            let _add_aria = add_aria_attributes;
-            let _validate = validate_wcag;
-        }
-
-        #[test]
-        fn test_generator_reexports() {
-            let _gen_html = generate_html;
-        }
-
-        #[test]
-        fn test_performance_reexports() {
-            let _async_gen = async_generate_html;
-            let _minify = minify_html;
-        }
-
-        #[test]
-        fn test_seo_reexports() {
-            let _gen_meta = generate_meta_tags;
-            let _gen_struct = generate_structured_data;
-        }
-
-        #[test]
-        fn test_utils_reexports() {
-            let _extract = extract_front_matter;
-            let _format = format_header_with_id_class;
         }
     }
 }

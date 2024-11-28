@@ -1,4 +1,3 @@
-// benches/html_benchmark.rs
 #![allow(missing_docs)]
 
 use criterion::{
@@ -32,7 +31,7 @@ fn benchmark_minify_html(c: &mut Criterion) {
 fn benchmark_add_aria_attributes(c: &mut Criterion) {
     let html_input = r#"<button>Click Me</button>"#;
     let _ = c.bench_function("add_aria_attributes", |b| {
-        b.iter(|| add_aria_attributes(black_box(html_input)))
+        b.iter(|| add_aria_attributes(black_box(html_input), None))
     });
 }
 

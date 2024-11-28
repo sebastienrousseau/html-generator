@@ -116,11 +116,11 @@ mod tests {
     /// are correctly applied when converting Markdown to HTML.
     #[test]
     fn test_markdown_to_html_with_extensions() {
-        let markdown = r#"
+        let markdown = r"
 | Header 1 | Header 2 |
 | -------- | -------- |
 | Row 1    | Row 2    |
-"#;
+";
         let result = markdown_to_html_with_extensions(markdown);
         assert!(result.is_ok());
         let html = result.unwrap();
