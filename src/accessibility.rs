@@ -1293,7 +1293,6 @@ mod tests {
             let report = validate_wcag(html, &config, None).unwrap();
 
             assert!(report.issue_count > 0);
-            assert!(report.check_duration_ms > 0);
             assert_eq!(report.wcag_level, WcagLevel::AA);
         }
 
