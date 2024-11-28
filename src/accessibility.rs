@@ -1319,8 +1319,6 @@ mod tests {
             if let Some(selector) = TEST_NAV_SELECTOR.as_ref() {
                 let navs: Vec<_> = document.select(selector).collect();
                 assert_eq!(navs.len(), 0);
-            } else {
-                assert!(true, "Selector failed to initialize.");
             }
         }
     }

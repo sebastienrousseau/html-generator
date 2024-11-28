@@ -369,7 +369,7 @@ pub fn generate_structured_data(
         })
     } else {
         let mut types = vec![config.page_type];
-        types.extend(config.additional_types.into_iter());
+        types.extend(config.additional_types);
         json!({
             "@context": SCHEMA_ORG_CONTEXT,
             "@type": types,
