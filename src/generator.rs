@@ -180,6 +180,7 @@ mod tests {
     ///
     /// This test checks how the function handles more complex Markdown input with various
     /// elements like lists, headers, code blocks, and links.
+    /// Test conversion with complex Markdown content.
     #[test]
     fn test_generate_html_complex() {
         let markdown = r#"
@@ -193,17 +194,16 @@ Some `inline code` and a [link](https://example.com).
 fn main() {
     println!("Hello, world!");
 }
-    ```
+```
 
-    1. First item
-    2. Second item
-    "#;
+1. First item
+2. Second item
+"#;
         let config = HtmlConfig::default();
         let result = generate_html(markdown, &config);
         assert!(result.is_ok());
         let html = result.unwrap();
-
-        println!("{}", html); // Print the HTML for inspection
+        println!("{}", html);
 
         // Verify the header and subheader
         assert!(
@@ -225,20 +225,15 @@ fn main() {
             "Link not found"
         );
 
-        // Verify that the code block starts correctly
+        // Verify the code block structure
         assert!(
             html.contains(r#"<code class="language-rust">"#),
-            "Rust code block not found"
+            "Code block with language-rust class not found"
         );
-
-        // Match each part of the highlighted syntax separately
-        // Check for `fn` keyword in a span with the correct style
         assert!(
             html.contains(r#"<span style="color:#b48ead;">fn </span>"#),
             "`fn` keyword with syntax highlighting not found"
         );
-
-        // Check for `main` in a span with the correct style
         assert!(
             html.contains(
                 r#"<span style="color:#8fa1b3;">main</span>"#
@@ -246,8 +241,14 @@ fn main() {
             "`main` function name with syntax highlighting not found"
         );
 
-        // Check for `First item` and `Second item` in the ordered list
-        assert!(html.contains("First item"), "First item not found");
-        assert!(html.contains("Second item"), "Second item not found");
+        // Check for the ordered list items
+        assert!(
+            html.contains("<li>First item</li>"),
+            "First item not found"
+        );
+        assert!(
+            html.contains("<li>Second item</li>"),
+            "Second item not found"
+        );
     }
 }
