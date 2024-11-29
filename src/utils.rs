@@ -6,6 +6,8 @@
 use crate::error::{HtmlError, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use scraper::ElementRef;
+use std::collections::HashMap;
 
 static FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n")
@@ -223,6 +225,71 @@ pub fn generate_table_of_contents(html: &str) -> Result<String> {
 
     toc.push_str("</ul>");
     Ok(toc)
+}
+
+/// Check if an ARIA role is valid for a given element.
+pub fn is_valid_aria_role(role: &str, element: &ElementRef) -> bool {
+    static VALID_ROLES: Lazy<HashMap<&'static str, Vec<&'static str>>> =
+        Lazy::new(|| {
+            let mut roles = HashMap::new();
+            _ = roles.insert("a", vec!["link", "button", "menuitem"]);
+            _ = roles.insert("button", vec!["button"]);
+            _ = roles.insert("div", vec!["alert", "tooltip", "dialog"]);
+            _ = roles.insert(
+                "input",
+                vec!["textbox", "radio", "checkbox", "searchbox"],
+            );
+            // Add other elements and roles as necessary
+            roles
+        });
+
+    if let Some(valid_roles) = VALID_ROLES.get(element.value().name()) {
+        valid_roles.contains(&role)
+    } else {
+        false // If the element isn't in the map, return false
+    }
+}
+
+/// Validate a language code using basic BCP 47 rules.
+pub fn is_valid_language_code(lang: &str) -> bool {
+    let parts: Vec<&str> = lang.split('-').collect();
+    if parts.is_empty() || parts[0].len() < 2 || parts[0].len() > 3 {
+        return false;
+    }
+    parts[0].chars().all(|c| c.is_ascii_lowercase())
+}
+
+/// Get missing required ARIA properties for an element.
+pub fn get_missing_required_aria_properties(
+    element: &ElementRef,
+) -> Option<Vec<String>> {
+    let mut missing = Vec::new();
+    if let Some(role) = element.value().attr("role") {
+        match role {
+            "slider" => {
+                if element.value().attr("aria-valuenow").is_none() {
+                    missing.push("aria-valuenow".to_string());
+                }
+                if element.value().attr("aria-valuemin").is_none() {
+                    missing.push("aria-valuemin".to_string());
+                }
+                if element.value().attr("aria-valuemax").is_none() {
+                    missing.push("aria-valuemax".to_string());
+                }
+            }
+            "combobox" => {
+                if element.value().attr("aria-expanded").is_none() {
+                    missing.push("aria-expanded".to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    if missing.is_empty() {
+        None
+    } else {
+        Some(missing)
+    }
 }
 
 /// Generates an ID from the given content.

@@ -1024,50 +1024,55 @@ impl AccessibilityReport {
 
 /// Utility functions for accessibility checks
 mod utils {
-    use super::*;
+    use scraper::ElementRef;
     use std::collections::HashMap;
 
     /// Validate language code against BCP 47
+    use once_cell::sync::Lazy;
+    use regex::Regex;
+
+    /// Validate language code against simplified BCP 47 rules.
     pub(crate) fn is_valid_language_code(lang: &str) -> bool {
-        // Basic BCP 47 validation
-        let parts: Vec<&str> = lang.split('-').collect();
-        if parts.is_empty() || parts[0].len() < 2 || parts[0].len() > 3
-        {
-            return false;
-        }
-        parts[0].chars().all(|c| c.is_ascii_lowercase())
+        static LANGUAGE_CODE_REGEX: Lazy<Regex> = Lazy::new(|| {
+            // Match primary language and optional subtags
+            Regex::new(r"(?i)^[a-z]{2,3}(-[a-z0-9]{2,8})*$").unwrap()
+        });
+
+        // Ensure the regex matches and the code does not end with a hyphen
+        LANGUAGE_CODE_REGEX.is_match(lang) && !lang.ends_with('-')
     }
 
     /// Check if ARIA role is valid for element
     pub(crate) fn is_valid_aria_role(
         role: &str,
-        element: &scraper::ElementRef,
+        element: &ElementRef,
     ) -> bool {
-        static VALID_ROLES: Lazy<
-            HashMap<&'static str, Vec<&'static str>>,
-        > = Lazy::new(|| {
-            let mut m = HashMap::new();
-            _ = m.insert("button", vec!["button", "link", "menuitem"]);
-            _ = m.insert(
-                "input",
-                vec!["textbox", "radio", "checkbox", "button"],
-            );
-            _ = m.insert("a", vec!["button", "link", "menuitem"]);
-            m
-        });
+        static VALID_ROLES: Lazy<HashMap<&str, Vec<&str>>> =
+            Lazy::new(|| {
+                let mut map = HashMap::new();
+                let _ = map.insert(
+                    "button",
+                    vec!["button", "link", "menuitem"],
+                );
+                let _ = map.insert(
+                    "input",
+                    vec!["textbox", "radio", "checkbox", "button"],
+                );
+                map
+            });
 
         if let Some(valid_roles) =
             VALID_ROLES.get(element.value().name())
         {
             valid_roles.contains(&role)
         } else {
-            true // Allow roles for elements without specific restrictions
+            true
         }
     }
 
     /// Get missing required ARIA properties
     pub(crate) fn get_missing_required_aria_properties(
-        element: &scraper::ElementRef,
+        element: &ElementRef,
     ) -> Option<Vec<String>> {
         let mut missing = Vec::new();
         if let Some(role) = element.value().attr("role") {
@@ -1096,8 +1101,7 @@ mod utils {
                         &mut missing,
                     );
                 }
-                // Add more roles and their required properties
-                _ => return None,
+                _ => {}
             }
         }
         if missing.is_empty() {
@@ -1109,7 +1113,7 @@ mod utils {
 
     /// Check if required property is present
     fn check_required_prop(
-        element: &scraper::ElementRef,
+        element: &ElementRef,
         prop: &str,
         missing: &mut Vec<String>,
     ) {
@@ -1226,14 +1230,6 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_valid_language_codes() {
-            assert!(is_valid_language_code("en-GB"));
-            assert!(is_valid_language_code("fr-FR"));
-            assert!(is_valid_language_code("zh-CN"));
-            assert!(!is_valid_language_code("invalid"));
-        }
-
-        #[test]
         fn test_heading_structure() {
             let valid_html = "<h1>Main Title</h1><h2>Subtitle</h2>";
             let invalid_html =
@@ -1293,6 +1289,7 @@ mod tests {
             let report = validate_wcag(html, &config, None).unwrap();
 
             assert!(report.issue_count > 0);
+
             assert_eq!(report.wcag_level, WcagLevel::AA);
         }
 
@@ -1318,6 +1315,275 @@ mod tests {
             if let Some(selector) = TEST_NAV_SELECTOR.as_ref() {
                 let navs: Vec<_> = document.select(selector).collect();
                 assert_eq!(navs.len(), 0);
+            }
+        }
+    }
+    #[cfg(test)]
+    mod utils_tests {
+        use super::*;
+
+        mod language_code_validation {
+            use super::*;
+
+            #[test]
+            fn test_valid_language_codes() {
+                let valid_codes = [
+                    "en", "en-US", "zh-CN", "fr-FR", "de-DE", "es-419",
+                    "ar-001", "pt-BR", "ja-JP", "ko-KR",
+                ];
+                for code in valid_codes {
+                    assert!(
+                        is_valid_language_code(code),
+                        "Language code '{}' should be valid",
+                        code
+                    );
+                }
+            }
+
+            #[test]
+            fn test_invalid_language_codes() {
+                let invalid_codes = [
+                    "",               // Empty string
+                    "a",              // Single character
+                    "123",            // Numeric code
+                    "en_US",          // Underscore instead of hyphen
+                    "en-",            // Trailing hyphen
+                    "-en",            // Leading hyphen
+                    "en--US",         // Consecutive hyphens
+                    "toolong",        // Primary subtag too long
+                    "en-US-INVALID-", // Trailing hyphen with subtags
+                ];
+                for code in invalid_codes {
+                    assert!(
+                        !is_valid_language_code(code),
+                        "Language code '{}' should be invalid",
+                        code
+                    );
+                }
+            }
+
+            #[test]
+            fn test_language_code_case_sensitivity() {
+                assert!(is_valid_language_code("en-GB"));
+                assert!(is_valid_language_code("fr-FR"));
+                assert!(is_valid_language_code("zh-Hans"));
+                assert!(is_valid_language_code("EN-GB"));
+            }
+        }
+
+        mod aria_role_validation {
+            use super::*;
+
+            #[test]
+            fn test_valid_button_roles() {
+                let html = "<button>Test</button>";
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("button").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+                let valid_roles = ["button", "link", "menuitem"];
+                for role in valid_roles {
+                    assert!(
+                        is_valid_aria_role(role, &element),
+                        "Role '{}' should be valid for button",
+                        role
+                    );
+                }
+            }
+
+            #[test]
+            fn test_valid_input_roles() {
+                let html = "<input type='text'>";
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("input").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+                let valid_roles =
+                    ["textbox", "radio", "checkbox", "button"];
+                for role in valid_roles {
+                    assert!(
+                        is_valid_aria_role(role, &element),
+                        "Role '{}' should be valid for input",
+                        role
+                    );
+                }
+            }
+
+            #[test]
+            fn test_valid_anchor_roles() {
+                let html = "<a href='#'>Test</a>";
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("a").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+                let valid_roles = ["button", "link", "menuitem"];
+                for role in valid_roles {
+                    assert!(
+                        is_valid_aria_role(role, &element),
+                        "Role '{}' should be valid for anchor",
+                        role
+                    );
+                }
+            }
+
+            #[test]
+            fn test_invalid_element_roles() {
+                let html = "<button>Test</button>";
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("button").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+                let invalid_roles =
+                    ["textbox", "radio", "checkbox", "invalid"];
+                for role in invalid_roles {
+                    assert!(
+                        !is_valid_aria_role(role, &element),
+                        "Role '{}' should be invalid for button",
+                        role
+                    );
+                }
+            }
+
+            #[test]
+            fn test_unrestricted_elements() {
+                // Testing with <div>
+                let html_div = "<div>Test</div>";
+                let fragment_div = Html::parse_fragment(html_div);
+                let selector_div = Selector::parse("div").unwrap();
+                let element_div =
+                    fragment_div.select(&selector_div).next().unwrap();
+
+                // Testing with <span>
+                let html_span = "<span>Test</span>";
+                let fragment_span = Html::parse_fragment(html_span);
+                let selector_span = Selector::parse("span").unwrap();
+                let element_span = fragment_span
+                    .select(&selector_span)
+                    .next()
+                    .unwrap();
+
+                let roles =
+                    ["button", "textbox", "navigation", "banner"];
+
+                for role in roles {
+                    assert!(
+                        is_valid_aria_role(role, &element_div),
+                        "Role '{}' should be allowed for div",
+                        role
+                    );
+                    assert!(
+                        is_valid_aria_role(role, &element_span),
+                        "Role '{}' should be allowed for span",
+                        role
+                    );
+                }
+            }
+        }
+
+        mod required_aria_properties {
+            use super::*;
+
+            #[test]
+            fn test_combobox_required_properties() {
+                let html = r#"<div role="combobox">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element)
+                        .unwrap();
+                assert!(missing.contains(&"aria-expanded".to_string()));
+            }
+
+            #[test]
+            fn test_complete_combobox() {
+                let html = r#"<div role="combobox" aria-expanded="true">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element);
+                assert!(missing.is_none());
+            }
+
+            #[test]
+            fn test_slider_required_properties() {
+                let html = r#"<div role="slider">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element)
+                        .unwrap();
+
+                assert!(missing.contains(&"aria-valuenow".to_string()));
+                assert!(missing.contains(&"aria-valuemin".to_string()));
+                assert!(missing.contains(&"aria-valuemax".to_string()));
+            }
+
+            #[test]
+            fn test_complete_slider() {
+                let html = r#"<div role="slider"
+                   aria-valuenow="50"
+                   aria-valuemin="0"
+                   aria-valuemax="100">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element);
+                assert!(missing.is_none());
+            }
+
+            #[test]
+            fn test_partial_slider_properties() {
+                let html = r#"<div role="slider" aria-valuenow="50">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element)
+                        .unwrap();
+
+                assert!(!missing.contains(&"aria-valuenow".to_string()));
+                assert!(missing.contains(&"aria-valuemin".to_string()));
+                assert!(missing.contains(&"aria-valuemax".to_string()));
+            }
+
+            #[test]
+            fn test_unknown_role() {
+                let html = r#"<div role="unknown">Test</div>"#;
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element);
+                assert!(missing.is_none());
+            }
+
+            #[test]
+            fn test_no_role() {
+                let html = "<div>Test</div>";
+                let fragment = Html::parse_fragment(html);
+                let selector = Selector::parse("div").unwrap();
+                let element =
+                    fragment.select(&selector).next().unwrap();
+
+                let missing =
+                    get_missing_required_aria_properties(&element);
+                assert!(missing.is_none());
             }
         }
     }
