@@ -30,8 +30,11 @@
 //! ```
 //!
 //! Ensure that the `html_generator` library is correctly configured and that all dependencies are installed before running the tests.
-//!
-use html_generator::{markdown_file_to_html, markdown_to_html, MarkdownConfig, OutputDestination};
+
+use html_generator::{
+    markdown_file_to_html, markdown_to_html, MarkdownConfig,
+    OutputDestination,
+};
 use std::{
     fs::{self},
     path::PathBuf,
@@ -55,11 +58,23 @@ mod test_utils {
     /// Panics if the file cannot be created or written to.
     pub(crate) fn setup_test_file(content: &str, file_path: &Path) {
         if let Some(parent) = file_path.parent() {
-            fs::create_dir_all(parent).expect("Failed to create test directory");
+            fs::create_dir_all(parent)
+                .expect("Failed to create test directory");
         }
-        let mut file = File::create(file_path).expect("Failed to create test file");
-        file.write_all(content.as_bytes()).expect("Failed to write test file");
+        let mut file = File::create(file_path)
+            .expect("Failed to create test file");
+        file.write_all(content.as_bytes())
+            .expect("Failed to write test file");
         file.sync_all().expect("Failed to sync test file");
+
+        // Canonicalize after creation
+        let abs_path = file_path
+            .canonicalize()
+            .expect("Failed to canonicalize test file path");
+        assert!(
+            abs_path.exists(),
+            "Test file does not exist after creation"
+        );
     }
 
     /// Cleans up the specified directory by removing it and all its contents.
@@ -73,9 +88,13 @@ mod test_utils {
     /// Panics if the directory cannot be removed.
     pub(crate) fn cleanup_test_dir(dir_path: &Path) {
         if dir_path.exists() {
-            fs::remove_dir_all(dir_path).expect("Failed to clean up test directory");
+            fs::remove_dir_all(dir_path)
+                .expect("Failed to clean up test directory");
         } else {
-            eprintln!("Directory {:?} does not exist, skipping cleanup.", dir_path);
+            eprintln!(
+                "Directory {:?} does not exist, skipping cleanup.",
+                dir_path
+            );
         }
     }
 }
@@ -84,6 +103,37 @@ mod test_utils {
 mod tests {
     use super::*;
     use test_utils::{cleanup_test_dir, setup_test_file};
+
+    /// Tests Markdown to HTML conversion with a code block.
+    ///
+    /// This test checks that code blocks are correctly converted to HTML
+    /// with syntax highlighting enabled.
+    #[test]
+    fn test_markdown_to_html_with_code_block() {
+        let markdown = "# Title\n\n```rust\nfn main() {}\n```";
+        let config = MarkdownConfig {
+            html_config: html_generator::HtmlConfig {
+                enable_syntax_highlighting: true,
+                ..Default::default()
+            },
+            ..MarkdownConfig::default()
+        };
+
+        let result = markdown_to_html(markdown, Some(config));
+        assert!(result.is_ok(), "Markdown conversion failed");
+
+        let html = result.unwrap();
+        println!("Generated HTML:\n{}", html);
+
+        assert!(
+            html.contains("<pre><code class=\"language-rust\">"),
+            "Missing syntax-highlighted code block in output HTML"
+        );
+        assert!(
+            html.contains("<span"),
+            "Expected syntax-highlighted span elements in output HTML"
+        );
+    }
 
     /// Tests the end-to-end functionality of converting Markdown to HTML.
     ///
@@ -117,23 +167,60 @@ mod tests {
         let output_dir = PathBuf::from("test_output");
         let output_path = output_dir.join("output.html");
 
+        // Print current working directory
+        println!(
+            "Current working directory: {:?}",
+            std::env::current_dir()
+        );
+
+        // Ensure input and output directories exist
+        if input_dir.exists() {
+            fs::remove_dir_all(&input_dir)
+                .expect("Failed to remove existing input directory");
+        }
+        if output_dir.exists() {
+            fs::remove_dir_all(&output_dir)
+                .expect("Failed to remove existing output directory");
+        }
+        fs::create_dir_all(&input_dir)
+            .expect("Failed to create input directory");
+        fs::create_dir_all(&output_dir)
+            .expect("Failed to create output directory");
+        println!("Input directory created: {:?}", input_dir);
+        println!("Output directory created: {:?}", output_dir);
+
         // Setup test input file
-        setup_test_file("# Test\n\n```rust\nfn main() {}\n```", &input_path);
+        setup_test_file(
+            "# Test\n\n```rust\nfn main() {}\n```",
+            &input_path,
+        );
         println!("Input file created at: {:?}", input_path);
 
-        // Ensure the output directory exists
-        fs::create_dir_all(&output_dir).expect("Failed to create output directory");
-        println!("Output directory created at: {:?}", output_dir);
+        // Verify file existence before proceeding
+        assert!(
+            input_path.exists(),
+            "Input file does not exist at the specified path: {:?}",
+            input_path
+        );
 
         // Log input content for debugging
-        let input_content = fs::read_to_string(&input_path).expect("Failed to read input file content");
+        let input_content = fs::read_to_string(&input_path)
+            .expect("Failed to read input file content");
         println!("Input file content:\n{}", input_content);
 
-        // Run Markdown file conversion
-        let config = MarkdownConfig::default();
+        // Run Markdown file conversion with syntax highlighting enabled
+        let config = MarkdownConfig {
+            html_config: html_generator::HtmlConfig {
+                enable_syntax_highlighting: true,
+                ..Default::default()
+            },
+            ..MarkdownConfig::default()
+        };
         let result = markdown_file_to_html(
             Some(&input_path),
-            Some(OutputDestination::File(output_path.to_string_lossy().into())),
+            Some(OutputDestination::File(
+                output_path.to_string_lossy().into(),
+            )),
             Some(config),
         );
 
@@ -143,25 +230,24 @@ mod tests {
         match fs::read_to_string(&output_path) {
             Ok(html) => {
                 println!("Generated HTML:\n{}", html);
-                assert!(html.contains("<h1>"), "Missing <h1> tag in output HTML");
-                assert!(html.contains("<pre><code"), "Missing code block in output HTML");
+                assert!(
+                    html.contains("<h1>"),
+                    "Missing <h1> tag in output HTML"
+                );
+                assert!(
+                html.contains("<pre><code class=\"language-rust\">"),
+                "Missing syntax-highlighted code block in output HTML"
+            );
+                assert!(
+                html.contains("<span"),
+                "Expected syntax-highlighted span elements in output HTML"
+            );
             }
             Err(e) => panic!("Failed to read output file: {:?}", e),
         }
 
-        // Cleanup with checks
-        println!(
-            "Cleaning up input directory: {:?}, exists: {}",
-            input_dir,
-            input_dir.exists()
-        );
+        // Cleanup
         cleanup_test_dir(&input_dir);
-
-        println!(
-            "Cleaning up output directory: {:?}, exists: {}",
-            output_dir,
-            output_dir.exists()
-        );
         cleanup_test_dir(&output_dir);
     }
 
@@ -171,26 +257,57 @@ mod tests {
     #[test]
     fn test_error_conditions() {
         // Test invalid input file path
-        let result = markdown_file_to_html(Some("nonexistent.md"), None, None);
-        assert!(result.is_err(), "Expected an error for nonexistent input file");
+        let nonexistent_path = PathBuf::from("nonexistent.md");
+        println!(
+            "Testing with nonexistent input file path: {:?}",
+            nonexistent_path
+        );
+        let result =
+            markdown_file_to_html(Some(&nonexistent_path), None, None);
+        assert!(
+            result.is_err(),
+            "Expected an error for nonexistent input file"
+        );
 
         // Test invalid output file path
         let input_dir = PathBuf::from("test_input");
         let input_path = input_dir.join("test.md");
         setup_test_file("# Test", &input_path);
+        println!("Input file created at: {:?}", input_path);
 
+        let invalid_output_path =
+            PathBuf::from("invalid/path/output.html");
+        println!(
+            "Testing with invalid output file path: {:?}",
+            invalid_output_path
+        );
         let result = markdown_file_to_html(
             Some(&input_path),
-            Some(OutputDestination::File("invalid/path/output.html".to_string())),
+            Some(OutputDestination::File(
+                invalid_output_path.to_string_lossy().into(),
+            )),
             None,
         );
-        assert!(result.is_err(), "Expected an error for invalid output path");
+        assert!(
+            result.is_err(),
+            "Expected an error for invalid output path"
+        );
 
+        // Cleanup input directory
         cleanup_test_dir(&input_dir);
 
         // Test unsupported input file extension
-        let result = markdown_file_to_html(Some("test.txt"), None, None);
-        assert!(result.is_err(), "Expected an error for unsupported file extension");
+        let unsupported_path = PathBuf::from("test.txt");
+        println!(
+            "Testing with unsupported file extension: {:?}",
+            unsupported_path
+        );
+        let result =
+            markdown_file_to_html(Some(&unsupported_path), None, None);
+        assert!(
+            result.is_err(),
+            "Expected an error for unsupported file extension"
+        );
     }
 
     /// Tests Markdown to HTML conversion with custom configurations.
@@ -199,13 +316,25 @@ mod tests {
     #[test]
     fn test_custom_configurations() {
         let markdown = "# Test\n\n## Section\n\nContent with [link](http://example.com)";
-        let config = MarkdownConfig::default();
+        let config = MarkdownConfig {
+            html_config: html_generator::HtmlConfig {
+                enable_syntax_highlighting: true,
+                ..Default::default()
+            },
+            ..MarkdownConfig::default()
+        };
         let result = markdown_to_html(markdown, Some(config));
 
         assert!(result.is_ok(), "Markdown conversion failed");
         let html = result.unwrap();
-        assert!(html.contains("<h1>"), "Generated HTML missing <h1> tag");
-        assert!(html.contains("<h2>"), "Generated HTML missing <h2> tag");
+        assert!(
+            html.contains("<h1>"),
+            "Generated HTML missing <h1> tag"
+        );
+        assert!(
+            html.contains("<h2>"),
+            "Generated HTML missing <h2> tag"
+        );
         assert!(html.contains("<p>"), "Generated HTML missing <p> tag");
         assert!(
             html.contains("<a href=\"http://example.com\""),
