@@ -1028,7 +1028,7 @@ impl AccessibilityReport {
 }
 
 /// Utility functions for accessibility checks
-mod utils {
+pub mod utils {
     use scraper::ElementRef;
     use std::collections::HashMap;
 
@@ -1076,7 +1076,7 @@ mod utils {
     }
 
     /// Get missing required ARIA properties
-    pub(crate) fn get_missing_required_aria_properties(
+    pub fn get_missing_required_aria_properties(
         element: &ElementRef,
     ) -> Option<Vec<String>> {
         let mut missing = Vec::new();
