@@ -51,6 +51,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, Selector};
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 
 /// Constants used throughout the accessibility module
@@ -70,6 +71,9 @@ pub mod constants {
     /// Default ARIA role for inputs
     pub const DEFAULT_INPUT_ROLE: &str = "textbox";
 }
+
+/// Global counter for unique ID generation
+static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 use constants::{
     DEFAULT_BUTTON_ROLE, DEFAULT_INPUT_ROLE, DEFAULT_NAV_ROLE,
@@ -775,7 +779,8 @@ fn generate_unique_id() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .subsec_nanos();
-    format!("aria-{}", nanos)
+    let count = COUNTER.fetch_add(1, Ordering::SeqCst);
+    format!("aria-{}-{}", nanos, count)
 }
 
 /// Validate ARIA attributes within the HTML.
@@ -1317,6 +1322,23 @@ mod tests {
                 assert_eq!(navs.len(), 0);
             }
         }
+
+        #[test]
+        fn test_html_processing_error_with_source() {
+            let source_error = std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "test source error",
+            );
+            let error = Error::HtmlProcessingError {
+                message: "Processing failed".to_string(),
+                source: Some(Box::new(source_error)),
+            };
+
+            assert_eq!(
+                format!("{}", error),
+                "HTML Processing Error: Processing failed"
+            );
+        }
     }
     #[cfg(test)]
     mod utils_tests {
@@ -1478,6 +1500,33 @@ mod tests {
                     );
                 }
             }
+
+            #[test]
+            fn test_validate_wcag_with_level_aaa() {
+                let html =
+                    "<h1>Main Title</h1><h3>Skipped Heading</h3>";
+                let config = AccessibilityConfig {
+                    wcag_level: WcagLevel::AAA,
+                    ..Default::default()
+                };
+                let report =
+                    validate_wcag(html, &config, None).unwrap();
+                assert!(report.issue_count > 0);
+                assert_eq!(report.wcag_level, WcagLevel::AAA);
+            }
+
+            #[test]
+            fn test_html_builder_empty() {
+                let builder = HtmlBuilder::new("");
+                assert_eq!(builder.build(), "");
+            }
+
+            #[test]
+            fn test_generate_unique_id_uniqueness() {
+                let id1 = generate_unique_id();
+                let id2 = generate_unique_id();
+                assert_ne!(id1, id2);
+            }
         }
 
         mod required_aria_properties {
@@ -1508,6 +1557,54 @@ mod tests {
                 let missing =
                     get_missing_required_aria_properties(&element);
                 assert!(missing.is_none());
+            }
+
+            #[test]
+            fn test_add_aria_attributes_empty_html() {
+                let html = "";
+                let result = add_aria_attributes(html, None);
+                assert!(result.is_ok());
+                assert_eq!(result.unwrap(), "");
+            }
+
+            #[test]
+            fn test_add_aria_attributes_whitespace_html() {
+                let html = "   ";
+                let result = add_aria_attributes(html, None);
+                assert!(result.is_ok());
+                assert_eq!(result.unwrap(), "   ");
+            }
+
+            #[test]
+            fn test_validate_wcag_with_minimal_config() {
+                let html = r#"<html lang="en"><div>Accessible Content</div></html>"#;
+                let config = AccessibilityConfig {
+                    wcag_level: WcagLevel::A,
+                    max_heading_jump: 0, // No heading enforcement
+                    min_contrast_ratio: 0.0, // No contrast enforcement
+                    auto_fix: false,
+                };
+                let report =
+                    validate_wcag(html, &config, None).unwrap();
+                assert_eq!(report.issue_count, 0);
+            }
+
+            #[test]
+            fn test_add_partial_aria_attributes_to_button() {
+                let html =
+                    r#"<button aria-label="Existing">Click</button>"#;
+                let result = add_aria_attributes(html, None);
+                assert!(result.is_ok());
+                let enhanced = result.unwrap();
+                assert!(enhanced.contains(r#"aria-label="Existing""#));
+            }
+
+            #[test]
+            fn test_add_aria_to_elements_with_existing_roles() {
+                let html = r#"<nav aria-label=\"navigation\" role=\"navigation\" role=\"navigation\">Content</nav>"#;
+                let result = add_aria_attributes(html, None);
+                assert!(result.is_ok());
+                assert_eq!(result.unwrap(), html);
             }
 
             #[test]
