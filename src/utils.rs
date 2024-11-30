@@ -74,14 +74,31 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
 
     if content.starts_with("---") {
         if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
-            let remaining_content = &content[captures
-                .get(0)
+            // Extract the front matter
+            let front_matter = captures
+                .get(1)
                 .ok_or_else(|| {
                     HtmlError::InvalidFrontMatterFormat(
                         "Missing front matter match".to_string(),
                     )
                 })?
-                .end()..];
+                .as_str();
+
+            // Validate the front matter content
+            for line in front_matter.lines() {
+                if !line.trim().contains(':') {
+                    return Err(HtmlError::InvalidFrontMatterFormat(
+                        format!(
+                            "Invalid line in front matter: {}",
+                            line
+                        ),
+                    ));
+                }
+            }
+
+            // Extract remaining content
+            let remaining_content =
+                &content[captures.get(0).unwrap().end()..];
             Ok(remaining_content.trim().to_string())
         } else {
             Err(HtmlError::InvalidFrontMatterFormat(
@@ -308,135 +325,276 @@ fn generate_id(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scraper::Html;
 
-    #[test]
-    fn test_extract_front_matter() {
-        let content = "---\ntitle: My Page\n---\n# Hello, world!\n\nThis is a test.";
-        let result = extract_front_matter(content);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(extracted) = result {
-            assert_eq!(extracted, "# Hello, world!\n\nThis is a test.");
+    /// Tests for `extract_front_matter` function.
+    mod extract_front_matter_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_front_matter() {
+            let content = "---\ntitle: My Page\n---\n# Hello, world!\n\nThis is a test.";
+            let result = extract_front_matter(content);
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(extracted) = result {
+                assert_eq!(
+                    extracted,
+                    "# Hello, world!\n\nThis is a test."
+                );
+            }
+        }
+
+        #[test]
+        fn test_no_front_matter() {
+            let content = "# Hello, world!\n\nThis is a test without front matter.";
+            let result = extract_front_matter(content);
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(extracted) = result {
+                assert_eq!(extracted, content);
+            }
+        }
+
+        #[test]
+        fn test_empty_input() {
+            let content = "";
+            let result = extract_front_matter(content);
+            assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
+        }
+
+        #[test]
+        fn test_exceeding_max_input_size() {
+            let content = "a".repeat(MAX_INPUT_SIZE + 1);
+            let result = extract_front_matter(&content);
+            assert!(matches!(result, Err(HtmlError::InputTooLarge(_))));
+        }
+
+        #[test]
+        fn test_invalid_front_matter_format() {
+            // Input with an invalid front matter line (missing `:`).
+            let content =
+                "---\ntitle: value\ninvalid_line\n---\nContent";
+            let result = extract_front_matter(content);
+            assert!(
+        matches!(result, Err(HtmlError::InvalidFrontMatterFormat(_))),
+        "Expected InvalidFrontMatterFormat error, but got: {:?}",
+        result
+    );
+        }
+
+        #[test]
+        fn test_valid_front_matter_with_extra_content() {
+            let content = "---\ntitle: Page\n---\n\n# Title\n\nContent";
+            let result = extract_front_matter(content);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "# Title\n\nContent");
         }
     }
 
-    #[test]
-    fn test_extract_front_matter_no_front_matter() {
-        let content =
-            "# Hello, world!\n\nThis is a test without front matter.";
-        let result = extract_front_matter(content);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(extracted) = result {
-            assert_eq!(extracted, content);
+    /// Tests for `format_header_with_id_class` function.
+    mod format_header_with_id_class_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_header_default_generators() {
+            let header = "<h2>Hello, World!</h2>";
+            let result =
+                format_header_with_id_class(header, None, None);
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(formatted) = result {
+                assert_eq!(
+                    formatted,
+                    r#"<h2 id="hello-world" class="hello-world">Hello, World!</h2>"#
+                );
+            }
         }
-    }
 
-    #[test]
-    fn test_extract_front_matter_empty_input() {
-        let content = "";
-        let result = extract_front_matter(content);
-        assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
-    }
+        #[test]
+        fn test_custom_id_and_class_generators() {
+            let header = "<h3>Test Header</h3>";
+            fn id_gen(content: &str) -> String {
+                format!(
+                    "custom-{}",
+                    content.to_lowercase().replace(' ', "-")
+                )
+            }
+            fn class_gen(_: &str) -> String {
+                "custom-class".to_string()
+            }
+            let result = format_header_with_id_class(
+                header,
+                Some(id_gen),
+                Some(class_gen),
+            );
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(formatted) = result {
+                assert_eq!(
+                    formatted,
+                    r#"<h3 id="custom-test-header" class="custom-class">Test Header</h3>"#
+                );
+            }
+        }
 
-    #[test]
-    fn test_format_header_with_id_class() {
-        let header = "<h2>Hello, World!</h2>";
-        let result = format_header_with_id_class(header, None, None);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(formatted) = result {
+        #[test]
+        fn test_invalid_header_format() {
+            let header = "<p>Not a header</p>";
+            let result =
+                format_header_with_id_class(header, None, None);
+            assert!(matches!(
+                result,
+                Err(HtmlError::InvalidHeaderFormat(_))
+            ));
+        }
+
+        #[test]
+        fn test_header_with_special_characters() {
+            let header = "<h3>Special & Header!</h3>";
+            let result =
+                format_header_with_id_class(header, None, None);
+            assert!(result.is_ok());
             assert_eq!(
-                formatted,
-                r#"<h2 id="hello-world" class="hello-world">Hello, World!</h2>"#
+                result.unwrap(),
+                r#"<h3 id="special-header" class="special-header">Special & Header!</h3>"#
             );
         }
     }
 
-    #[test]
-    fn test_format_header_with_custom_generators() {
-        let header = "<h3>Test Header</h3>";
-        let id_gen = |content: &str| {
-            format!(
-                "custom-{}",
-                content.to_lowercase().replace(' ', "-")
-            )
-        };
-        let class_gen = |_: &str| "custom-class".to_string();
-        let result = format_header_with_id_class(
-            header,
-            Some(id_gen),
-            Some(class_gen),
-        );
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(formatted) = result {
+    /// Tests for `generate_table_of_contents` function.
+    mod generate_table_of_contents_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_html_with_headers() {
+            let html = "<h1>Title</h1><h2>Subtitle</h2>";
+            let result = generate_table_of_contents(html);
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(toc) = result {
+                assert_eq!(
+                    toc,
+                    r#"<ul><li class="toc-h1"><a href="\#title">Title</a></li><li class="toc-h2"><a href="\#subtitle">Subtitle</a></li></ul>"#
+                );
+            }
+        }
+
+        #[test]
+        fn test_html_without_headers() {
+            let html = "<p>No headers here.</p>";
+            let result = generate_table_of_contents(html);
+            assert!(
+                result.is_ok(),
+                "Expected Ok, got Err: {:?}",
+                result
+            );
+            if let Ok(toc) = result {
+                assert_eq!(toc, "<ul></ul>");
+            }
+        }
+
+        #[test]
+        fn test_empty_html() {
+            let html = "";
+            let result = generate_table_of_contents(html);
+            assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
+        }
+
+        #[test]
+        fn test_large_html_content() {
+            let html = "<h1>Header</h1>".repeat(1000);
+            let result = generate_table_of_contents(&html);
+            assert!(result.is_ok());
+        }
+    }
+
+    /// Tests for ARIA validation and utilities.
+    mod aria_validation_tests {
+        use super::*;
+
+        #[test]
+        fn test_valid_aria_role_for_button() {
+            let html =
+                Html::parse_fragment("<button role='button'></button>");
+            let element = html
+                .select(&scraper::Selector::parse("button").unwrap())
+                .next()
+                .unwrap();
+            assert!(is_valid_aria_role("button", &element));
+        }
+
+        #[test]
+        fn test_invalid_aria_role_for_button() {
+            let html =
+                Html::parse_fragment("<button role='link'></button>");
+            let element = html
+                .select(&scraper::Selector::parse("button").unwrap())
+                .next()
+                .unwrap();
+            assert!(!is_valid_aria_role("link", &element));
+        }
+
+        #[test]
+        fn test_missing_required_aria_properties() {
+            let html =
+                Html::parse_fragment(r#"<div role="slider"></div>"#);
+            let element = html
+                .select(&scraper::Selector::parse("div").unwrap())
+                .next()
+                .unwrap();
+            let missing =
+                get_missing_required_aria_properties(&element);
             assert_eq!(
-                formatted,
-                r#"<h3 id="custom-test-header" class="custom-class">Test Header</h3>"#
+                missing.unwrap(),
+                vec![
+                    "aria-valuenow".to_string(),
+                    "aria-valuemin".to_string(),
+                    "aria-valuemax".to_string()
+                ]
             );
         }
     }
 
-    #[test]
-    fn test_format_header_with_special_characters() {
-        let header = "<h3>Test: Special & Characters</h3>";
-        let result = format_header_with_id_class(header, None, None);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(formatted) = result {
-            assert_eq!(
-                formatted,
-                r#"<h3 id="test-special-characters" class="test-special-characters">Test: Special & Characters</h3>"#
-            );
+    /// Tests for utility functions.
+    mod utility_function_tests {
+        use super::*;
+
+        #[test]
+        fn test_generate_id() {
+            let content = "Test Header!";
+            let result = generate_id(content);
+            assert_eq!(result, "test-header");
         }
-    }
 
-    #[test]
-    fn test_format_header_with_consecutive_hyphens() {
-        let header = "<h4>Multiple---Hyphens</h4>";
-        let result = format_header_with_id_class(header, None, None);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(formatted) = result {
-            assert_eq!(
-                formatted,
-                r#"<h4 id="multiple-hyphens" class="multiple-hyphens">Multiple---Hyphens</h4>"#
-            );
+        #[test]
+        fn test_generate_id_with_special_characters() {
+            let content = "Header--with??special**chars";
+            let result = generate_id(content);
+            assert_eq!(result, "header-with-special-chars");
         }
-    }
 
-    #[test]
-    fn test_format_header_with_invalid_format() {
-        let header = "<p>Not a header</p>";
-        let result = format_header_with_id_class(header, None, None);
-        assert!(matches!(
-            result,
-            Err(HtmlError::InvalidHeaderFormat(_))
-        ));
-    }
-
-    #[test]
-    fn test_generate_table_of_contents() {
-        let html = "<h1>Title</h1><h2>Subtitle</h2>";
-        let result = generate_table_of_contents(html);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(toc) = result {
-            assert_eq!(
-                toc,
-                r#"<ul><li class="toc-h1"><a href="\#title">Title</a></li><li class="toc-h2"><a href="\#subtitle">Subtitle</a></li></ul>"#
-            );
-        }
-    }
-
-    #[test]
-    fn test_generate_table_of_contents_empty_input() {
-        let html = "";
-        let result = generate_table_of_contents(html);
-        assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
-    }
-
-    #[test]
-    fn test_generate_table_of_contents_no_headers() {
-        let html = "<p>This is a paragraph without any headers.</p>";
-        let result = generate_table_of_contents(html);
-        assert!(result.is_ok(), "Expected Ok, got Err: {:?}", result);
-        if let Ok(toc) = result {
-            assert_eq!(toc, "<ul></ul>");
+        #[test]
+        fn test_is_valid_language_code() {
+            assert!(is_valid_language_code("en"));
+            assert!(is_valid_language_code("en-US"));
+            assert!(!is_valid_language_code("E"));
+            assert!(!is_valid_language_code("123"));
         }
     }
 }
