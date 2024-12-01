@@ -65,17 +65,23 @@ pub fn generate_html(
 pub fn markdown_to_html_with_extensions(
     markdown: &str,
 ) -> Result<String> {
+    // Extract Markdown without front matter
     let content_without_front_matter =
         extract_front_matter(markdown).unwrap_or(markdown.to_string());
 
+    // Configure ComrakOptions for Markdown processing
     let mut comrak_options = ComrakOptions::default();
     comrak_options.extension.strikethrough = true;
     comrak_options.extension.table = true;
     comrak_options.extension.autolink = true;
     comrak_options.extension.tasklist = true;
-    comrak_options.render.escape = true;
     comrak_options.extension.superscript = true;
 
+    // Ensure raw HTML is allowed
+    comrak_options.render.unsafe_ = true;
+    comrak_options.render.escape = false;
+
+    // Use MarkdownOptions with the customized ComrakOptions
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_options);
 
@@ -83,7 +89,7 @@ pub fn markdown_to_html_with_extensions(
     match process_markdown(&content_without_front_matter, &options) {
         Ok(html_output) => Ok(html_output),
         Err(err) => {
-            // Using the helper method
+            // Use the helper method to return an HtmlError
             Err(HtmlError::markdown_conversion(
                 err.to_string(),
                 None, // If err is not io::Error, use None
@@ -477,15 +483,24 @@ author: John Doe
         assert!(result.is_ok());
         let html = result.unwrap();
 
+        println!("Generated HTML:\n{}", html);
+
+        // Validate that raw HTML tags are not escaped
         assert!(
-            html.contains("&lt;unexpected&gt;"),
-            "HTML-like tags not escaped"
+            html.contains("<unexpected>"),
+            "Raw HTML tags like <unexpected> should not be escaped"
         );
 
-        // Adjust expectation if the parser discards invalid links
+        // Validate that angle brackets in links are escaped
         assert!(
-            html.contains("&lt;here&gt;") || !html.contains("<here>"),
-            "Angle brackets in link not handled correctly"
+            html.contains("&lt;here&gt;") || html.contains("&lt;here)"),
+            "Angle brackets in links should be escaped for safety"
         );
+
+        // Validate the full header content
+        assert!(
+        html.contains("<h1>Invalid Markdown <unexpected> [bad](url &lt;here)</h1>"),
+        "Header not rendered correctly or content not properly handled"
+    );
     }
 }

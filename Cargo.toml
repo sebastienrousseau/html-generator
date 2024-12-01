@@ -117,6 +117,18 @@ name = "accessibility"
 path = "examples/accessibility_example.rs"
 
 [[example]]
+name = "basic"
+path = "examples/basic_example.rs"
+
+[[example]]
+name = "comprehensive"
+path = "examples/comprehensive_example.rs"
+
+[[example]]
+name = "custom"
+path = "examples/custom_config_example.rs"
+
+[[example]]
 name = "error"
 path = "examples/error_example.rs"
 

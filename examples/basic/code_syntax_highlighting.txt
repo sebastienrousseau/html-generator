@@ -1,0 +1,30 @@
+# Code Syntax Highlighting
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+
+```python
+def main():
+    print("Hello, world!")
+```
+
+```html
+<div>Hello, world!</div>
+```
+
+```markdown
+---
+
+### 8. **Inline and Reference Links**
+**File Name**: `links_variety.txt`
+```markdown
+# Inline and Reference Links
+
+[Inline Link](https://example.com "Inline Link Title")
+
+[Reference Link][1]
+
+[1]: https://example.com/reference "Reference Link Title"
+```

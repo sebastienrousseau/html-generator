@@ -1,0 +1,25 @@
+# Escaped Characters
+
+\\ This is a backslash.
+
+\` This is a backtick.
+
+\* This is an asterisk.
+
+\_ This is an underscore.
+
+\{ This is a curly brace.
+
+\[ This is a square bracket.
+
+\( This is a parenthesis.
+
+\# This is a hash.
+
+\+ This is a plus sign.
+
+\- This is a hyphen.
+
+\. This is a period.
+
+\! This is an exclamation mark.

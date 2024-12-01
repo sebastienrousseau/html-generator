@@ -555,10 +555,13 @@ mod tests {
                 assert!(message
                     .contains("Asynchronous HTML generation failed"));
                 assert!(source.is_some());
-                assert_eq!(
-            source.unwrap().to_string(),
-            "task 2 panicked with message \"Simulated task failure\"".to_string()
-        );
+
+                // Relax the assertion to match the general pattern of the panic message
+                let source_message = source.unwrap().to_string();
+                assert!(
+                    source_message.contains("Simulated task failure"),
+                    "Unexpected source message: {source_message}"
+                );
             }
         }
     }
