@@ -639,5 +639,119 @@ mod tests {
         fn test_is_valid_language_code_non_ascii() {
             assert!(!is_valid_language_code("日本語"));
         }
+
+        /// Additional tests for `extract_front_matter` function.
+        #[test]
+        fn test_extract_front_matter_empty_delimiters() {
+            let content = "------\n# Missing proper front matter";
+            let result = extract_front_matter(content);
+            assert!(matches!(
+                result,
+                Err(HtmlError::InvalidFrontMatterFormat(_))
+            ));
+        }
+
+        #[test]
+        fn test_extract_front_matter_large_content_valid_front_matter()
+        {
+            let large_content = format!(
+                "---\nkey: value\n---\n{}",
+                "Content".repeat(5000)
+            );
+            let result = extract_front_matter(&large_content);
+            assert!(result.is_ok());
+        }
+
+        /// Additional tests for `format_header_with_id_class` function.
+        #[test]
+        fn test_format_header_with_malformed_html() {
+            let header = "<h2 Missing closing>";
+            let result =
+                format_header_with_id_class(header, None, None);
+            assert!(matches!(
+                result,
+                Err(HtmlError::InvalidHeaderFormat(_))
+            ));
+        }
+
+        #[test]
+        fn test_format_header_with_inline_styles() {
+            let header =
+                r#"<h2 style="color: red;">Styled Header</h2>"#;
+            let result =
+                format_header_with_id_class(header, None, None);
+            assert!(result.is_ok());
+            assert_eq!(
+            result.unwrap(),
+            "<h2 id=\"styled-header\" class=\"styled-header\">Styled Header</h2>"
+        );
+        }
+
+        /// Additional tests for `generate_table_of_contents` function.
+        #[test]
+        fn test_toc_with_nested_headers() {
+            let html = "<div><h1>Outer</h1><h2>Inner</h2></div>";
+            let result = generate_table_of_contents(html);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                r#"<ul><li class="toc-h1"><a href="\#outer">Outer</a></li><li class="toc-h2"><a href="\#inner">Inner</a></li></ul>"#
+            );
+        }
+
+        #[test]
+        fn test_toc_with_malformed_and_valid_headers() {
+            let html = "<h1>Valid</h1><h2 Malformed>";
+            let result = generate_table_of_contents(html);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                r#"<ul><li class="toc-h1"><a href="\#valid">Valid</a></li></ul>"#
+            );
+        }
+
+        /// Additional tests for `is_valid_aria_role` function.
+        #[test]
+        fn test_unsupported_html_element() {
+            let html = Html::parse_fragment(
+                "<unsupported role='custom'></unsupported>",
+            );
+            let element = html
+                .select(
+                    &scraper::Selector::parse("unsupported").unwrap(),
+                )
+                .next()
+                .unwrap();
+            assert!(!is_valid_aria_role("custom", &element));
+        }
+
+        /// Additional tests for `is_valid_language_code` function.
+        #[test]
+        fn test_is_valid_language_code_with_mixed_case() {
+            assert!(!is_valid_language_code("eN-uS"));
+            assert!(!is_valid_language_code("En#Us"));
+        }
+
+        /// Additional tests for `generate_id` function.
+        #[test]
+        fn test_generate_id_empty_content() {
+            let content = "";
+            let result = generate_id(content);
+            assert_eq!(result, "");
+        }
+
+        #[test]
+        fn test_generate_id_whitespace_content() {
+            let content = "   ";
+            let result = generate_id(content);
+            assert_eq!(result, "");
+        }
+
+        #[test]
+        fn test_generate_id_symbols_only() {
+            let content = "!@#$%^&*()";
+            let result = generate_id(content);
+            assert_eq!(result, "");
+        }
     }
 }
