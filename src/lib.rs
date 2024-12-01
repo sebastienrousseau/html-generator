@@ -1,41 +1,69 @@
-//! HTML Generator: A modern HTML generation and optimisation library
+//! HTML Generator: A modern HTML generation and optimization library
 //!
-//! `html-generator` is a comprehensive suite of tools for generating, optimising,
+//! `html-generator` is a comprehensive suite of tools for generating, optimizing,
 //! and managing HTML content with a focus on accessibility, SEO, and performance.
 //!
 //! # Features
 //!
-//! - **Markdown to HTML**: Convert Markdown content and files to HTML
-//! - **Accessibility**: Automated ARIA attributes and WCAG compliance checking
-//! - **SEO Optimisation**: Meta tag generation and structured data support
-//! - **Performance**: HTML minification and async generation capabilities
+//! - **Markdown to HTML**: Converts Markdown content and files to HTML with support for:
+//!   - CommonMark syntax
+//!   - GitHub Flavored Markdown
+//!   - Custom extensions and plugins
+//!
+//! - **Accessibility**:
+//!   - Automated ARIA attribute generation
+//!   - WCAG compliance checking
+//!   - Semantic HTML optimization
+//!
+//! - **SEO Optimization**:
+//!   - Meta tag generation
+//!   - Structured data (JSON-LD) support
+//!   - OpenGraph and Twitter card generation
+//!
+//! - **Performance**:
+//!   - HTML minification
+//!   - Async generation capabilities
+//!   - Memory-efficient processing
 //!
 //! # Examples
 //!
 //! ```rust
 //! use html_generator::{markdown_to_html, MarkdownConfig};
-//! # fn main() -> Result<(), html_generator::error::HtmlError> {
-//! let markdown = "# Hello World\n\nWelcome to HTML Generator.";
-//! let config = MarkdownConfig::default();
-//! let html = markdown_to_html(markdown, Some(config))?;
-//! println!("Generated HTML: {html}");
-//! # Ok(())
-//! # }
+//!
+//! fn main() -> Result<(), html_generator::error::HtmlError> {
+//!     let markdown = "# Hello World\n\nWelcome to HTML Generator.";
+//!     let config = MarkdownConfig::default();
+//!     let html = markdown_to_html(markdown, Some(config))?;
+//!     println!("Generated HTML: {html}");
+//!     Ok(())
+//! }
 //! ```
 //!
 //! # Security Features
 //!
-//! - Path validation to prevent directory traversal attacks
-//! - Input size limits to prevent denial of service
-//! - Unicode-aware text processing
-//! - Memory safety through Rust's guarantees
-//! - Comprehensive error handling to prevent undefined behaviour
+//! The library implements several security measures to protect against common vulnerabilities:
+//!
+//! - **Path Validation**: Prevents directory traversal attacks through strict path checking
+//! - **Input Limits**: Implements size restrictions to prevent denial of service attacks
+//! - **Unicode Safety**: Provides proper handling of Unicode text to prevent encoding attacks
+//! - **Memory Safety**: Leverages Rust's memory safety guarantees
+//! - **Error Handling**: Uses comprehensive error types to prevent undefined behavior
+//!
+//! # Architecture
+//!
+//! The library is organized into several key modules:
+//!
+//! - `accessibility`: ARIA attributes and WCAG compliance
+//! - `error`: Error types and handling
+//! - `generator`: Core HTML generation functionality
+//! - `performance`: Optimization and minification
+//! - `seo`: Search engine optimization features
+//! - `utils`: Utility functions and helpers
 
-use std::path::Component;
 use std::{
     fs::File,
     io::{self, Read, Write},
-    path::Path,
+    path::{Component, Path},
 };
 
 // Re-export public modules
@@ -46,7 +74,7 @@ pub mod performance;
 pub mod seo;
 pub mod utils;
 
-// Re-export primary types and functions
+// Re-export primary types and functions for convenience
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
 pub use generator::generate_html;
@@ -54,20 +82,29 @@ pub use performance::{async_generate_html, minify_html};
 pub use seo::{generate_meta_tags, generate_structured_data};
 pub use utils::{extract_front_matter, format_header_with_id_class};
 
-/// Common constants used throughout the library
+/// Common constants used throughout the library.
+///
+/// This module contains configuration values and limits that help ensure
+/// secure and efficient operation of the library.
 pub mod constants {
     /// Maximum allowed input size (5MB) to prevent denial of service attacks
     pub const DEFAULT_MAX_INPUT_SIZE: usize = 5 * 1024 * 1024;
+
     /// Minimum required input size (1KB) for meaningful processing
     pub const MIN_INPUT_SIZE: usize = 1024;
+
     /// Default language code for HTML generation (British English)
     pub const DEFAULT_LANGUAGE: &str = "en-GB";
+
     /// Default syntax highlighting theme (github)
     pub const DEFAULT_SYNTAX_THEME: &str = "github";
+
     /// Maximum file path length
     pub const MAX_PATH_LENGTH: usize = 4096;
-    /// Valid language code pattern
+
+    /// Regular expression pattern for validating language codes
     pub const LANGUAGE_CODE_PATTERN: &str = r"^[a-z]{2}-[A-Z]{2}$";
+
     /// Verify invariants at compile time
     const _: () = assert!(MIN_INPUT_SIZE <= DEFAULT_MAX_INPUT_SIZE);
     const _: () = assert!(MAX_PATH_LENGTH > 0);
@@ -76,11 +113,15 @@ pub mod constants {
 /// Result type alias for library operations
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
-/// Configuration options for Markdown to HTML conversion
+/// Configuration options for Markdown to HTML conversion.
+///
+/// This struct holds settings that control how Markdown content is processed
+/// and converted to HTML.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MarkdownConfig {
     /// The encoding to use for input/output (defaults to "utf-8")
     pub encoding: String,
+
     /// HTML generation configuration
     pub html_config: HtmlConfig,
 }
@@ -94,7 +135,7 @@ impl Default for MarkdownConfig {
     }
 }
 
-/// Configuration error types
+/// Errors that can occur during configuration.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     /// Error for invalid input size configuration
@@ -102,28 +143,40 @@ pub enum ConfigError {
         "Invalid input size: {0} bytes is below minimum of {1} bytes"
     )]
     InvalidInputSize(usize, usize),
+
     /// Error for invalid language code
     #[error("Invalid language code: {0}")]
     InvalidLanguageCode(String),
+
     /// Error for invalid file path
     #[error("Invalid file path: {0}")]
     InvalidFilePath(String),
 }
 
-/// Output destination for HTML generation
-#[non_exhaustive] // Allow for future expansion
+/// Output destination for HTML generation.
+///
+/// Specifies where the generated HTML content should be written.
+#[non_exhaustive]
 pub enum OutputDestination {
     /// Write output to a file at the specified path
     File(String),
+
     /// Write output using a custom writer implementation
     ///
     /// This can be used for in-memory buffers, network streams,
     /// or other custom output destinations.
     Writer(Box<dyn Write>),
+
     /// Write output to standard output (default)
     ///
     /// This is useful for command-line tools and scripts.
     Stdout,
+}
+
+impl Default for OutputDestination {
+    fn default() -> Self {
+        Self::Stdout
+    }
 }
 
 impl std::fmt::Debug for OutputDestination {
@@ -138,29 +191,33 @@ impl std::fmt::Debug for OutputDestination {
     }
 }
 
-impl Default for OutputDestination {
-    fn default() -> Self {
-        Self::Stdout
-    }
-}
-
-/// Configuration options for HTML generation
+/// Configuration options for HTML generation.
+///
+/// Controls various aspects of the HTML generation process including
+/// syntax highlighting, accessibility features, and output formatting.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HtmlConfig {
     /// Enable syntax highlighting for code blocks
     pub enable_syntax_highlighting: bool,
+
     /// Theme to use for syntax highlighting
     pub syntax_theme: Option<String>,
+
     /// Minify the generated HTML output
     pub minify_output: bool,
+
     /// Automatically add ARIA attributes for accessibility
     pub add_aria_attributes: bool,
+
     /// Generate structured data (JSON-LD) based on content
     pub generate_structured_data: bool,
+
     /// Maximum size (in bytes) for input content
     pub max_input_size: usize,
+
     /// Language for generated content
     pub language: String,
+
     /// Enable table of contents generation
     pub generate_toc: bool,
 }
@@ -181,12 +238,32 @@ impl Default for HtmlConfig {
 }
 
 impl HtmlConfig {
-    /// Creates a new `HtmlConfig` with default options
+    /// Creates a new `HtmlConfig` using the builder pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use html_generator::HtmlConfig;
+    ///
+    /// let config = HtmlConfig::builder()
+    ///     .with_syntax_highlighting(true, Some("monokai".to_string()))
+    ///     .with_language("en-GB")
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn builder() -> HtmlConfigBuilder {
         HtmlConfigBuilder::default()
     }
 
-    /// Validates the configuration
+    /// Validates the configuration settings.
+    ///
+    /// Checks that all configuration values are within acceptable ranges
+    /// and conform to required formats.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the configuration is valid, or an appropriate
+    /// error if validation fails.
     pub fn validate(&self) -> Result<()> {
         if self.max_input_size < constants::MIN_INPUT_SIZE {
             return Err(HtmlError::InvalidInput(format!(
@@ -203,7 +280,16 @@ impl HtmlConfig {
         Ok(())
     }
 
-    /// Validates file path safety
+    /// Validates file path safety to prevent directory traversal attacks.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path to validate
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the path is safe, or an appropriate error
+    /// if validation fails.
     pub(crate) fn validate_file_path(
         path: impl AsRef<Path>,
     ) -> Result<()> {
@@ -230,7 +316,6 @@ impl HtmlConfig {
             ));
         }
 
-        // Only check absolute paths in non-test mode
         #[cfg(not(test))]
         if path.is_absolute() {
             return Err(HtmlError::InvalidInput(
@@ -251,19 +336,27 @@ impl HtmlConfig {
     }
 }
 
-/// Builder for `HtmlConfig` to customize HTML generation options
+/// Builder for constructing `HtmlConfig` instances.
+///
+/// Provides a fluent interface for creating and customizing HTML
+/// configuration options.
 #[derive(Debug, Default)]
 pub struct HtmlConfigBuilder {
     config: HtmlConfig,
 }
 
 impl HtmlConfigBuilder {
-    /// Creates a new `HtmlConfigBuilder` with default options
+    /// Creates a new `HtmlConfigBuilder` with default options.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Enable or disable syntax highlighting for code blocks
+    /// Enables or disables syntax highlighting for code blocks.
+    ///
+    /// # Arguments
+    ///
+    /// * `enable` - Whether to enable syntax highlighting
+    /// * `theme` - Optional theme name for syntax highlighting
     #[must_use]
     pub fn with_syntax_highlighting(
         mut self,
@@ -279,27 +372,32 @@ impl HtmlConfigBuilder {
         self
     }
 
-    /// Set the language for generated content
+    /// Sets the language for generated content.
+    ///
+    /// # Arguments
+    ///
+    /// * `language` - The language code (e.g., "en-GB")
     #[must_use]
     pub fn with_language(
         mut self,
         language: impl Into<String>,
     ) -> Self {
-        // Store the language value regardless of validation
-        // Validation will happen during build()
         self.config.language = language.into();
         self
     }
 
-    /// Build the configuration, validating all settings
+    /// Builds the configuration, validating all settings.
+    ///
+    /// # Returns
+    ///
+    /// Returns the validated configuration or an error if validation fails.
     pub fn build(self) -> Result<HtmlConfig> {
-        // Validate the configuration before returning
         self.config.validate()?;
         Ok(self.config)
     }
 }
 
-/// Convert Markdown content to HTML
+/// Converts Markdown content to HTML.
 ///
 /// This function processes Unicode Markdown content and returns HTML output.
 /// The input must be valid Unicode - if your input is encoded (e.g., UTF-8),
@@ -325,12 +423,11 @@ impl HtmlConfigBuilder {
 ///
 /// ```rust
 /// use html_generator::{markdown_to_html, MarkdownConfig};
-/// # fn main() -> Result<(), html_generator::error::HtmlError> {
+///
 /// let markdown = "# Hello\n\nWorld";
 /// let html = markdown_to_html(markdown, None)?;
 /// assert!(html.contains("<h1>Hello</h1>"));
-/// # Ok(())
-/// # }
+/// # Ok::<(), html_generator::error::HtmlError>(())
 /// ```
 pub fn markdown_to_html(
     content: &str,
@@ -351,7 +448,7 @@ pub fn markdown_to_html(
     generate_html(content, &config.html_config)
 }
 
-/// Convert a Markdown file to HTML
+/// Converts a Markdown file to HTML.
 ///
 /// This function reads from a file or stdin and writes the generated HTML to
 /// a specified destination. It handles encoding/decoding of content.
@@ -364,33 +461,16 @@ pub fn markdown_to_html(
 ///
 /// # Returns
 ///
-/// Returns `Ok(())` on success or an error if the operation fails
+/// Returns `Ok
 ///
 /// # Errors
 ///
 /// Returns an error if:
-/// * The input file cannot be read
-/// * The output cannot be written
-/// * The content cannot be decoded/encoded with the specified encoding
-/// * HTML generation fails
+/// * Input file is not found or cannot be read
+/// * Output file cannot be written
+/// * Configuration is invalid
 /// * Input size exceeds configured maximum
 ///
-/// # Examples
-///
-/// ```no_run
-/// use html_generator::{markdown_file_to_html, MarkdownConfig, OutputDestination};
-/// # fn main() -> Result<(), html_generator::error::HtmlError> {
-/// let config = MarkdownConfig::default();
-/// let output = OutputDestination::File("output.html".to_string());
-///
-/// markdown_file_to_html(
-///     Some("input.md"),
-///     Some(output),
-///     Some(config)
-/// )?;
-/// # Ok(())
-/// # }
-/// ```
 pub fn markdown_file_to_html(
     input: Option<impl AsRef<Path>>,
     output: Option<OutputDestination>,
@@ -449,7 +529,9 @@ pub fn markdown_file_to_html(
 }
 
 /// Validates that a language code matches the BCP 47 format (e.g., "en-GB").
-/// Requires both language and region codes.
+///
+/// This function checks if a given language code follows the BCP 47 format,
+/// which requires both language and region codes.
 ///
 /// # Arguments
 ///
@@ -461,7 +543,7 @@ pub fn markdown_file_to_html(
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use html_generator::validate_language_code;
 ///
 /// assert!(validate_language_code("en-GB"));  // Valid
@@ -484,17 +566,19 @@ pub fn validate_language_code(lang: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Regex;
     use std::io::Cursor;
     use tempfile::{tempdir, TempDir};
 
-    /// Helper function to create a temporary test directory.
+    /// Creates a temporary test directory for file operations.
     ///
-    /// Returns a TempDir that will automatically clean up when dropped.
+    /// The directory and its contents are automatically cleaned up when
+    /// the returned TempDir is dropped.
     fn setup_test_dir() -> TempDir {
         tempdir().expect("Failed to create temporary directory")
     }
 
-    /// Helper function to create a test file with the given content.
+    /// Creates a test file with the given content.
     ///
     /// # Arguments
     ///
@@ -514,7 +598,6 @@ mod tests {
         path
     }
 
-    /// Tests for configuration-related functionality
     mod config_tests {
         use super::*;
 
@@ -565,21 +648,86 @@ mod tests {
                 .with_language("invalid")
                 .build();
 
-            assert!(result.is_err());
-            match result {
-                Err(HtmlError::InvalidInput(msg)) => {
-                    assert!(msg.contains("Invalid language code"),
-                "Expected error message about invalid language code, got: {}", msg);
-                }
-                err => panic!(
-                    "Expected InvalidInput error, got: {:?}",
-                    err
-                ),
-            }
+            assert!(matches!(
+                result,
+                Err(HtmlError::InvalidInput(msg)) if msg.contains("Invalid language code")
+            ));
+        }
+
+        #[test]
+        fn test_html_config_with_no_syntax_theme() {
+            let config = HtmlConfig {
+                enable_syntax_highlighting: true,
+                syntax_theme: None,
+                ..Default::default()
+            };
+
+            assert!(config.validate().is_ok());
+        }
+
+        #[test]
+        fn test_file_conversion_with_large_output() -> Result<()> {
+            let temp_dir = setup_test_dir();
+            let input_path = create_test_file(
+                &temp_dir,
+                "# Large\n\nContent".repeat(10_000).as_str(),
+            );
+            let output_path = temp_dir.path().join("large_output.html");
+
+            let result = markdown_file_to_html(
+                Some(&input_path),
+                Some(OutputDestination::File(
+                    output_path.to_string_lossy().into(),
+                )),
+                None,
+            );
+
+            assert!(result.is_ok());
+            let content = std::fs::read_to_string(output_path)?;
+            assert!(content.contains("<h1>Large</h1>"));
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_markdown_with_broken_syntax() {
+            let markdown = "# Unmatched Header\n**Bold start";
+            let result = markdown_to_html(markdown, None);
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Unmatched Header</h1>"));
+            assert!(html.contains("**Bold start</p>")); // Ensure content is preserved
+        }
+
+        #[test]
+        fn test_language_code_with_custom_regex() {
+            let custom_lang_regex =
+                Regex::new(r"^[a-z]{2}-[A-Z]{2}$").unwrap();
+            assert!(custom_lang_regex.is_match("en-GB"));
+            assert!(!custom_lang_regex.is_match("EN-gb")); // Case-sensitive check
+        }
+
+        #[test]
+        fn test_markdown_to_html_error_handling() {
+            let result = markdown_to_html("", None);
+            assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
+
+            let oversized_input =
+                "a".repeat(constants::DEFAULT_MAX_INPUT_SIZE + 1);
+            let result = markdown_to_html(&oversized_input, None);
+            assert!(matches!(result, Err(HtmlError::InputTooLarge(_))));
+        }
+
+        #[test]
+        fn test_performance_with_nested_lists() {
+            let nested_list = "- Item\n".repeat(1000);
+            let result = markdown_to_html(&nested_list, None);
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.matches("<li>").count() == 1000);
         }
     }
 
-    /// Tests for file path validation
     mod file_validation_tests {
         use super::*;
         use std::path::PathBuf;
@@ -620,16 +768,8 @@ mod tests {
                 );
             }
         }
-
-        #[test]
-        #[cfg(not(test))]
-        fn test_absolute_paths() {
-            let path = PathBuf::from("/absolute/path/test.md");
-            assert!(HtmlConfig::validate_file_path(&path).is_err());
-        }
     }
 
-    /// Tests for Markdown conversion functionality
     mod markdown_conversion_tests {
         use super::*;
 
@@ -657,27 +797,28 @@ mod tests {
 
             let result = markdown_to_html(markdown, Some(config));
             assert!(result.is_ok());
-
-            let html = result.unwrap();
-            assert!(html.contains("language-rust"));
+            assert!(result.unwrap().contains("language-rust"));
         }
 
         #[test]
         fn test_empty_content() {
-            let result = markdown_to_html("", None);
-            assert!(matches!(result, Err(HtmlError::InvalidInput(_))));
+            assert!(matches!(
+                markdown_to_html("", None),
+                Err(HtmlError::InvalidInput(_))
+            ));
         }
 
         #[test]
         fn test_content_too_large() {
             let large_content =
                 "a".repeat(constants::DEFAULT_MAX_INPUT_SIZE + 1);
-            let result = markdown_to_html(&large_content, None);
-            assert!(matches!(result, Err(HtmlError::InputTooLarge(_))));
+            assert!(matches!(
+                markdown_to_html(&large_content, None),
+                Err(HtmlError::InputTooLarge(_))
+            ));
         }
     }
 
-    /// Tests for file-based operations
     mod file_operation_tests {
         use super::*;
 
@@ -688,16 +829,15 @@ mod tests {
                 create_test_file(&temp_dir, "# Test\n\nHello world");
             let output_path = temp_dir.path().join("test.html");
 
-            let result = markdown_file_to_html(
+            markdown_file_to_html(
                 Some(&input_path),
                 Some(OutputDestination::File(
                     output_path.to_string_lossy().into(),
                 )),
                 None::<MarkdownConfig>,
-            );
+            )?;
 
-            assert!(result.is_ok());
-            let content = std::fs::read_to_string(&output_path)?;
+            let content = std::fs::read_to_string(output_path)?;
             assert!(content.contains("<h1>Test</h1>"));
 
             Ok(())
@@ -705,7 +845,6 @@ mod tests {
 
         #[test]
         fn test_writer_output() {
-            // Create a test file instead of using stdin
             let temp_dir = setup_test_dir();
             let input_path =
                 create_test_file(&temp_dir, "# Test\nHello");
@@ -725,16 +864,15 @@ mod tests {
             let buffer = Box::new(Cursor::new(Vec::new()));
 
             let result = markdown_file_to_html(
-                Some(Path::new("nonexistent.md")), // Use nonexistent file instead of None
+                Some(Path::new("nonexistent.md")),
                 Some(OutputDestination::Writer(buffer)),
                 None,
             );
 
-            assert!(result.is_err()); // Should fail with file not found error
+            assert!(result.is_err());
         }
     }
 
-    /// Tests for language code validation
     mod language_validation_tests {
         use super::*;
 
@@ -774,7 +912,6 @@ mod tests {
         }
     }
 
-    /// Integration tests for end-to-end functionality
     mod integration_tests {
         use super::*;
 
@@ -820,27 +957,6 @@ This is a test document with:
         }
 
         #[test]
-        fn test_error_handling() {
-            // Test non-existent file
-            let result = markdown_file_to_html(
-                Some(Path::new("nonexistent.md")),
-                None,
-                None,
-            );
-            assert!(result.is_err());
-
-            // Test invalid output path
-            let result = markdown_file_to_html(
-                Some(Path::new("test.md")),
-                Some(OutputDestination::File(
-                    "/invalid/path/test.html".to_string(),
-                )),
-                None,
-            );
-            assert!(result.is_err());
-        }
-
-        #[test]
         fn test_output_destination_debug() {
             assert_eq!(
                 format!(
@@ -853,11 +969,410 @@ This is a test document with:
                 format!("{:?}", OutputDestination::Stdout),
                 "Stdout"
             );
+
             let writer = Box::new(Cursor::new(Vec::new()));
             assert_eq!(
                 format!("{:?}", OutputDestination::Writer(writer)),
                 "Writer(<dyn Write>)"
             );
+        }
+    }
+
+    mod markdown_config_tests {
+        use super::*;
+
+        #[test]
+        fn test_markdown_config_custom_encoding() {
+            let config = MarkdownConfig {
+                encoding: "latin1".to_string(),
+                html_config: HtmlConfig::default(),
+            };
+            assert_eq!(config.encoding, "latin1");
+        }
+
+        #[test]
+        fn test_markdown_config_default() {
+            let config = MarkdownConfig::default();
+            assert_eq!(config.encoding, "utf-8");
+            assert_eq!(config.html_config, HtmlConfig::default());
+        }
+
+        #[test]
+        fn test_markdown_config_clone() {
+            let config = MarkdownConfig::default();
+            let cloned = config.clone();
+            assert_eq!(config, cloned);
+        }
+    }
+
+    mod config_error_tests {
+        use super::*;
+
+        #[test]
+        fn test_config_error_display() {
+            let error = ConfigError::InvalidInputSize(100, 1024);
+            assert!(error.to_string().contains("Invalid input size"));
+
+            let error =
+                ConfigError::InvalidLanguageCode("xx".to_string());
+            assert!(error
+                .to_string()
+                .contains("Invalid language code"));
+
+            let error =
+                ConfigError::InvalidFilePath("../bad/path".to_string());
+            assert!(error.to_string().contains("Invalid file path"));
+        }
+    }
+
+    mod output_destination_tests {
+        use super::*;
+
+        #[test]
+        fn test_output_destination_default() {
+            assert!(matches!(
+                OutputDestination::default(),
+                OutputDestination::Stdout
+            ));
+        }
+
+        #[test]
+        fn test_output_destination_file() {
+            let dest = OutputDestination::File("test.html".to_string());
+            assert!(matches!(dest, OutputDestination::File(_)));
+        }
+
+        #[test]
+        fn test_output_destination_writer() {
+            let writer = Box::new(Cursor::new(Vec::new()));
+            let dest = OutputDestination::Writer(writer);
+            assert!(matches!(dest, OutputDestination::Writer(_)));
+        }
+    }
+
+    mod html_config_tests {
+        use super::*;
+
+        #[test]
+        fn test_html_config_builder_all_options() {
+            let config = HtmlConfig::builder()
+                .with_syntax_highlighting(
+                    true,
+                    Some("dracula".to_string()),
+                )
+                .with_language("en-US")
+                .build()
+                .unwrap();
+
+            assert!(config.enable_syntax_highlighting);
+            assert_eq!(
+                config.syntax_theme,
+                Some("dracula".to_string())
+            );
+            assert_eq!(config.language, "en-US");
+        }
+
+        #[test]
+        fn test_html_config_validation_edge_cases() {
+            let config = HtmlConfig {
+                max_input_size: constants::MIN_INPUT_SIZE,
+                ..Default::default()
+            };
+            assert!(config.validate().is_ok());
+
+            let config = HtmlConfig {
+                max_input_size: constants::MIN_INPUT_SIZE - 1,
+                ..Default::default()
+            };
+            assert!(config.validate().is_err());
+        }
+    }
+
+    mod markdown_processing_tests {
+        use super::*;
+
+        #[test]
+        fn test_markdown_to_html_with_front_matter() -> Result<()> {
+            let markdown = r#"---
+title: Test
+author: Test Author
+---
+# Heading
+Content"#;
+            let html = markdown_to_html(markdown, None)?;
+            assert!(html.contains("<h1>Heading</h1>"));
+            assert!(html.contains("<p>Content</p>"));
+            Ok(())
+        }
+
+        #[test]
+        fn test_markdown_to_html_with_code_blocks() -> Result<()> {
+            let markdown = r#"```rust
+fn main() {
+    println!("Hello");
+}
+```"#;
+            let config = MarkdownConfig {
+                html_config: HtmlConfig {
+                    enable_syntax_highlighting: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let html = markdown_to_html(markdown, Some(config))?;
+            assert!(html.contains("language-rust"));
+            Ok(())
+        }
+
+        #[test]
+        fn test_markdown_to_html_with_tables() -> Result<()> {
+            let markdown = r#"
+| Header 1 | Header 2 |
+|----------|----------|
+| Cell 1   | Cell 2   |
+"#;
+            let html = markdown_to_html(markdown, None)?;
+            // First verify the HTML output to see what we're getting
+            println!("Generated HTML for table: {}", html);
+            // Check for common table elements - div wrapper is often used for table responsiveness
+            assert!(html.contains("Header 1"));
+            assert!(html.contains("Cell 1"));
+            assert!(html.contains("Cell 2"));
+            Ok(())
+        }
+
+        #[test]
+        fn test_invalid_encoding_handling() {
+            let config = MarkdownConfig {
+                encoding: "unsupported-encoding".to_string(),
+                html_config: HtmlConfig::default(),
+            };
+            // Simulate usage where encoding matters
+            let result = markdown_to_html("# Test", Some(config));
+            assert!(result.is_ok()); // Assuming encoding isn't directly validated during processing
+        }
+
+        #[test]
+        fn test_config_error_types() {
+            let error = ConfigError::InvalidInputSize(512, 1024);
+            assert_eq!(format!("{}", error), "Invalid input size: 512 bytes is below minimum of 1024 bytes");
+        }
+    }
+
+    mod file_processing_tests {
+        use crate::{
+            markdown_file_to_html, HtmlError, OutputDestination,
+        };
+        use std::path::Path;
+        use tempfile::NamedTempFile;
+
+        #[test]
+        fn test_file_to_html_invalid_input() {
+            let result = markdown_file_to_html(
+                Some(Path::new("nonexistent.md")),
+                None,
+                None,
+            );
+            assert!(matches!(result, Err(HtmlError::Io(_))));
+        }
+
+        #[test]
+        fn test_file_to_html_with_invalid_output_path(
+        ) -> Result<(), HtmlError> {
+            let input = NamedTempFile::new()?;
+            std::fs::write(&input, "# Test")?;
+
+            let result = markdown_file_to_html(
+                Some(input.path()),
+                Some(OutputDestination::File(
+                    "/invalid/path/test.html".to_string(),
+                )),
+                None,
+            );
+            assert!(result.is_err());
+            Ok(())
+        }
+    }
+
+    mod language_validation_extended_tests {
+        use super::*;
+
+        #[test]
+        fn test_language_code_edge_cases() {
+            // Test empty string
+            assert!(!validate_language_code(""));
+
+            // Test single character
+            assert!(!validate_language_code("a"));
+
+            // Test incorrect casing
+            assert!(!validate_language_code("EN-GB"));
+            assert!(!validate_language_code("en-gb"));
+
+            // Test invalid separators
+            assert!(!validate_language_code("en_GB"));
+            assert!(!validate_language_code("en GB"));
+
+            // Test too many segments
+            assert!(!validate_language_code("en-GB-extra"));
+        }
+
+        #[test]
+        fn test_language_code_special_cases() {
+            // Test with numbers
+            assert!(!validate_language_code("e1-GB"));
+            assert!(!validate_language_code("en-G1"));
+
+            // Test with special characters
+            assert!(!validate_language_code("en-GB!"));
+            assert!(!validate_language_code("en@GB"));
+
+            // Test with Unicode characters
+            assert!(!validate_language_code("あa-GB"));
+            assert!(!validate_language_code("en-あa"));
+        }
+    }
+
+    mod integration_extended_tests {
+        use super::*;
+
+        #[test]
+        fn test_full_conversion_pipeline() -> Result<()> {
+            // Create temporary files
+            let temp_dir = tempdir()?;
+            let input_path = temp_dir.path().join("test.md");
+            let output_path = temp_dir.path().join("test.html");
+
+            // Test content with various Markdown features
+            let content = r#"---
+title: Test Document
+author: Test Author
+---
+
+# Main Heading
+
+## Subheading
+
+This is a paragraph with *italic* and **bold** text.
+
+- List item 1
+- List item 2
+  - Nested item
+  - Another nested item
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+| Column 1 | Column 2 |
+|----------|----------|
+| Cell 1   | Cell 2   |
+
+> This is a blockquote
+
+[Link text](https://example.com)"#;
+
+            std::fs::write(&input_path, content)?;
+
+            // Configure with all features enabled
+            let config = MarkdownConfig {
+                html_config: HtmlConfig {
+                    enable_syntax_highlighting: true,
+                    generate_toc: true,
+                    add_aria_attributes: true,
+                    generate_structured_data: true,
+                    minify_output: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+
+            markdown_file_to_html(
+                Some(&input_path),
+                Some(OutputDestination::File(
+                    output_path.to_string_lossy().into(),
+                )),
+                Some(config),
+            )?;
+
+            let html = std::fs::read_to_string(&output_path)?;
+
+            // Verify all expected elements are present
+            println!("Generated HTML: {}", html);
+            assert!(html.contains("<h1>"));
+            assert!(html.contains("<h2>"));
+            assert!(html.contains("<em>"));
+            assert!(html.contains("<strong>"));
+            assert!(html.contains("<ul>"));
+            assert!(html.contains("<li>"));
+            assert!(html.contains("language-rust"));
+
+            // Verify table content instead of specific HTML structure
+            assert!(html.contains("Column 1"));
+            assert!(html.contains("Column 2"));
+            assert!(html.contains("Cell 1"));
+            assert!(html.contains("Cell 2"));
+
+            assert!(html.contains("<blockquote>"));
+            assert!(html.contains("<a href="));
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_missing_html_config_fallback() {
+            let config = MarkdownConfig {
+                encoding: "utf-8".to_string(),
+                html_config: HtmlConfig {
+                    enable_syntax_highlighting: false,
+                    syntax_theme: None,
+                    ..Default::default()
+                },
+            };
+            let result = markdown_to_html("# Test", Some(config));
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn test_invalid_output_destination() {
+            let result = markdown_file_to_html(
+                Some(Path::new("test.md")),
+                Some(OutputDestination::File(
+                    "/root/forbidden.html".to_string(),
+                )),
+                None,
+            );
+            assert!(result.is_err());
+        }
+    }
+
+    mod performance_tests {
+        use super::*;
+        use std::time::Instant;
+
+        #[test]
+        fn test_large_document_performance() -> Result<()> {
+            let base_content =
+                "# Heading\n\nParagraph\n\n- List item\n\n";
+            let large_content = base_content.repeat(1000);
+
+            let start = Instant::now();
+            let html = markdown_to_html(&large_content, None)?;
+            let duration = start.elapsed();
+
+            // Log performance metrics
+            println!("Large document conversion took: {:?}", duration);
+            println!("Input size: {} bytes", large_content.len());
+            println!("Output size: {} bytes", html.len());
+
+            // Basic validation
+            assert!(html.contains("<h1>"));
+            assert!(html.contains("<p>"));
+            assert!(html.contains("<ul>"));
+
+            Ok(())
         }
     }
 }
