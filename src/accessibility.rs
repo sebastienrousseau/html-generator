@@ -897,17 +897,13 @@ impl AccessibilityReport {
             if let Some(tabindex) = element.value().attr("tabindex") {
                 if let Ok(index) = tabindex.parse::<i32>() {
                     if index < 0 {
-                        Self::add_issue(
-                            issues,
-                            IssueType::KeyboardNavigation,
-                            "Negative tabindex prevents keyboard focus",
-                            Some("WCAG 2.1.1".to_string()),
-                            Some(element.html()),
-                            Some(
-                                "Remove negative tabindex value"
-                                    .to_string(),
-                            ),
-                        );
+                        issues.push(Issue {
+                        issue_type: IssueType::KeyboardNavigation,
+                        message: "Negative tabindex prevents keyboard focus".to_string(),
+                        guideline: Some("WCAG 2.1.1".to_string()),
+                        element: Some(element.html()),
+                        suggestion: Some("Remove negative tabindex value".to_string()),
+                    });
                     }
                 }
             }
@@ -917,14 +913,17 @@ impl AccessibilityReport {
                 && element.value().attr("onkeypress").is_none()
                 && element.value().attr("onkeydown").is_none()
             {
-                Self::add_issue(
-                    issues,
-                    IssueType::KeyboardNavigation,
-                    "Click handler without keyboard equivalent",
-                    Some("WCAG 2.1.1".to_string()),
-                    Some(element.html()),
-                    Some("Add keyboard event handlers".to_string()),
-                );
+                issues.push(Issue {
+                    issue_type: IssueType::KeyboardNavigation,
+                    message:
+                        "Click handler without keyboard equivalent"
+                            .to_string(),
+                    guideline: Some("WCAG 2.1.1".to_string()),
+                    element: Some(element.html()),
+                    suggestion: Some(
+                        "Add keyboard event handlers".to_string(),
+                    ),
+                });
             }
         }
         Ok(())
@@ -2213,6 +2212,109 @@ mod tests {
                 !cleaned_html.contains("aria-hidden"),
                 "Invalid ARIA attributes should be removed"
             );
+        }
+
+        // Test invalid selector handling
+        #[test]
+        fn test_invalid_selector() {
+            let invalid_selector = "div..class";
+            let result = try_create_selector(invalid_selector);
+            assert!(result.is_none());
+        }
+
+        // Test `issue_type` handling in `Issue` struct
+        #[test]
+        fn test_issue_type_in_issue_struct() {
+            let issue = Issue {
+                issue_type: IssueType::MissingAltText,
+                message: "Alt text is missing".to_string(),
+                guideline: Some("WCAG 1.1.1".to_string()),
+                element: Some("<img>".to_string()),
+                suggestion: Some(
+                    "Add descriptive alt text".to_string(),
+                ),
+            };
+            assert_eq!(issue.issue_type, IssueType::MissingAltText);
+        }
+
+        // Test `add_aria_to_navs`
+        #[test]
+        fn test_add_aria_to_navs() {
+            let html = "<nav>Main Navigation</nav>";
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_navs(builder).unwrap().build();
+            assert!(result.contains(r#"aria-label="navigation""#));
+            assert!(result.contains(r#"role="navigation""#));
+        }
+
+        // Test `add_aria_to_forms`
+        #[test]
+        fn test_add_aria_to_forms() {
+            let html = "<form>Form Content</form>";
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_forms(builder).unwrap().build();
+            assert!(result.contains(r#"aria-labelledby="form-"#));
+            assert!(result.contains(r#"role="form""#));
+        }
+
+        // Test `add_aria_to_inputs`
+        #[test]
+        fn test_add_aria_to_inputs() {
+            let html = r#"<input type="text">"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_inputs(builder).unwrap().build();
+            assert!(result.contains(r#"aria-label="text""#));
+            assert!(result.contains(r#"role="textbox""#));
+        }
+
+        // Test `check_keyboard_navigation` click handlers without keyboard equivalents
+        #[test]
+        fn test_check_keyboard_navigation_click_handlers() {
+            let html = r#"<button onclick="handleClick()"></button>"#;
+            let document = Html::parse_document(html);
+            let mut issues = vec![];
+
+            AccessibilityReport::check_keyboard_navigation(
+                &document,
+                &mut issues,
+            )
+            .unwrap();
+
+            assert!(
+        issues.iter().any(|i| i.message == "Click handler without keyboard equivalent"),
+        "Expected an issue for missing keyboard equivalents, but found: {:?}",
+        issues
+    );
+        }
+
+        // Test invalid language codes in `check_language_attributes`
+        #[test]
+        fn test_invalid_language_code() {
+            let html = r#"<html lang="invalid-lang"></html>"#;
+            let document = Html::parse_document(html);
+            let mut issues = vec![];
+            AccessibilityReport::check_language_attributes(
+                &document,
+                &mut issues,
+            )
+            .unwrap();
+            assert!(issues
+                .iter()
+                .any(|i| i.message.contains("Invalid language code")));
+        }
+
+        // Test `get_missing_required_aria_properties`
+        #[test]
+        fn test_missing_required_aria_properties() {
+            let html = r#"<div role="slider"></div>"#;
+            let fragment = Html::parse_fragment(html);
+            let element = fragment
+                .select(&Selector::parse("div").unwrap())
+                .next()
+                .unwrap();
+            let missing =
+                get_missing_required_aria_properties(&element).unwrap();
+            assert!(missing.contains(&"aria-valuenow".to_string()));
         }
     }
 }
