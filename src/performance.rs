@@ -557,7 +557,7 @@ mod tests {
                 assert!(source.is_some());
                 assert_eq!(
             source.unwrap().to_string(),
-            "task 1 panicked with message \"Simulated task failure\"".to_string()
+            "task 2 panicked with message \"Simulated task failure\"".to_string()
         );
             }
         }
