@@ -448,7 +448,8 @@ pub fn markdown_file_to_html(
     Ok(())
 }
 
-/// Validates that a language code matches the required pattern
+/// Validates that a language code matches the BCP 47 format (e.g., "en-GB").
+/// Requires both language and region codes.
 ///
 /// # Arguments
 ///
@@ -456,13 +457,25 @@ pub fn markdown_file_to_html(
 ///
 /// # Returns
 ///
-/// Returns true if the language code is valid, false otherwise
-fn validate_language_code(lang: &str) -> bool {
+/// Returns true if the language code is valid (e.g., "en-GB"), false otherwise.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::validate_language_code;
+///
+/// assert!(validate_language_code("en-GB"));  // Valid
+/// assert!(!validate_language_code("en"));    // Invalid - missing region
+/// assert!(!validate_language_code("123"));   // Invalid - not a language code
+/// assert!(!validate_language_code("en_GB")); // Invalid - wrong separator
+/// ```
+pub fn validate_language_code(lang: &str) -> bool {
     use once_cell::sync::Lazy;
     use regex::Regex;
 
     static LANG_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(constants::LANGUAGE_CODE_PATTERN).unwrap()
+        Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$")
+            .expect("Failed to compile language code regex")
     });
 
     LANG_REGEX.is_match(lang)
