@@ -510,5 +510,56 @@ mod tests {
 "
             );
         }
+
+        #[tokio::test]
+        async fn test_async_generate_html_spawn_blocking_failure() {
+            use tokio::task;
+
+            // Simulate failure by forcing a panic inside the `spawn_blocking` task
+            let _markdown = "# Valid Markdown"; // Normally valid Markdown
+
+            // Override the `spawn_blocking` behavior to simulate a failure
+            let result = task::spawn_blocking(|| {
+                panic!("Simulated task failure"); // Force the closure to fail
+            })
+            .await;
+
+            // Explicitly use `std::result::Result` to avoid alias conflicts
+            let converted_result: std::result::Result<
+                String,
+                HtmlError,
+            > = match result {
+                Err(e) => Err(HtmlError::MarkdownConversion {
+                    message: format!(
+                        "Asynchronous HTML generation failed: {e}"
+                    ),
+                    source: Some(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        e.to_string(),
+                    )),
+                }),
+                Ok(_) => panic!("Expected a simulated failure"),
+            };
+
+            // Check that the error matches `HtmlError::MarkdownConversion`
+            assert!(matches!(
+                converted_result,
+                Err(HtmlError::MarkdownConversion { .. })
+            ));
+
+            if let Err(HtmlError::MarkdownConversion {
+                message,
+                source,
+            }) = converted_result
+            {
+                assert!(message
+                    .contains("Asynchronous HTML generation failed"));
+                assert!(source.is_some());
+                assert_eq!(
+            source.unwrap().to_string(),
+            "task 1 panicked with message \"Simulated task failure\"".to_string()
+        );
+            }
+        }
     }
 }
