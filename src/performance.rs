@@ -564,5 +564,73 @@ mod tests {
                 );
             }
         }
+
+        #[test]
+        fn test_minify_html_empty_content() {
+            let html = "";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert!(
+                result.unwrap().is_empty(),
+                "Minified content should be empty"
+            );
+            drop(dir);
+        }
+
+        #[test]
+        fn test_minify_html_unusual_whitespace() {
+            let html =
+                "<html>\n\n\t<body>\t<p>Test</p>\n\n</body>\n\n</html>";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                "<html><body><p>Test</p></body></html>",
+                "Unexpected minified result for unusual whitespace"
+            );
+            drop(dir);
+        }
+
+        #[test]
+        fn test_minify_html_with_special_characters() {
+            let html = "<div>&lt;Special&gt; &amp; Characters</div>";
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+        result.unwrap(),
+        "<div>&LTSpecial> & Characters</div>",
+        "Special characters were unexpectedly modified during minification"
+    );
+            drop(dir);
+        }
+
+        #[tokio::test]
+        async fn test_async_generate_html_with_special_characters() {
+            let markdown =
+                "# Special & Characters\n\nContent with < > & \" '";
+            let result = async_generate_html(markdown).await;
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(
+                html.contains("&lt;"),
+                "Less than sign not escaped"
+            );
+            assert!(
+                html.contains("&gt;"),
+                "Greater than sign not escaped"
+            );
+            assert!(html.contains("&amp;"), "Ampersand not escaped");
+            assert!(
+                html.contains("&quot;"),
+                "Double quote not escaped"
+            );
+            assert!(
+                html.contains("&#39;") || html.contains("'"),
+                "Single quote not handled as expected"
+            );
+        }
     }
 }
