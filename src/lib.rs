@@ -56,11 +56,11 @@ pub use utils::{extract_front_matter, format_header_with_id_class};
 
 /// Common constants used throughout the library
 pub mod constants {
-    /// Default maximum input size (5MB)
+    /// Maximum allowed input size (5MB) to prevent denial of service attacks
     pub const DEFAULT_MAX_INPUT_SIZE: usize = 5 * 1024 * 1024;
-    /// Minimum input size (1KB)
+    /// Minimum required input size (1KB) for meaningful processing
     pub const MIN_INPUT_SIZE: usize = 1024;
-    /// Default language code (en-GB)
+    /// Default language code for HTML generation (British English)
     pub const DEFAULT_LANGUAGE: &str = "en-GB";
     /// Default syntax highlighting theme (github)
     pub const DEFAULT_SYNTAX_THEME: &str = "github";
