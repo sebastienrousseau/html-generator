@@ -1886,5 +1886,101 @@ mod tests {
             let cleaned_html = remove_invalid_aria_attributes(html);
             assert_eq!(cleaned_html, html, "Unexpectedly modified valid custom element with ARIA attributes");
         }
+
+        #[test]
+        fn test_add_aria_to_buttons() {
+            let html = r#"<button>Click me</button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+            assert!(result.contains("aria-label"));
+        }
+
+        #[test]
+        fn test_add_aria_to_empty_buttons() {
+            let html = r#"<button></button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap();
+            assert!(result.build().contains("aria-label"));
+        }
+
+        #[test]
+        fn test_validate_wcag_empty_html() {
+            let html = "";
+            let config = AccessibilityConfig::default();
+            let disable_checks = None;
+
+            let result = validate_wcag(html, &config, disable_checks);
+
+            match result {
+                Ok(report) => assert!(
+                    report.issues.is_empty(),
+                    "Empty HTML should have no issues"
+                ),
+                Err(e) => {
+                    panic!("Validation failed with error: {:?}", e)
+                }
+            }
+        }
+
+        #[test]
+        fn test_validate_wcag_with_complex_html() {
+            let html = "
+            <html>
+                <head></head>
+                <body>
+                    <button>Click me</button>
+                    <a href=\"\\#\"></a>
+                </body>
+            </html>
+        ";
+            let config = AccessibilityConfig::default();
+            let disable_checks = None;
+            let result = validate_wcag(html, &config, disable_checks);
+
+            match result {
+                Ok(report) => assert!(
+                    !report.issues.is_empty(),
+                    "Report should have issues"
+                ),
+                Err(e) => {
+                    panic!("Validation failed with error: {:?}", e)
+                }
+            }
+        }
+
+        #[test]
+        fn test_generate_unique_id_uniqueness() {
+            let id1 = generate_unique_id();
+            let id2 = generate_unique_id();
+            assert_ne!(id1, id2);
+        }
+
+        #[test]
+        fn test_try_create_selector_valid() {
+            let selector = "div.class";
+            let result = try_create_selector(selector);
+            assert!(result.is_some());
+        }
+
+        #[test]
+        fn test_try_create_selector_invalid() {
+            let selector = "div..class";
+            let result = try_create_selector(selector);
+            assert!(result.is_none());
+        }
+
+        #[test]
+        fn test_try_create_regex_valid() {
+            let pattern = r"\d+";
+            let result = try_create_regex(pattern);
+            assert!(result.is_some());
+        }
+
+        #[test]
+        fn test_try_create_regex_invalid() {
+            let pattern = r"\d+(";
+            let result = try_create_regex(pattern);
+            assert!(result.is_none());
+        }
     }
 }
