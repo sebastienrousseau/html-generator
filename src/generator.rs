@@ -503,4 +503,120 @@ author: John Doe
         "Header not rendered correctly or content not properly handled"
     );
     }
+
+    /// Test handling of Markdown with a mix of valid and invalid syntax.
+    #[test]
+    fn test_generate_html_mixed_markdown() {
+        let markdown = r"# Valid Header
+Some **bold text** followed by invalid Markdown:
+~~strikethrough~~ without a closing tag.";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(
+            html.contains("<h1>Valid Header</h1>"),
+            "Header not found"
+        );
+        assert!(
+            html.contains("<strong>bold text</strong>"),
+            "Bold text not rendered correctly"
+        );
+        assert!(
+            html.contains("<del>strikethrough</del>"),
+            "Strikethrough not rendered correctly"
+        );
+    }
+
+    /// Test handling of deeply nested Markdown content.
+    #[test]
+    fn test_generate_html_deeply_nested_content() {
+        let markdown = r"
+1. Level 1
+    1.1. Level 2
+        1.1.1. Level 3
+            1.1.1.1. Level 4
+";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(html.contains("<ol>"), "Ordered list not rendered");
+        assert!(html.contains("<li>Level 1"), "Level 1 not rendered");
+        assert!(
+            html.contains("1.1.1.1. Level 4"),
+            "Deeply nested levels not rendered correctly"
+        );
+    }
+
+    /// Test Markdown with embedded raw HTML content.
+    #[test]
+    fn test_generate_html_with_raw_html() {
+        let markdown = r"
+# Header with HTML
+<p>This is a paragraph with <strong>HTML</strong>.</p>
+";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(
+            html.contains("<p>This is a paragraph with <strong>HTML</strong>.</p>"),
+            "Raw HTML content not preserved in output"
+        );
+    }
+
+    /// Test Markdown with invalid front matter format.
+    #[test]
+    fn test_generate_html_invalid_front_matter_handling() {
+        let markdown = "---
+key_without_value
+another_key: valid
+---
+# Markdown Content
+";
+        let result = generate_html(markdown, &HtmlConfig::default());
+        assert!(
+            result.is_ok(),
+            "Invalid front matter should not cause an error"
+        );
+        let html = result.unwrap();
+        assert!(
+            html.contains("<h1>Markdown Content</h1>"),
+            "Content not processed correctly"
+        );
+    }
+
+    /// Test handling of very large front matter in Markdown.
+    #[test]
+    fn test_generate_html_large_front_matter() {
+        let front_matter = "---\n".to_owned()
+            + &"key: value\n".repeat(10_000)
+            + "---\n# Content";
+        let result =
+            generate_html(&front_matter, &HtmlConfig::default());
+        assert!(
+            result.is_ok(),
+            "Large front matter should be handled gracefully"
+        );
+        let html = result.unwrap();
+        assert!(
+            html.contains("<h1>Content</h1>"),
+            "Content not rendered correctly"
+        );
+    }
+
+    /// Test handling of Markdown with long consecutive lines.
+    #[test]
+    fn test_generate_html_with_long_lines() {
+        let markdown = "A ".repeat(10_000);
+        let result = markdown_to_html_with_extensions(&markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(
+            html.contains("A A A A"),
+            "Long consecutive lines should be rendered properly"
+        );
+    }
 }
