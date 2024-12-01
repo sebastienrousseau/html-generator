@@ -434,6 +434,39 @@ mod tests {
         use super::*;
 
         #[test]
+        fn handles_duplicate_meta_tags() {
+            let meta_tags = MetaTagsBuilder::new()
+                .with_title("Duplicate Test")
+                .with_description("Testing duplicates")
+                .add_meta_tag("author", "John Doe")
+                .add_meta_tag("author", "Jane Doe")
+                .build()
+                .unwrap();
+
+            assert!(meta_tags.contains(r#"content="John Doe""#));
+            assert!(meta_tags.contains(r#"content="Jane Doe""#));
+        }
+
+        #[test]
+        fn handles_multiple_add_meta_tags_calls() {
+            let mut builder = MetaTagsBuilder::new()
+                .with_title("Test")
+                .with_description("Description");
+            builder = builder.add_meta_tags(vec![(
+                "key1".to_string(),
+                "value1".to_string(),
+            )]);
+            builder = builder.add_meta_tags(vec![(
+                "key2".to_string(),
+                "value2".to_string(),
+            )]);
+            let meta_tags = builder.build().unwrap();
+
+            assert!(meta_tags.contains(r#"content="value1""#));
+            assert!(meta_tags.contains(r#"content="value2""#));
+        }
+
+        #[test]
         fn builds_basic_meta_tags() {
             let meta_tags = MetaTagsBuilder::new()
                 .with_title("Test Title")
@@ -532,11 +565,47 @@ mod tests {
             let expected = "Text with &lt;tags&gt; &amp; &quot;quotes&quot; &#x27;here&#x27;";
             assert_eq!(escape_html(input), expected);
         }
+
+        #[test]
+        fn handles_large_input() {
+            let large_input = "<>".repeat(100_000);
+            let escaped = escape_html(&large_input);
+            assert!(escaped.contains("&lt;&gt;"));
+        }
     }
 
     /// Tests for structured data functionality
     mod structured_data {
         use super::*;
+
+        #[test]
+        fn handles_deeply_nested_configuration() {
+            let html = r"<html><head><title>Nested Test</title></head><body><p>Description</p></body></html>";
+            let mut additional_data = HashMap::new();
+            _ = additional_data
+                .insert("level1".to_string(), "value1".to_string());
+            _ = additional_data
+                .insert("level2".to_string(), "value2".to_string());
+
+            let config = StructuredDataConfig {
+                page_type: "TestType".to_string(),
+                additional_types: vec!["ExtraType".to_string()],
+                additional_data: Some(additional_data),
+            };
+
+            let result =
+                generate_structured_data(html, Some(config)).unwrap();
+            let json_content = extract_json_from_script(&result);
+            let parsed: serde_json::Value =
+                serde_json::from_str(&json_content).unwrap();
+
+            assert_eq!(
+                parsed["@type"],
+                serde_json::json!(["TestType", "ExtraType"])
+            );
+            assert_eq!(parsed["level1"], "value1");
+            assert_eq!(parsed["level2"], "value2");
+        }
 
         #[test]
         fn generates_basic_structured_data() {
@@ -646,6 +715,20 @@ mod tests {
                 generate_meta_tags(html),
                 Err(HtmlError::MissingHtmlElement(ref e)) if e == "description"
             ));
+        }
+
+        #[test]
+        fn invalid_additional_data_keys() {
+            let mut additional_data = HashMap::new();
+            _ = additional_data
+                .insert("<invalid>".to_string(), "value".to_string());
+            let config = StructuredDataConfig {
+                additional_data: Some(additional_data),
+                ..Default::default()
+            };
+            let result =
+                generate_structured_data("<html></html>", Some(config));
+            assert!(result.is_err());
         }
     }
 }
