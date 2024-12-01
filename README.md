@@ -1,3 +1,4 @@
+
 <!-- markdownlint-disable MD033 MD041 -->
 <img src="https://kura.pro/html-generator/images/logos/html-generator.svg"
 alt="HTML Generator logo" height="66" align="right" />
@@ -5,7 +6,7 @@ alt="HTML Generator logo" height="66" align="right" />
 
 # HTML Generator (html-generator)
 
-A Rust-based HTML generation and optimization library.
+A comprehensive Rust library for transforming Markdown into optimised, accessible HTML.
 
 <!-- markdownlint-disable MD033 MD041 -->
 <center>
@@ -19,85 +20,129 @@ A Rust-based HTML generation and optimization library.
 </center>
 <!-- markdownlint-enable MD033 MD041 -->
 
-## Overview
+## Overview 🎯
 
-The `html-generator` is a robust Rust library designed for transforming Markdown into SEO-optimized, accessible HTML. Featuring front matter extraction, custom header processing, table of contents generation, and performance optimization for web projects of any scale.
+The `html-generator` library simplifies the process of transforming Markdown into SEO-optimised, accessible HTML. This library provides tools for processing front matter, generating semantic headers, validating accessibility, and optimising performance for modern web applications.
 
-## Features
+## Features ✨
 
-- **Markdown to HTML Conversion**: Convert Markdown content to HTML with support for custom extensions.
-- **Front Matter Extraction**: Extract and process front matter from Markdown content.
-- **Advanced Header Processing**: Automatically generate id and class attributes for headers.
-- **Table of Contents Generation**: Create a table of contents from HTML content.
-- **SEO Optimization**: Generate meta tags and structured data (JSON-LD) for improved search engine visibility.
-- **Accessibility Enhancements**: Add ARIA attributes and validate against WCAG guidelines.
-- **Performance Optimization**: Minify HTML output and support asynchronous generation for large sites.
-- **Flexible Configuration**: Customize the HTML generation process through a comprehensive set of options.
+### Markdown to HTML Conversion
 
-## Installation
+- **Standard and Custom Extensions**: Supports GFM and extensible custom syntax.
+- **Front Matter Parsing**: Processes YAML/TOML/JSON front matter seamlessly.
+- **Header Customisation**: Generates semantic headers with custom IDs and classes.
 
-Add this to your `Cargo.toml`:
+### SEO and Accessibility
+
+- **SEO Utilities**: Automatically generates meta tags and JSON-LD structured data.
+- **Accessibility Enhancements**: Validates against WCAG standards and supports ARIA attributes.
+- **Semantic HTML**: Ensures well-structured, readable markup.
+
+### Performance Optimisations
+
+- **Asynchronous Processing**: Handles large documents efficiently with async support.
+- **HTML Minification**: Reduces file sizes while maintaining functionality.
+- **Lightweight**: Optimised for minimal memory usage and fast execution.
+
+### Developer-Friendly
+
+- **Configurable API**: Extensively configurable options for flexible use cases.
+- **Detailed Errors**: Comprehensive error types for easier debugging.
+- **Rich Documentation**: Includes examples and detailed usage guides.
+
+## Installation 🚀
+
+Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-html-generator = "0.0.1"
+html-generator = "0.0.2"
 ```
 
-## Usage
+## Usage 💻
 
-Here's a basic example of how to use `html-generator`:
+### Basic Example
 
 ```rust
-use html_generator::utils::{extract_front_matter, format_header_with_id_class, generate_table_of_contents};
+use html_generator::{generate_html, HtmlConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Extract front matter
-    let content = "---\ntitle: My Page\n---\n# Hello, world!\n\nThis is a test.";
-    let content_without_front_matter = extract_front_matter(content)?;
-    println!("Content without front matter:\n{}", content_without_front_matter);
+    let config = HtmlConfig::default();
 
-    // Format header with ID and class
-    let header = "<h2>Hello, World!</h2>";
-    let formatted_header = format_header_with_id_class(header, None, None)?;
-    println!("Formatted header:\n{}", formatted_header);
+    let markdown = "# Welcome to HTML Generator
 
-    // Generate table of contents
-    let html = "<h1>Title</h1><p>Some content</p><h2>Subtitle</h2><p>More content</p>";
-    let toc = generate_table_of_contents(html)?;
-    println!("Table of contents:\n{}", toc);
+This library makes HTML creation effortless.";
+    let html = generate_html(markdown, &config)?;
 
+    println!("Generated HTML:
+{}", html);
     Ok(())
 }
 ```
 
-## Documentation
+### Advanced Example
 
-For full API documentation, please visit [docs.rs/html-generator][04].
+```rust
+use html_generator::{
+    accessibility::validate_wcag,
+    seo::{generate_meta_tags, generate_structured_data},
+    HtmlConfig,
+};
 
-## Examples
+async fn advanced_example() -> Result<String, Box<dyn std::error::Error>> {
+    let config = HtmlConfig::builder()
+        .with_language("en-GB")
+        .with_syntax_highlighting(true, Some("dracula".to_string()))
+        .build()?;
 
-To run the examples, clone the repository and use the following command:
+    let markdown = "# Advanced Example
 
-```shell
-cargo run --example example_name
+Features include syntax highlighting and WCAG validation.";
+    let html = generate_html(markdown, &config)?;
+
+    validate_wcag(&html, &config, None)?;
+    let meta_tags = generate_meta_tags(&html)?;
+    let structured_data = generate_structured_data(&html, None)?;
+
+    Ok(format!("{}
+{}
+{}", meta_tags, structured_data, html))
+}
 ```
 
-## Contributing
+## Examples 💡
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Run examples from the repository:
 
-## License
+```bash
+git clone https://github.com/sebastienrousseau/html-generator.git
+cd html-generator
+cargo run --example basic
+```
 
-This project is licensed under either of
+## Documentation 📚
+
+- [API Documentation][04]: Detailed function and struct definitions.
+- [Example Code](https://github.com/sebastienrousseau/html-generator/tree/main/examples): Practical, real-world use cases.
+
+## Contributing 🤝
+
+We welcome contributions of all kinds! Please read our [Contributing Guidelines][05] for instructions on:
+
+- Reporting issues
+- Requesting features
+- Submitting code
+
+## License 📜
+
+This project is licensed under either of the following at your choice:
 
 - [Apache License, Version 2.0][10]
 - [MIT license][11]
 
-at your option.
+## Acknowledgements 🙏
 
-## Acknowledgements
-
-Special thanks to all contributors who have helped build the `html-generator` library.
+Heartfelt thanks to all contributors who have supported the development of `html-generator`.
 
 [00]: https://html-generator.co
 [01]: https://lib.rs/crates/html-generator
@@ -113,9 +158,10 @@ Special thanks to all contributors who have helped build the `html-generator` li
 [11]: https://opensource.org/licenses/MIT
 
 [build-badge]: https://img.shields.io/github/actions/workflow/status/sebastienrousseau/html-generator/release.yml?branch=main&style=for-the-badge&logo=github
+
 [codecov-badge]: https://img.shields.io/codecov/c/github/sebastienrousseau/html-generator?style=for-the-badge&token=Q9KJ6XXL67&logo=codecov
 [crates-badge]: https://img.shields.io/crates/v/html-generator.svg?style=for-the-badge&color=fc8d62&logo=rust
-[docs-badge]: https://img.shields.io/badge/docs.rs-metadata--gen-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
-[github-badge]: https://img.shields.io/badge/github-sebastienrousseau/metadata--gen-8da0cb?style=for-the-badge&labelColor=555555&logo=github
-[libs-badge]: https://img.shields.io/badge/lib.rs-v0.0.1-orange.svg?style=for-the-badge
+[docs-badge]: https://img.shields.io/badge/docs.rs-html--generator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
+[github-badge]: https://img.shields.io/badge/github-sebastienrousseau/html--generator-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+[libs-badge]: https://img.shields.io/badge/lib.rs-v0.0.2-orange.svg?style=for-the-badge
 [made-with-rust]: https://img.shields.io/badge/rust-f04041?style=for-the-badge&labelColor=c0282d&logo=rust

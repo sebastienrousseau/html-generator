@@ -1,7 +1,7 @@
 // src/examples/error_example.rs
 #![allow(missing_docs)]
 
-use html_generator::error::HtmlError;
+use html_generator::error::{ErrorKind, HtmlError, SeoErrorKind};
 
 /// Entry point for the html-generator error handling examples.
 ///
@@ -97,7 +97,7 @@ fn io_error_example() -> Result<(), HtmlError> {
         std::io::ErrorKind::NotFound,
         "File not found",
     );
-    let error = HtmlError::IoError(io_error);
+    let error = HtmlError::Io(io_error);
     println!("    ✅ Created IO Error: {}", error);
 
     Ok(())
@@ -148,8 +148,9 @@ fn markdown_conversion_error_example() -> Result<(), HtmlError> {
     println!("\n🦀 Markdown Conversion Error Example");
     println!("---------------------------------------------");
 
-    let error = HtmlError::MarkdownConversionError(
+    let error = HtmlError::markdown_conversion(
         "Failed to convert markdown".to_string(),
+        None,
     );
     println!("    ✅ Created Markdown Conversion Error: {}", error);
 
@@ -161,9 +162,11 @@ fn seo_optimization_error_example() -> Result<(), HtmlError> {
     println!("\n🦀 SEO Optimization Error Example");
     println!("---------------------------------------------");
 
-    let error = HtmlError::SeoOptimizationError(
-        "SEO issue occurred".to_string(),
-    );
+    let error = HtmlError::Seo {
+        message: "SEO issue occurred".to_string(),
+        element: Some("meta".to_string()),
+        kind: SeoErrorKind::Other,
+    };
     println!("    ✅ Created SEO Optimization Error: {}", error);
 
     Ok(())
@@ -174,9 +177,11 @@ fn accessibility_error_example() -> Result<(), HtmlError> {
     println!("\n🦀 Accessibility Error Example");
     println!("---------------------------------------------");
 
-    let error = HtmlError::AccessibilityError(
-        "Failed to add ARIA attributes".to_string(),
-    );
+    let error = HtmlError::Accessibility {
+        message: "Failed to add ARIA attributes".to_string(),
+        kind: ErrorKind::Other,
+        wcag_guideline: Some("1.1.1".to_string()),
+    };
     println!("    ✅ Created Accessibility Error: {}", error);
 
     Ok(())
