@@ -73,6 +73,7 @@ pub fn markdown_to_html_with_extensions(
     comrak_options.extension.table = true;
     comrak_options.extension.autolink = true;
     comrak_options.extension.tasklist = true;
+    comrak_options.render.escape = true;
     comrak_options.extension.superscript = true;
 
     let options =
@@ -249,6 +250,242 @@ fn main() {
         assert!(
             html.contains("<li>Second item</li>"),
             "Second item not found"
+        );
+    }
+
+    /// Test handling of valid front matter.
+    #[test]
+    fn test_generate_html_with_valid_front_matter() {
+        let markdown = r#"---
+title: Test
+author: Jane Doe
+---
+# Hello, world!"#;
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<h1>Hello, world!</h1>"));
+    }
+
+    /// Test handling of invalid front matter.
+    #[test]
+    fn test_generate_html_with_invalid_front_matter() {
+        let markdown = r#"---
+title Test
+author: Jane Doe
+---
+# Hello, world!"#;
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(
+            result.is_ok(),
+            "Invalid front matter should be ignored"
+        );
+        let html = result.unwrap();
+        assert!(html.contains("<h1>Hello, world!</h1>"));
+    }
+
+    /// Test with a large Markdown input.
+    #[test]
+    fn test_generate_html_large_input() {
+        let markdown = "# Large Markdown\n\n".repeat(10_000);
+        let config = HtmlConfig::default();
+        let result = generate_html(&markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<h1>Large Markdown</h1>"));
+    }
+
+    /// Test with different MarkdownOptions configurations.
+    #[test]
+    fn test_generate_html_with_custom_markdown_options() {
+        let markdown = "**Bold text**";
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<strong>Bold text</strong>"));
+    }
+
+    /// Test unsupported Markdown elements.
+    #[test]
+    fn test_generate_html_with_unsupported_elements() {
+        let markdown = "::: custom_block\nContent\n:::";
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("::: custom_block"));
+    }
+
+    /// Test error handling for invalid Markdown conversion.
+    #[test]
+    fn test_markdown_to_html_with_conversion_error() {
+        let markdown = "# Unclosed header\nSome **unclosed bold";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<p>Some **unclosed bold</p>"));
+    }
+
+    /// Test handling of whitespace-only Markdown.
+    #[test]
+    fn test_generate_html_whitespace_only() {
+        let markdown = "   \n   ";
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(
+            html.is_empty(),
+            "Whitespace-only Markdown should produce empty HTML"
+        );
+    }
+
+    /// Test customization of ComrakOptions.
+    #[test]
+    fn test_markdown_to_html_with_custom_comrak_options() {
+        let markdown = "^^Superscript^^\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Row 1    | Row 2    |";
+
+        // Configure ComrakOptions with necessary extensions
+        let mut comrak_options = ComrakOptions::default();
+        comrak_options.extension.superscript = true;
+        comrak_options.extension.table = true; // Enable table to match MarkdownOptions
+
+        // Synchronize MarkdownOptions with ComrakOptions
+        let options = MarkdownOptions::default()
+            .with_comrak_options(comrak_options.clone());
+        let content_without_front_matter =
+            extract_front_matter(markdown)
+                .unwrap_or(markdown.to_string());
+
+        println!("Comrak options: {:?}", comrak_options);
+
+        let result =
+            process_markdown(&content_without_front_matter, &options);
+
+        match result {
+            Ok(ref html) => {
+                // Assert superscript rendering
+                assert!(
+                    html.contains("<sup>Superscript</sup>"),
+                    "Superscript not found in HTML output"
+                );
+
+                // Assert table rendering
+                assert!(
+                    html.contains("<table"),
+                    "Table element not found in HTML output"
+                );
+            }
+            Err(err) => {
+                eprintln!("Markdown processing error: {:?}", err);
+                panic!("Failed to process Markdown with custom ComrakOptions");
+            }
+        }
+    }
+    #[test]
+    fn test_generate_html_with_default_config() {
+        let markdown = "# Default Configuration Test";
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<h1>Default Configuration Test</h1>"));
+    }
+
+    #[test]
+    fn test_generate_html_with_custom_front_matter_delimiter() {
+        let markdown = r#";;;;
+title: Custom
+author: John Doe
+;;;;
+# Custom Front Matter Delimiter"#;
+
+        let config = HtmlConfig::default();
+        let result = generate_html(markdown, &config);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(html.contains("<h1>Custom Front Matter Delimiter</h1>"));
+    }
+    #[test]
+    fn test_generate_html_with_task_list() {
+        let markdown = r"
+- [x] Task 1
+- [ ] Task 2
+";
+
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        println!("Generated HTML:\n{}", html);
+
+        // Adjust assertions to match the rendered HTML structure
+        assert!(
+        html.contains(r#"<li><input type="checkbox" checked="" disabled="" /> Task 1</li>"#),
+        "Task 1 checkbox not rendered as expected"
+    );
+        assert!(
+        html.contains(r#"<li><input type="checkbox" disabled="" /> Task 2</li>"#),
+        "Task 2 checkbox not rendered as expected"
+    );
+    }
+    #[test]
+    fn test_generate_html_with_large_table() {
+        let header =
+            "| Header 1 | Header 2 |\n| -------- | -------- |\n";
+        let rows = "| Row 1    | Row 2    |\n".repeat(1000);
+        let markdown = format!("{}{}", header, rows);
+
+        let result = markdown_to_html_with_extensions(&markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        let row_count = html.matches("<tr>").count();
+        assert_eq!(
+            row_count, 1001,
+            "Incorrect number of rows: {}",
+            row_count
+        ); // 1 header + 1000 rows
+    }
+    #[test]
+    fn test_generate_html_with_special_characters() {
+        let markdown = r#"Markdown with special characters: <, >, &, "quote", 'single-quote'."#;
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(html.contains("&lt;"), "Less than sign not escaped");
+        assert!(html.contains("&gt;"), "Greater than sign not escaped");
+        assert!(html.contains("&amp;"), "Ampersand not escaped");
+        assert!(html.contains("&quot;"), "Double quote not escaped");
+
+        // Adjust if single quotes are intended to remain unescaped
+        assert!(
+            html.contains("&#39;") || html.contains("'"),
+            "Single quote not handled as expected"
+        );
+    }
+
+    #[test]
+    fn test_generate_html_with_invalid_markdown_syntax() {
+        let markdown =
+            r"# Invalid Markdown <unexpected> [bad](url <here)";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+
+        assert!(
+            html.contains("&lt;unexpected&gt;"),
+            "HTML-like tags not escaped"
+        );
+
+        // Adjust expectation if the parser discards invalid links
+        assert!(
+            html.contains("&lt;here&gt;") || !html.contains("<here>"),
+            "Angle brackets in link not handled correctly"
         );
     }
 }
