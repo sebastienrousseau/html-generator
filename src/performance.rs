@@ -424,4 +424,91 @@ mod tests {
             assert!(html.contains("<h1>Test</h1>"));
         }
     }
+
+    mod additional_tests {
+        use super::*;
+        use std::fs::File;
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        /// Test for default MinifyConfig values.
+        #[test]
+        fn test_minify_config_default() {
+            let config = MinifyConfig::default();
+            assert!(config.cfg.do_not_minify_doctype);
+            assert!(config.cfg.minify_css);
+            assert!(config.cfg.minify_js);
+            assert!(!config.cfg.keep_comments);
+        }
+
+        /// Test for custom MinifyConfig values.
+        #[test]
+        fn test_minify_config_custom() {
+            let mut config = MinifyConfig::default();
+            config.cfg.keep_comments = true;
+            assert!(config.cfg.keep_comments);
+        }
+
+        /// Test for uncommon HTML structures in minify_html.
+        #[test]
+        fn test_minify_html_uncommon_structures() {
+            let html = r#"<div><span>Test<div><p>Nested</p></div></span></div>"#;
+            let (dir, file_path) = create_test_file(html);
+            let result = minify_html(&file_path);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                r#"<div><span>Test<div><p>Nested</p></div></span></div>"#
+            );
+            drop(dir);
+        }
+
+        /// Test for mixed encodings in minify_html.
+        #[test]
+        fn test_minify_html_mixed_encodings() {
+            let dir =
+                tempdir().expect("Failed to create temp directory");
+            let file_path = dir.path().join("mixed_encoding.html");
+            {
+                let mut file = File::create(&file_path)
+                    .expect("Failed to create test file");
+                file.write_all(&[0xFF, b'T', b'e', b's', b't', 0xFE])
+                    .expect("Failed to write test content");
+            }
+            let result = minify_html(&file_path);
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+            drop(dir);
+        }
+
+        /// Test for extremely large Markdown content in async_generate_html.
+        #[tokio::test]
+        async fn test_async_generate_html_extremely_large() {
+            let large_markdown = "# Large Content
+"
+            .to_string()
+                + &"Content
+"
+                .repeat(100_000);
+            let result = async_generate_html(&large_markdown).await;
+            assert!(result.is_ok());
+            let html = result.unwrap();
+            assert!(html.contains("<h1>Large Content</h1>"));
+        }
+
+        /// Test for very small Markdown content in generate_html.
+        #[test]
+        fn test_generate_html_very_small() {
+            let markdown = "A";
+            let result = generate_html(markdown);
+            assert!(result.is_ok());
+            assert_eq!(
+                result.unwrap(),
+                "<p>A</p>
+"
+            );
+        }
+    }
 }
