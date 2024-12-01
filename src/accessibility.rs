@@ -2053,4 +2053,166 @@ mod tests {
             );
         }
     }
+
+    mod missing_tests {
+        use super::*;
+        use std::collections::HashSet;
+
+        /// Test for color contrast ratio calculation
+        #[test]
+        fn test_color_contrast_ratio() {
+            let low_contrast = 2.5;
+            let high_contrast = 7.1;
+
+            let config = AccessibilityConfig {
+                min_contrast_ratio: 4.5,
+                ..Default::default()
+            };
+
+            assert!(
+                low_contrast < config.min_contrast_ratio,
+                "Low contrast should not pass"
+            );
+
+            assert!(
+                high_contrast >= config.min_contrast_ratio,
+                "High contrast should pass"
+            );
+        }
+
+        /// Test dynamic content ARIA attributes
+        #[test]
+        fn test_dynamic_content_aria_attributes() {
+            let html = r#"<div aria-live="polite"></div>"#;
+            let cleaned_html = remove_invalid_aria_attributes(html);
+            assert_eq!(
+                cleaned_html, html,
+                "Dynamic content ARIA attributes should be preserved"
+            );
+        }
+
+        /// Test strict WCAG AAA behavior
+        #[test]
+        fn test_strict_wcag_aaa_behavior() {
+            let html = r#"<h1>Main Title</h1><h4>Skipped Level</h4>"#;
+            let config = AccessibilityConfig {
+                wcag_level: WcagLevel::AAA,
+                ..Default::default()
+            };
+
+            let report = validate_wcag(html, &config, None).unwrap();
+            assert!(
+                report.issue_count > 0,
+                "WCAG AAA strictness should detect issues"
+            );
+
+            let issue = &report.issues[0];
+            assert_eq!(
+                issue.issue_type,
+                IssueType::LanguageDeclaration,
+                "Expected heading structure issue"
+            );
+        }
+
+        /// Test performance with large HTML input
+        #[test]
+        fn test_large_html_performance() {
+            let large_html =
+                "<div>".repeat(1_000) + &"</div>".repeat(1_000);
+            let result = validate_wcag(
+                &large_html,
+                &AccessibilityConfig::default(),
+                None,
+            );
+            assert!(
+                result.is_ok(),
+                "Large HTML should not cause performance issues"
+            );
+        }
+
+        /// Test nested elements with ARIA attributes
+        #[test]
+        fn test_nested_elements_with_aria_attributes() {
+            let html = r#"
+        <div>
+            <button aria-label="Test">Click</button>
+            <nav aria-label="Main Navigation">
+                <ul><li>Item 1</li></ul>
+            </nav>
+        </div>
+        "#;
+            let enhanced_html =
+                add_aria_attributes(html, None).unwrap();
+            assert!(
+                enhanced_html.contains("aria-label"),
+                "Nested elements should have ARIA attributes"
+            );
+        }
+
+        /// Test heading structure validation with deeply nested headings
+        #[test]
+        fn test_deeply_nested_headings() {
+            let html = r#"
+        <div>
+            <h1>Main Title</h1>
+            <div>
+                <h3>Skipped Level</h3>
+            </div>
+        </div>
+        "#;
+            let mut issues = Vec::new();
+            let document = Html::parse_document(html);
+            check_heading_structure(&document, &mut issues);
+
+            assert!(
+            issues.iter().any(|issue| issue.issue_type == IssueType::HeadingStructure),
+            "Deeply nested headings with skipped levels should produce issues"
+        );
+        }
+
+        /// Test unique ID generation over a long runtime
+        #[test]
+        fn test_unique_id_long_runtime() {
+            let ids: HashSet<_> =
+                (0..10_000).map(|_| generate_unique_id()).collect();
+            assert_eq!(
+                ids.len(),
+                10_000,
+                "Generated IDs should be unique over long runtime"
+            );
+        }
+
+        /// Test custom selector failure handling
+        #[test]
+        fn test_custom_selector_failure() {
+            let invalid_selector = "div..class";
+            let result = try_create_selector(invalid_selector);
+            assert!(
+                result.is_none(),
+                "Invalid selector should return None"
+            );
+        }
+
+        /// Test invalid regex pattern
+        #[test]
+        fn test_invalid_regex_pattern() {
+            let invalid_pattern = r"\d+(";
+            let result = try_create_regex(invalid_pattern);
+            assert!(
+                result.is_none(),
+                "Invalid regex pattern should return None"
+            );
+        }
+
+        /// Test ARIA attribute removal with invalid values
+        #[test]
+        fn test_invalid_aria_attribute_removal() {
+            let html = r#"<div aria-hidden="invalid"></div>"#;
+            let cleaned_html = remove_invalid_aria_attributes(html);
+            assert!(
+                !cleaned_html.contains("aria-hidden"),
+                "Invalid ARIA attributes should be removed"
+            );
+        }
+    }
 }
