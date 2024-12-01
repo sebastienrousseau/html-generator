@@ -95,8 +95,20 @@ mod tests {
     use std::path::Path;
     use test_utils::{cleanup_test_dir, setup_test_file};
 
+    /// Helper function to create unique directories for each test.
+    fn create_test_dir(name: &str) -> PathBuf {
+        let dir = PathBuf::from(format!("test_env_{}", name));
+        if dir.exists() {
+            cleanup_test_dir(&dir);
+        }
+        fs::create_dir_all(&dir)
+            .expect("Failed to create test directory");
+        dir
+    }
+
     #[test]
-    fn test_markdown_to_html_with_code_block() {
+    fn test_markdown_to_html_with_code_block(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let markdown = "# Title\n\n```rust\nfn main() {}\n```";
         let config = MarkdownConfig {
             html_config: html_generator::HtmlConfig {
@@ -106,57 +118,43 @@ mod tests {
             ..MarkdownConfig::default()
         };
 
-        let result = markdown_to_html(markdown, Some(config));
-        assert!(result.is_ok(), "Markdown conversion failed");
-
-        let html = result.unwrap();
+        let result = markdown_to_html(markdown, Some(config))?;
         assert!(
-            html.contains("<pre><code class=\"language-rust\">"),
+            result.contains("<pre><code class=\"language-rust\">"),
             "Missing syntax-highlighted code block in output HTML"
         );
         assert!(
-            html.contains("<span"),
+            result.contains("<span"),
             "Expected syntax-highlighted span elements in output HTML"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_end_to_end_markdown_to_html() {
+    fn test_end_to_end_markdown_to_html(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let markdown = "# Test Heading\n\nTest paragraph.";
         let config = MarkdownConfig::default();
-        let result = markdown_to_html(markdown, Some(config));
+        let result = markdown_to_html(markdown, Some(config))?;
 
-        assert!(result.is_ok(), "Markdown conversion failed");
-        let html = result.unwrap();
         assert!(
-            html.contains("<h1>Test Heading</h1>"),
+            result.contains("<h1>Test Heading</h1>"),
             "Generated HTML missing <h1> tag"
         );
         assert!(
-            html.contains("<p>Test paragraph.</p>"),
+            result.contains("<p>Test paragraph.</p>"),
             "Generated HTML missing <p> tag"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_file_conversion_with_custom_config() {
-        let input_dir = PathBuf::from("test_input");
+    fn test_file_conversion_with_custom_config(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let input_dir = create_test_dir("file_conversion_input");
+        let output_dir = create_test_dir("file_conversion_output");
         let input_path = input_dir.join("test.md");
-        let output_dir = PathBuf::from("test_output");
         let output_path = output_dir.join("output.html");
-
-        if input_dir.exists() {
-            fs::remove_dir_all(&input_dir)
-                .expect("Failed to remove existing input directory");
-        }
-        if output_dir.exists() {
-            fs::remove_dir_all(&output_dir)
-                .expect("Failed to remove existing output directory");
-        }
-        fs::create_dir_all(&input_dir)
-            .expect("Failed to create input directory");
-        fs::create_dir_all(&output_dir)
-            .expect("Failed to create output directory");
 
         let _ = setup_test_file(
             Some("# Test\n\n```rust\nfn main() {}\n```"),
@@ -171,18 +169,15 @@ mod tests {
             ..MarkdownConfig::default()
         };
 
-        let result = markdown_file_to_html(
+        markdown_file_to_html(
             Some(&input_path),
             Some(OutputDestination::File(
                 output_path.to_string_lossy().into(),
             )),
             Some(config),
-        );
+        )?;
 
-        assert!(result.is_ok(), "Markdown conversion failed");
-
-        let html = fs::read_to_string(&output_path)
-            .expect("Failed to read output file");
+        let html = fs::read_to_string(&output_path)?;
         assert!(
             html.contains("<h1>"),
             "Missing <h1> tag in output HTML"
@@ -194,42 +189,43 @@ mod tests {
 
         cleanup_test_dir(&input_dir);
         cleanup_test_dir(&output_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_error_conditions() {
+    fn test_error_conditions() -> Result<(), Box<dyn std::error::Error>>
+    {
         let nonexistent_file = Path::new("nonexistent.md");
-
-        let result = nonexistent_file.canonicalize();
         assert!(
-            result.is_err(),
-            "Expected an error for nonexistent file, but got: {:?}",
-            result
+            nonexistent_file.canonicalize().is_err(),
+            "Expected an error for nonexistent file"
         );
 
-        let input_dir = PathBuf::from("test_input");
+        let input_dir = create_test_dir("error_conditions_input");
         let input_path = input_dir.join("test.md");
         let _ = setup_test_file(Some("# Test"), &input_path);
 
         let invalid_output_path =
             PathBuf::from("invalid/path/output.html");
-        let result = markdown_file_to_html(
-            Some(&input_path),
-            Some(OutputDestination::File(
-                invalid_output_path.to_string_lossy().into(),
-            )),
-            None,
-        );
         assert!(
-            result.is_err(),
+            markdown_file_to_html(
+                Some(&input_path),
+                Some(OutputDestination::File(
+                    invalid_output_path.to_string_lossy().into()
+                )),
+                None
+            )
+            .is_err(),
             "Expected an error for invalid output path"
         );
 
         cleanup_test_dir(&input_dir);
+        Ok(())
     }
 
     #[test]
-    fn test_custom_configurations() {
+    fn test_custom_configurations(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let markdown = "# Test\n\n## Section\n\nContent with [link](http://example.com)";
         let config = MarkdownConfig {
             html_config: html_generator::HtmlConfig {
@@ -239,21 +235,19 @@ mod tests {
             ..MarkdownConfig::default()
         };
 
-        let result = markdown_to_html(markdown, Some(config));
-        assert!(result.is_ok(), "Markdown conversion failed");
-
-        let html = result.unwrap();
+        let result = markdown_to_html(markdown, Some(config))?;
         assert!(
-            html.contains("<h1>"),
+            result.contains("<h1>"),
             "Generated HTML missing <h1> tag"
         );
         assert!(
-            html.contains("<h2>"),
+            result.contains("<h2>"),
             "Generated HTML missing <h2> tag"
         );
         assert!(
-            html.contains("<a href=\"http://example.com\""),
+            result.contains("<a href=\"http://example.com\""),
             "Generated HTML missing anchor tag with href"
         );
+        Ok(())
     }
 }
