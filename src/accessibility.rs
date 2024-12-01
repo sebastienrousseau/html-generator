@@ -1982,5 +1982,75 @@ mod tests {
             let result = try_create_regex(pattern);
             assert!(result.is_none());
         }
+
+        /// Test the `enhance_descriptions` function
+        #[test]
+        fn test_enhance_descriptions() {
+            let builder =
+                HtmlBuilder::new("<html><body></body></html>");
+            let result = enhance_descriptions(builder);
+            assert!(result.is_ok(), "Enhance descriptions failed");
+        }
+
+        /// Test `From<TryFromIntError>` for `Error`
+        #[test]
+        fn test_error_from_try_from_int_error() {
+            // Trigger a TryFromIntError by attempting to convert a large integer
+            let result: std::result::Result<u8, _> = i32::try_into(300); // This will fail
+            let err = result.unwrap_err(); // Extract the TryFromIntError
+            let error: Error = Error::from(err);
+
+            if let Error::HtmlProcessingError { message, source } =
+                error
+            {
+                assert_eq!(message, "Integer conversion error");
+                assert!(source.is_some());
+            } else {
+                panic!("Expected HtmlProcessingError");
+            }
+        }
+
+        /// Test `Display` implementation for `WcagLevel`
+        #[test]
+        fn test_wcag_level_display() {
+            assert_eq!(WcagLevel::A.to_string(), "A");
+            assert_eq!(WcagLevel::AA.to_string(), "AA");
+            assert_eq!(WcagLevel::AAA.to_string(), "AAA");
+        }
+
+        /// Test `check_keyboard_navigation`
+        #[test]
+        fn test_check_keyboard_navigation() {
+            let document =
+                Html::parse_document("<a tabindex='-1'></a>");
+            let mut issues = vec![];
+            let result = AccessibilityReport::check_keyboard_navigation(
+                &document,
+                &mut issues,
+            );
+            assert!(result.is_ok());
+            assert_eq!(issues.len(), 1);
+            assert_eq!(
+                issues[0].message,
+                "Negative tabindex prevents keyboard focus"
+            );
+        }
+
+        /// Test `check_language_attributes`
+        #[test]
+        fn test_check_language_attributes() {
+            let document = Html::parse_document("<html></html>");
+            let mut issues = vec![];
+            let result = AccessibilityReport::check_language_attributes(
+                &document,
+                &mut issues,
+            );
+            assert!(result.is_ok());
+            assert_eq!(issues.len(), 1);
+            assert_eq!(
+                issues[0].message,
+                "Missing language declaration"
+            );
+        }
     }
 }
