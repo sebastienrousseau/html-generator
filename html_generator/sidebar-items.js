@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HtmlError"],"mod":["accessibility","error","generator","performance","seo","utils"],"struct":["HtmlConfig"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"enum":["ConfigError","OutputDestination"],"fn":["markdown_file_to_html","markdown_to_html","validate_language_code"],"mod":["accessibility","constants","error","generator","performance","seo","utils"],"struct":["HtmlConfig","HtmlConfigBuilder","MarkdownConfig"],"type":["Result"]};

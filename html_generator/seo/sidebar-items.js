@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["escape_html","generate_meta_tags","generate_structured_data"]};
+window.SIDEBAR_ITEMS = {"fn":["escape_html","generate_meta_tags","generate_structured_data"],"struct":["MetaTagsBuilder","StructuredDataConfig"]};

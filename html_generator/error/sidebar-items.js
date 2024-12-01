@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HtmlError"],"type":["Result"]};
+window.SIDEBAR_ITEMS = {"enum":["ErrorKind","HtmlError","SeoErrorKind"],"type":["Result"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/seo.rs`."><title>seo.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="html_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (28fc2ba71 2024-11-24)" data-channel="nightly" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://kura.pro/html-generator/images/favicon.ico"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">html_generator/</div>seo.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/seo.rs`."><title>seo.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-dbdb5eec.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="html_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (7442931d4 2024-11-30)" data-channel="nightly" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">html_generator/</div>seo.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
 <a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
@@ -453,87 +453,588 @@
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a></pre></div><pre class="rust"><code><span class="doccomment">//! SEO-related functionality for HTML processing.
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a></pre></div><pre class="rust"><code><span class="doccomment">//! Search Engine Optimization (SEO) functionality for HTML processing.
 //!
-//! This module provides functions for generating meta tags and structured data
-//! to improve the Search Engine Optimization (SEO) of web pages.
+//! This module provides tools for improving the SEO of web pages through automated
+//! meta tag generation and structured data implementation. It includes features for:
+//! - Meta tag generation for improved search engine visibility
+//! - Structured data (JSON-LD) generation for rich search results
+//! - HTML content analysis for SEO optimization
+//! - Safe HTML entity escaping
+//!
+//! # Examples
+//!
+//! ```rust
+//! use html_generator::seo::{MetaTagsBuilder, generate_structured_data};
+//!
+//! # fn main() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+//! let html = r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;My Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Content&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#;
+//!
+//! // Generate meta tags
+//! let meta_tags = MetaTagsBuilder::new()
+//!     .with_title("My Page")
+//!     .with_description("Page content")
+//!     .build()?;
+//!
+//! // Generate structured data
+//! let structured_data = generate_structured_data(html, None)?;
+//! # Ok(())
+//! # }
+//! ```
 
-</span><span class="kw">use </span><span class="kw">crate</span>::error::{HtmlError, <span class="prelude-ty">Result</span>};
+</span><span class="kw">use </span>serde_json::json;
+<span class="kw">use </span>std::borrow::Cow;
+<span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use </span><span class="kw">crate</span>::error::{HtmlError, <span class="prelude-ty">Result</span>, SeoErrorKind};
 <span class="kw">use </span>lazy_static::lazy_static;
 <span class="kw">use </span>regex::{Captures, Regex};
 <span class="kw">use </span>scraper::{Html, Selector};
-<span class="kw">use </span>std::borrow::Cow;
 
-<span class="kw">const </span>MAX_HTML_SIZE: usize = <span class="number">1_000_000</span>; <span class="comment">// 1MB
+<span class="comment">// Constants
+</span><span class="doccomment">/// Maximum allowed size for HTML input (1MB)
+</span><span class="kw">const </span>MAX_HTML_SIZE: usize = <span class="number">1_000_000</span>;
+<span class="doccomment">/// Default page type for structured data
+</span><span class="kw">const </span>DEFAULT_PAGE_TYPE: <span class="kw-2">&amp;</span>str = <span class="string">"WebPage"</span>;
+<span class="doccomment">/// Schema.org context URL
+</span><span class="kw">const </span>SCHEMA_ORG_CONTEXT: <span class="kw-2">&amp;</span>str = <span class="string">"https://schema.org"</span>;
+<span class="doccomment">/// Default OpenGraph type
+</span><span class="kw">const </span>DEFAULT_OG_TYPE: <span class="kw-2">&amp;</span>str = <span class="string">"website"</span>;
 
-</span><span class="doccomment">/// Escapes HTML entities in the given string using regex.
+<span class="comment">// Compile regular expressions at compile time
+</span><span class="macro">lazy_static!</span> {
+    <span class="doccomment">/// Regular expression for matching HTML special characters
+    </span><span class="kw">static </span><span class="kw-2">ref </span>HTML_ESCAPES: Regex = Regex::new(<span class="string">r#"[&amp;&lt;&gt;"']"#</span>)
+        .expect(<span class="string">"Failed to compile HTML escapes regex"</span>);
+
+    <span class="doccomment">/// Regular expression for extracting meta description
+    </span><span class="kw">static </span><span class="kw-2">ref </span>META_DESC_SELECTOR: Selector = Selector::parse(<span class="string">"meta[name='description']"</span>)
+        .expect(<span class="string">"Failed to compile meta description selector"</span>);
+
+    <span class="doccomment">/// Regular expression for extracting title
+    </span><span class="kw">static </span><span class="kw-2">ref </span>TITLE_SELECTOR: Selector = Selector::parse(<span class="string">"title"</span>)
+        .expect(<span class="string">"Failed to compile title selector"</span>);
+
+    <span class="doccomment">/// Regular expression for extracting paragraphs
+    </span><span class="kw">static </span><span class="kw-2">ref </span>PARAGRAPH_SELECTOR: Selector = Selector::parse(<span class="string">"p"</span>)
+        .expect(<span class="string">"Failed to compile paragraph selector"</span>);
+}
+
+<span class="doccomment">/// Configuration options for structured data generation.
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>StructuredDataConfig {
+    <span class="doccomment">/// Additional key-value pairs to include in the structured data
+    </span><span class="kw">pub </span>additional_data: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, String&gt;&gt;,
+    <span class="doccomment">/// The type of webpage (e.g., "WebPage", "Article", "Product")
+    </span><span class="kw">pub </span>page_type: String,
+    <span class="doccomment">/// Additional schema.org types to include
+    </span><span class="kw">pub </span>additional_types: Vec&lt;String&gt;,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>StructuredDataConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            additional_data: <span class="prelude-val">None</span>,
+            page_type: String::from(DEFAULT_PAGE_TYPE),
+            additional_types: Vec::new(),
+        }
+    }
+}
+
+<span class="kw">impl </span>StructuredDataConfig {
+    <span class="doccomment">/// Validates the configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The page type is empty
+    /// - Any additional type is empty
+    </span><span class="kw">fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        validate_page_type(<span class="kw-2">&amp;</span><span class="self">self</span>.page_type)<span class="question-mark">?</span>;
+
+        <span class="kw">if </span><span class="self">self</span>.additional_types.iter().any(String::is_empty) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(HtmlError::seo(
+                SeoErrorKind::InvalidStructuredData,
+                <span class="string">"Additional types cannot be empty"</span>,
+                <span class="prelude-val">None</span>,
+            ));
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="doccomment">/// Builder for constructing meta tags.
+</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>MetaTagsBuilder {
+    <span class="doccomment">/// Title for the meta tags
+    </span>title: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Description for the meta tags
+    </span>description: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// OpenGraph type
+    </span>og_type: String,
+    <span class="doccomment">/// Additional meta tags
+    </span>additional_tags: Vec&lt;(String, String)&gt;,
+}
+
+<span class="kw">impl </span>MetaTagsBuilder {
+    <span class="doccomment">/// Creates a new `MetaTagsBuilder` with default values.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            title: <span class="prelude-val">None</span>,
+            description: <span class="prelude-val">None</span>,
+            og_type: String::from(DEFAULT_OG_TYPE),
+            additional_tags: Vec::new(),
+        }
+    }
+
+    <span class="doccomment">/// Sets the title for the meta tags.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>with_title(<span class="kw-2">mut </span><span class="self">self</span>, title: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.title = <span class="prelude-val">Some</span>(title.into());
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Sets the description for the meta tags.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>with_description(<span class="kw-2">mut </span><span class="self">self</span>, desc: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.description = <span class="prelude-val">Some</span>(desc.into());
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Adds an additional meta tag.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>add_meta_tag(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        name: <span class="kw">impl </span>Into&lt;String&gt;,
+        content: <span class="kw">impl </span>Into&lt;String&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.additional_tags.push((name.into(), content.into()));
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Adds multiple meta tags at once.
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>add_meta_tags&lt;I&gt;(<span class="kw-2">mut </span><span class="self">self</span>, tags: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: IntoIterator&lt;Item = (String, String)&gt;,
+    {
+        <span class="self">self</span>.additional_tags.extend(tags);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Builds the meta tags string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required fields (title or description) are missing.
+    </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+        <span class="kw">let </span>title = <span class="self">self</span>.title.ok_or_else(|| {
+            HtmlError::seo(
+                SeoErrorKind::MissingTitle,
+                <span class="string">"Meta title is required"</span>,
+                <span class="prelude-val">None</span>,
+            )
+        })<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>description = <span class="self">self</span>.description.ok_or_else(|| {
+            HtmlError::seo(
+                SeoErrorKind::MissingDescription,
+                <span class="string">"Meta description is required"</span>,
+                <span class="prelude-val">None</span>,
+            )
+        })<span class="question-mark">?</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>meta_tags = String::with_capacity(<span class="number">500</span>);
+
+        <span class="comment">// Add required meta tags
+        </span>meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">r#"&lt;meta name="title" content="{}"&gt;"#</span>,
+            escape_html(<span class="kw-2">&amp;</span>title)
+        ));
+        meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">r#"&lt;meta name="description" content="{}"&gt;"#</span>,
+            escape_html(<span class="kw-2">&amp;</span>description)
+        ));
+        meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">r#"&lt;meta property="og:type" content="{}"&gt;"#</span>,
+            escape_html(<span class="kw-2">&amp;</span><span class="self">self</span>.og_type)
+        ));
+
+        <span class="comment">// Add additional meta tags
+        </span><span class="kw">for </span>(name, content) <span class="kw">in </span><span class="self">self</span>.additional_tags {
+            meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                <span class="string">r#"&lt;meta name="{}" content="{}"&gt;"#</span>,
+                escape_html(<span class="kw-2">&amp;</span>name),
+                escape_html(<span class="kw-2">&amp;</span>content)
+            ));
+        }
+
+        <span class="prelude-val">Ok</span>(meta_tags)
+    }
+}
+
+<span class="doccomment">/// Validates that a page type is not empty.
 ///
-/// This function replaces the characters `&amp;`, `&lt;`, `&gt;`, `"`, and `'`
-/// with their respective HTML entity codes.
+/// # Errors
+///
+/// Returns an error if the page type is empty.
+</span><span class="kw">fn </span>validate_page_type(page_type: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">if </span>page_type.is_empty() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(HtmlError::seo(
+            SeoErrorKind::InvalidStructuredData,
+            <span class="string">"Page type cannot be empty"</span>,
+            <span class="prelude-val">None</span>,
+        ));
+    }
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Escapes HTML special characters in a string.
+///
+/// This function replaces special characters with their HTML entity equivalents:
+/// - `&amp;` becomes `&amp;amp;`
+/// - `&lt;` becomes `&amp;lt;`
+/// - `&gt;` becomes `&amp;gt;`
+/// - `"` becomes `&amp;quot;`
+/// - `'` becomes `&amp;#x27;`
 ///
 /// # Arguments
 ///
-/// * `s` - The input string that needs HTML escaping.
+/// * `s` - The string to escape
 ///
 /// # Returns
 ///
-/// A `Cow&lt;str&gt;` that either holds a reference to the original string or an
-/// escaped version if any replacements were made.
+/// Returns a `Cow&lt;str&gt;` containing either the original string if no escaping was
+/// needed, or a new string with escaped characters.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use html_generator::seo::escape_html;
-/// let input = "Hello &amp; welcome to &lt;Rust&gt;!";
+///
+/// let input = r#"&lt;script&gt;alert("Hello &amp; goodbye")&lt;/script&gt;"#;
 /// let escaped = escape_html(input);
-/// assert_eq!(escaped, "Hello &amp;amp; welcome to &amp;lt;Rust&amp;gt;!");
+/// assert_eq!(
+///     escaped,
+///     r#"&amp;lt;script&amp;gt;alert(&amp;quot;Hello &amp;amp; goodbye&amp;quot;)&amp;lt;/script&amp;gt;"#
+/// );
 /// ```
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>escape_html(s: <span class="kw-2">&amp;</span>str) -&gt; Cow&lt;str&gt; {
-    <span class="macro">lazy_static!</span> {
-        <span class="comment">// Precompiled regex for matching HTML special characters
-        </span><span class="kw">static </span><span class="kw-2">ref </span>HTML_ESCAPES: Regex = Regex::new(<span class="string">r#"[&amp;&lt;&gt;"']"#</span>).unwrap();
-    }
-
-    <span class="comment">// Replace matched HTML special characters with their corresponding entities
-    </span>HTML_ESCAPES.replace_all(s, |caps: <span class="kw-2">&amp;</span>Captures| <span class="kw">match </span><span class="kw-2">&amp;</span>caps[<span class="number">0</span>] {
+    HTML_ESCAPES.replace_all(s, |caps: <span class="kw-2">&amp;</span>Captures| <span class="kw">match </span><span class="kw-2">&amp;</span>caps[<span class="number">0</span>] {
         <span class="string">"&amp;" </span>=&gt; <span class="string">"&amp;amp;"</span>,
         <span class="string">"&lt;" </span>=&gt; <span class="string">"&amp;lt;"</span>,
         <span class="string">"&gt;" </span>=&gt; <span class="string">"&amp;gt;"</span>,
         <span class="string">"\"" </span>=&gt; <span class="string">"&amp;quot;"</span>,
         <span class="string">"'" </span>=&gt; <span class="string">"&amp;#x27;"</span>,
-        <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+        <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Regex only matches [&amp;&lt;&gt;\"']"</span>),
     })
 }
 
 <span class="doccomment">/// Generates meta tags for SEO purposes.
 ///
-/// This function parses the provided HTML, extracts relevant information,
-/// and generates meta tags for title and description.
-///
 /// # Arguments
 ///
-/// * `html` - A string slice that holds the HTML content to process.
+/// * `html` - The HTML content to analyze
 ///
 /// # Returns
 ///
-/// * `Result&lt;String&gt;` - A string containing the generated meta tags, or an error.
+/// Returns a `Result` containing the generated meta tags as a string.
 ///
 /// # Errors
 ///
-/// This function will return an error if:
-/// * The HTML input is too large (&gt; 1MB).
-/// * The HTML selectors fail to parse.
-/// * Required HTML elements (title, description) are missing.
+/// Returns an error if:
+/// - The HTML input is too large (&gt; 1MB)
+/// - Required elements (title, description) are missing
 ///
 /// # Examples
 ///
 /// ```
 /// use html_generator::seo::generate_meta_tags;
 ///
-/// let html = r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#;
-/// let meta_tags = generate_meta_tags(html).unwrap();
-/// assert!(meta_tags.contains(r#"&lt;meta name="title" content="Test Page"&gt;"#));
-/// assert!(meta_tags.contains(r#"&lt;meta name="description" content="This is a test page."&gt;"#));
+/// let html = r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Content&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#;
+/// let meta_tags = generate_meta_tags(html)?;
+/// # Ok::&lt;(), html_generator::error::HtmlError&gt;(())
 /// ```
 </span><span class="kw">pub fn </span>generate_meta_tags(html: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
     <span class="kw">if </span>html.len() &gt; MAX_HTML_SIZE {
@@ -541,130 +1042,118 @@
     }
 
     <span class="kw">let </span>document = Html::parse_document(html);
-    <span class="kw">let </span><span class="kw-2">mut </span>meta_tags = String::with_capacity(<span class="number">200</span>);
-
     <span class="kw">let </span>title = extract_title(<span class="kw-2">&amp;</span>document)<span class="question-mark">?</span>;
     <span class="kw">let </span>description = extract_description(<span class="kw-2">&amp;</span>document)<span class="question-mark">?</span>;
-    <span class="kw">let </span>escaped_title = escape_html(<span class="kw-2">&amp;</span>title);
-    <span class="kw">let </span>escaped_description = escape_html(<span class="kw-2">&amp;</span>description);
 
-    meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-        <span class="string">r#"&lt;meta name="title" content="{}"&gt;"#</span>,
-        escaped_title
-    ));
-    meta_tags.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-        <span class="string">r#"&lt;meta name="description" content="{}"&gt;"#</span>,
-        escaped_description
-    ));
-    meta_tags
-        .push_str(<span class="string">r#"&lt;meta property="og:type" content="website"&gt;"#</span>);
-
-    <span class="prelude-val">Ok</span>(meta_tags)
+    MetaTagsBuilder::new()
+        .with_title(title)
+        .with_description(description)
+        .build()
 }
 
 <span class="doccomment">/// Generates structured data (JSON-LD) for SEO purposes.
 ///
-/// This function creates a JSON-LD script tag with basic webpage information
-/// extracted from the provided HTML content.
-///
 /// # Arguments
 ///
-/// * `html` - A string slice that holds the HTML content to process.
+/// * `html` - The HTML content to analyze
+/// * `config` - Optional configuration for structured data generation
 ///
 /// # Returns
 ///
-/// * `Result&lt;String&gt;` - A string containing the generated JSON-LD script, or an error.
+/// Returns a `Result` containing the generated JSON-LD script as a string.
 ///
 /// # Errors
 ///
-/// This function will return an error if:
-/// * The HTML input is too large (&gt; 1MB).
-/// * The HTML selectors fail to parse.
-/// * Required HTML elements (title, description) are missing.
+/// Returns an error if:
+/// - The HTML input is too large (&gt; 1MB)
+/// - Required elements are missing
+/// - JSON serialization fails
+/// - Configuration validation fails
 ///
 /// # Examples
 ///
 /// ```
 /// use html_generator::seo::generate_structured_data;
 ///
-/// let html = r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#;
-/// let structured_data = generate_structured_data(html).unwrap();
-/// assert!(structured_data.contains(r#""@type": "WebPage""#));
-/// assert!(structured_data.contains(r#""name": "Test Page""#));
-/// assert!(structured_data.contains(r#""description": "This is a test page.""#));
+/// let html = r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Content&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#;
+/// let structured_data = generate_structured_data(html, None)?;
+/// # Ok::&lt;(), html_generator::error::HtmlError&gt;(())
 /// ```
-</span><span class="kw">pub fn </span>generate_structured_data(html: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+</span><span class="kw">pub fn </span>generate_structured_data(
+    html: <span class="kw-2">&amp;</span>str,
+    config: <span class="prelude-ty">Option</span>&lt;StructuredDataConfig&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
     <span class="kw">if </span>html.len() &gt; MAX_HTML_SIZE {
         <span class="kw">return </span><span class="prelude-val">Err</span>(HtmlError::InputTooLarge(html.len()));
     }
 
     <span class="kw">let </span>document = Html::parse_document(html);
+    <span class="kw">let </span>config = config.unwrap_or_default();
+    config.validate()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>title = extract_title(<span class="kw-2">&amp;</span>document)<span class="question-mark">?</span>;
     <span class="kw">let </span>description = extract_description(<span class="kw-2">&amp;</span>document)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>structured_data = <span class="macro">format!</span>(
-        <span class="string">r#"&lt;script type="application/ld+json"&gt;
-        {{
-            "@context": "https://schema.org",
-            "@type": "WebPage",
-            "name": "{}",
-            "description": "{}"
-        }}
-        &lt;/script&gt;"#</span>,
-        escape_html(<span class="kw-2">&amp;</span>title),
-        escape_html(<span class="kw-2">&amp;</span>description)
-    );
+    <span class="kw">let </span><span class="kw-2">mut </span>json = <span class="kw">if </span>config.additional_types.is_empty() {
+        <span class="macro">json!</span>({
+            <span class="string">"@context"</span>: SCHEMA_ORG_CONTEXT,
+            <span class="string">"@type"</span>: config.page_type,
+            <span class="string">"name"</span>: title,
+            <span class="string">"description"</span>: description,
+        })
+    } <span class="kw">else </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>types = <span class="macro">vec!</span>[config.page_type];
+        types.extend(config.additional_types);
+        <span class="macro">json!</span>({
+            <span class="string">"@context"</span>: SCHEMA_ORG_CONTEXT,
+            <span class="string">"@type"</span>: types,
+            <span class="string">"name"</span>: title,
+            <span class="string">"description"</span>: description,
+        })
+    };
 
-    <span class="prelude-val">Ok</span>(structured_data)
+    <span class="comment">// Add any additional data
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(additional_data) = config.additional_data {
+        <span class="kw">for </span>(key, value) <span class="kw">in </span>additional_data {
+            json[key] = <span class="macro">json!</span>(value);
+        }
+    }
+
+    <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
+        <span class="string">r#"&lt;script type="application/ld+json"&gt;
+{}
+&lt;/script&gt;"#</span>,
+        serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).map_err(|e| {
+            HtmlError::InvalidStructuredData(e.to_string())
+        })<span class="question-mark">?
+    </span>))
 }
 
-<span class="kw">fn </span>extract_title(document: <span class="kw-2">&amp;</span>Html) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-    <span class="kw">let </span>title_selector = Selector::parse(<span class="string">"title"</span>).map_err(|e| {
-        HtmlError::SelectorParseError(
-            <span class="string">"title"</span>.to_string(),
-            e.to_string(),
-        )
-    })<span class="question-mark">?</span>;
-
-    <span class="comment">// Extract the raw inner HTML without escaping
-    </span>document
-        .select(<span class="kw-2">&amp;</span>title_selector)
+<span class="comment">// Private helper functions
+</span><span class="kw">fn </span>extract_title(document: <span class="kw-2">&amp;</span>Html) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
+    document
+        .select(<span class="kw-2">&amp;</span>TITLE_SELECTOR)
         .next()
-        .map(|t| t.text().collect::&lt;String&gt;()) <span class="comment">// Use .text() instead of .inner_html()
-        </span>.ok_or_else(|| {
+        .map(|t| t.text().collect::&lt;String&gt;())
+        .ok_or_else(|| {
             HtmlError::MissingHtmlElement(<span class="string">"title"</span>.to_string())
         })
 }
 
 <span class="kw">fn </span>extract_description(document: <span class="kw-2">&amp;</span>Html) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
-    <span class="kw">let </span>meta_description_selector =
-        Selector::parse(<span class="string">"meta[name='description']"</span>).map_err(|e| {
-            HtmlError::SelectorParseError(
-                <span class="string">"meta description"</span>.to_string(),
-                e.to_string(),
-            )
-        })<span class="question-mark">?</span>;
-
-    <span class="kw">let </span>p_selector = Selector::parse(<span class="string">"p"</span>).map_err(|e| {
-        HtmlError::SelectorParseError(<span class="string">"p"</span>.to_string(), e.to_string())
-    })<span class="question-mark">?</span>;
-
-    <span class="comment">// First, try to find a meta description
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(meta) =
-        document.select(<span class="kw-2">&amp;</span>meta_description_selector).next()
-    {
+    <span class="comment">// Try meta description first
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(meta) = document.select(<span class="kw-2">&amp;</span>META_DESC_SELECTOR).next() {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(content) = meta.value().attr(<span class="string">"content"</span>) {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(content.to_string()); <span class="comment">// Use the raw content, no escaping here
-        </span>}
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(content.to_string());
+        }
     }
 
-    <span class="comment">// If no meta description, fall back to the first paragraph
+    <span class="comment">// Fall back to first paragraph
     </span>document
-        .select(<span class="kw-2">&amp;</span>p_selector)
+        .select(<span class="kw-2">&amp;</span>PARAGRAPH_SELECTOR)
         .next()
-        .map(|p| p.text().collect::&lt;String&gt;()) <span class="comment">// Use .text() to get raw text
-        </span>.ok_or_else(|| {
+        .map(|p| p.text().collect::&lt;String&gt;())
+        .ok_or_else(|| {
             HtmlError::MissingHtmlElement(<span class="string">"description"</span>.to_string())
         })
 }
@@ -672,240 +1161,309 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>test_case::test_case <span class="kw">as </span>case;
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>meta_tags = result.unwrap();
-        <span class="macro">assert!</span>(meta_tags
-            .contains(<span class="string">r#"&lt;meta name="title" content="Test Page"&gt;"#</span>));
-        <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"&lt;meta name="description" content="This is a test page."&gt;"#</span>));
+    <span class="doccomment">/// Tests for MetaTagsBuilder functionality
+    </span><span class="kw">mod </span>meta_tags_builder {
+        <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_duplicate_meta_tags() {
+            <span class="kw">let </span>meta_tags = MetaTagsBuilder::new()
+                .with_title(<span class="string">"Duplicate Test"</span>)
+                .with_description(<span class="string">"Testing duplicates"</span>)
+                .add_meta_tag(<span class="string">"author"</span>, <span class="string">"John Doe"</span>)
+                .add_meta_tag(<span class="string">"author"</span>, <span class="string">"Jane Doe"</span>)
+                .build()
+                .unwrap();
+
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"content="John Doe""#</span>));
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"content="Jane Doe""#</span>));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_multiple_add_meta_tags_calls() {
+            <span class="kw">let </span><span class="kw-2">mut </span>builder = MetaTagsBuilder::new()
+                .with_title(<span class="string">"Test"</span>)
+                .with_description(<span class="string">"Description"</span>);
+            builder = builder.add_meta_tags(<span class="macro">vec!</span>[(
+                <span class="string">"key1"</span>.to_string(),
+                <span class="string">"value1"</span>.to_string(),
+            )]);
+            builder = builder.add_meta_tags(<span class="macro">vec!</span>[(
+                <span class="string">"key2"</span>.to_string(),
+                <span class="string">"value2"</span>.to_string(),
+            )]);
+            <span class="kw">let </span>meta_tags = builder.build().unwrap();
+
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"content="value1""#</span>));
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"content="value2""#</span>));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>builds_basic_meta_tags() {
+            <span class="kw">let </span>meta_tags = MetaTagsBuilder::new()
+                .with_title(<span class="string">"Test Title"</span>)
+                .with_description(<span class="string">"Test Description"</span>)
+                .add_meta_tag(<span class="string">"keywords"</span>, <span class="string">"test,keywords"</span>)
+                .build()
+                .unwrap();
+
+            <span class="macro">assert!</span>(meta_tags.contains(
+                <span class="string">r#"&lt;meta name="title" content="Test Title"&gt;"#
+            </span>));
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"&lt;meta name="description" content="Test Description"&gt;"#</span>));
+            <span class="macro">assert!</span>(meta_tags.contains(
+                <span class="string">r#"&lt;meta name="keywords" content="test,keywords"&gt;"#
+            </span>));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_multiple_meta_tags() {
+            <span class="kw">let </span>tags = <span class="macro">vec!</span>[
+                (<span class="string">"keywords"</span>.to_string(), <span class="string">"test,tags"</span>.to_string()),
+                (<span class="string">"robots"</span>.to_string(), <span class="string">"index,follow"</span>.to_string()),
+            ];
+            <span class="kw">let </span>meta_tags = MetaTagsBuilder::new()
+                .with_title(<span class="string">"Test"</span>)
+                .with_description(<span class="string">"Test"</span>)
+                .add_meta_tags(tags)
+                .build()
+                .unwrap();
+
+            <span class="macro">assert!</span>(
+                meta_tags.contains(<span class="string">r#"keywords" content="test,tags"#</span>)
+            );
+            <span class="macro">assert!</span>(
+                meta_tags.contains(<span class="string">r#"robots" content="index,follow"#</span>)
+            );
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>fails_without_title() {
+            <span class="kw">let </span>result = MetaTagsBuilder::new()
+                .with_description(<span class="string">"Test Description"</span>)
+                .build();
+
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                result,
+                <span class="prelude-val">Err</span>(HtmlError::Seo {
+                    kind: SeoErrorKind::MissingTitle,
+                    ..
+                })
+            ));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>fails_without_description() {
+            <span class="kw">let </span>result =
+                MetaTagsBuilder::new().with_title(<span class="string">"Test Title"</span>).build();
+
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                result,
+                <span class="prelude-val">Err</span>(HtmlError::Seo {
+                    kind: SeoErrorKind::MissingDescription,
+                    ..
+                })
+            ));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>escapes_special_characters_in_meta_tags() {
+            <span class="kw">let </span>meta_tags = MetaTagsBuilder::new()
+                .with_title(<span class="string">"Test &amp; Title"</span>)
+                .with_description(<span class="string">"Test &lt; Description &gt;"</span>)
+                .build()
+                .unwrap();
+
+            <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"content="Test &amp;amp; Title"#</span>));
+            <span class="macro">assert!</span>(meta_tags
+                .contains(<span class="string">r#"content="Test &amp;lt; Description &amp;gt;"#</span>));
+        }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_structured_data() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>result = generate_structured_data(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>structured_data = result.unwrap();
-        <span class="macro">assert!</span>(structured_data.contains(<span class="string">r#""@type": "WebPage""#</span>));
-        <span class="macro">assert!</span>(structured_data.contains(<span class="string">r#""name": "Test Page""#</span>));
-        <span class="macro">assert!</span>(structured_data
-            .contains(<span class="string">r#""description": "This is a test page.""#</span>));
+    <span class="doccomment">/// Tests for HTML escaping functionality
+    </span><span class="kw">mod </span>html_escaping {
+        <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+        <span class="attr">#[case(<span class="string">"&lt;&gt;&amp;\"'" </span>=&gt; <span class="string">"&amp;lt;&amp;gt;&amp;amp;&amp;quot;&amp;#x27;" </span>; <span class="string">"escapes all special characters"</span>)]
+        #[case(<span class="string">"Normal text" </span>=&gt; <span class="string">"Normal text" </span>; <span class="string">"leaves normal text unchanged"</span>)]
+        #[case(<span class="string">"" </span>=&gt; <span class="string">"" </span>; <span class="string">"handles empty string"</span>)]
+        </span><span class="kw">fn </span>escape_html_cases(input: <span class="kw-2">&amp;</span>str) -&gt; String {
+            escape_html(input).into_owned()
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>escapes_mixed_content() {
+            <span class="kw">let </span>input = <span class="string">"Text with &lt;tags&gt; &amp; \"quotes\" 'here'"</span>;
+            <span class="kw">let </span>expected = <span class="string">"Text with &amp;lt;tags&amp;gt; &amp;amp; &amp;quot;quotes&amp;quot; &amp;#x27;here&amp;#x27;"</span>;
+            <span class="macro">assert_eq!</span>(escape_html(input), expected);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_large_input() {
+            <span class="kw">let </span>large_input = <span class="string">"&lt;&gt;"</span>.repeat(<span class="number">100_000</span>);
+            <span class="kw">let </span>escaped = escape_html(<span class="kw-2">&amp;</span>large_input);
+            <span class="macro">assert!</span>(escaped.contains(<span class="string">"&amp;lt;&amp;gt;"</span>));
+        }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_missing_title() {
-        <span class="kw">let </span>html =
-            <span class="string">"&lt;html&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
+    <span class="doccomment">/// Tests for structured data functionality
+    </span><span class="kw">mod </span>structured_data {
+        <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_deeply_nested_configuration() {
+            <span class="kw">let </span>html = <span class="string">r"&lt;html&gt;&lt;head&gt;&lt;title&gt;Nested Test&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Description&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>additional_data = HashMap::new();
+            <span class="kw">_ </span>= additional_data
+                .insert(<span class="string">"level1"</span>.to_string(), <span class="string">"value1"</span>.to_string());
+            <span class="kw">_ </span>= additional_data
+                .insert(<span class="string">"level2"</span>.to_string(), <span class="string">"value2"</span>.to_string());
+
+            <span class="kw">let </span>config = StructuredDataConfig {
+                page_type: <span class="string">"TestType"</span>.to_string(),
+                additional_types: <span class="macro">vec!</span>[<span class="string">"ExtraType"</span>.to_string()],
+                additional_data: <span class="prelude-val">Some</span>(additional_data),
+            };
+
+            <span class="kw">let </span>result =
+                generate_structured_data(html, <span class="prelude-val">Some</span>(config)).unwrap();
+            <span class="kw">let </span>json_content = extract_json_from_script(<span class="kw-2">&amp;</span>result);
+            <span class="kw">let </span>parsed: serde_json::Value =
+                serde_json::from_str(<span class="kw-2">&amp;</span>json_content).unwrap();
+
+            <span class="macro">assert_eq!</span>(
+                parsed[<span class="string">"@type"</span>],
+                <span class="macro">serde_json::json!</span>([<span class="string">"TestType"</span>, <span class="string">"ExtraType"</span>])
+            );
+            <span class="macro">assert_eq!</span>(parsed[<span class="string">"level1"</span>], <span class="string">"value1"</span>);
+            <span class="macro">assert_eq!</span>(parsed[<span class="string">"level2"</span>], <span class="string">"value2"</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>generates_basic_structured_data() {
+            <span class="kw">let </span>html = <span class="string">r"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Description&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
+            <span class="kw">let </span>result = generate_structured_data(html, <span class="prelude-val">None</span>).unwrap();
+
+            <span class="kw">let </span>json_content = extract_json_from_script(<span class="kw-2">&amp;</span>result);
+            <span class="kw">let </span>parsed: serde_json::Value =
+                serde_json::from_str(<span class="kw-2">&amp;</span>json_content).unwrap();
+
+            <span class="macro">assert_eq!</span>(parsed[<span class="string">"@type"</span>], <span class="string">"WebPage"</span>);
+            <span class="macro">assert_eq!</span>(parsed[<span class="string">"name"</span>], <span class="string">"Test"</span>);
+            <span class="macro">assert_eq!</span>(parsed[<span class="string">"description"</span>], <span class="string">"Description"</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>generates_multiple_types() {
+            <span class="kw">let </span>html = <span class="string">r"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;Description&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
+            <span class="kw">let </span>config = StructuredDataConfig {
+                page_type: <span class="string">"Article"</span>.to_string(),
+                additional_types: <span class="macro">vec!</span>[<span class="string">"WebPage"</span>.to_string()],
+                additional_data: <span class="prelude-val">Some</span>(HashMap::from([(
+                    <span class="string">"author"</span>.to_string(),
+                    <span class="string">"Test Author"</span>.to_string(),
+                )])),
+            };
+
+            <span class="kw">let </span>result =
+                generate_structured_data(html, <span class="prelude-val">Some</span>(config)).unwrap();
+            <span class="kw">let </span>json_content = extract_json_from_script(<span class="kw-2">&amp;</span>result);
+            <span class="kw">let </span>parsed: serde_json::Value =
+                serde_json::from_str(<span class="kw-2">&amp;</span>json_content).unwrap();
+
+            <span class="macro">assert_eq!</span>(
+                parsed[<span class="string">"@type"</span>],
+                <span class="macro">serde_json::json!</span>([<span class="string">"Article"</span>, <span class="string">"WebPage"</span>]),
+                <span class="string">"Expected @type to include multiple types"
+            </span>);
+            <span class="macro">assert_eq!</span>(
+                parsed[<span class="string">"author"</span>], <span class="string">"Test Author"</span>,
+                <span class="string">"Expected author to be included"
+            </span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>validates_config() {
+            <span class="kw">let </span>empty_type = StructuredDataConfig {
+                page_type: <span class="string">""</span>.to_string(),
+                ..Default::default()
+            };
+            <span class="macro">assert!</span>(empty_type.validate().is_err());
+
+            <span class="kw">let </span>empty_additional = StructuredDataConfig {
+                additional_types: <span class="macro">vec!</span>[<span class="string">""</span>.to_string()],
+                ..Default::default()
+            };
+            <span class="macro">assert!</span>(empty_additional.validate().is_err());
+        }
+
+        <span class="doccomment">/// Helper function to extract JSON content from script tags
+        </span><span class="kw">fn </span>extract_json_from_script(script: <span class="kw-2">&amp;</span>str) -&gt; String {
+            <span class="kw">let </span>json_start =
+                script.find(<span class="string">'{'</span>).expect(<span class="string">"JSON should start with '{'"</span>);
+            <span class="kw">let </span>json_end =
+                script.rfind(<span class="string">'}'</span>).expect(<span class="string">"JSON should end with '}'"</span>);
+            script[json_start..=json_end].to_string()
+        }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_structured_data_missing_description() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>result = generate_structured_data(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
+    <span class="doccomment">/// Tests for input validation and limits
+    </span><span class="kw">mod </span>input_validation {
+        <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_with_special_characters() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test &amp; Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a "test" page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>meta_tags = result.unwrap();
-        <span class="macro">println!</span>(<span class="string">"Generated meta tags: {}"</span>, meta_tags); <span class="comment">// Debug print
-        </span><span class="macro">assert!</span>(meta_tags.contains(
-            <span class="string">r#"&lt;meta name="title" content="Test &amp;amp; Page"&gt;"#
-        </span>));
-        <span class="macro">assert!</span>(meta_tags.contains(<span class="string">r#"&lt;meta name="description" content="This is a &amp;quot;test&amp;quot; page."&gt;"#</span>));
-    }
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>enforces_size_limit_for_meta_tags() {
+            <span class="kw">let </span>large_html = <span class="string">"a"</span>.repeat(MAX_HTML_SIZE + <span class="number">1</span>);
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                generate_meta_tags(<span class="kw-2">&amp;</span>large_html),
+                <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(<span class="kw">_</span>))
+            ));
+        }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_with_meta_description() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page&lt;/title&gt;&lt;meta name="description" content="Meta description"&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>meta_tags = result.unwrap();
-        <span class="macro">assert!</span>(meta_tags.contains(
-            <span class="string">r#"&lt;meta name="description" content="Meta description"&gt;"#
-        </span>));
-    }
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>enforces_size_limit_for_structured_data() {
+            <span class="kw">let </span>large_html = <span class="string">"a"</span>.repeat(MAX_HTML_SIZE + <span class="number">1</span>);
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                generate_structured_data(<span class="kw-2">&amp;</span>large_html, <span class="prelude-val">None</span>),
+                <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(<span class="kw">_</span>))
+            ));
+        }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_input_too_large() {
-        <span class="kw">let </span>large_html = <span class="string">"a"</span>.repeat(MAX_HTML_SIZE + <span class="number">1</span>);
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            generate_meta_tags(<span class="kw-2">&amp;</span>large_html),
-            <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(<span class="kw">_</span>))
-        ));
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            generate_structured_data(<span class="kw-2">&amp;</span>large_html),
-            <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(<span class="kw">_</span>))
-        ));
-    }
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_missing_title() {
+            <span class="kw">let </span>html =
+                <span class="string">r"&lt;html&gt;&lt;body&gt;&lt;p&gt;No title here&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                generate_meta_tags(html),
+                <span class="prelude-val">Err</span>(HtmlError::MissingHtmlElement(<span class="kw-2">ref </span>e)) <span class="kw">if </span>e == <span class="string">"title"
+            </span>));
+        }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_escape_html() {
-        <span class="kw">let </span>input = <span class="string">"This is &lt;a test&gt; &amp; a 'quote' \"string\""</span>;
-        <span class="kw">let </span>result = escape_html(input);
-        <span class="macro">assert_eq!</span>(result, <span class="string">"This is &amp;lt;a test&amp;gt; &amp;amp; a &amp;#x27;quote&amp;#x27; &amp;quot;string&amp;quot;"</span>);
-    }
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>handles_missing_description() {
+            <span class="kw">let </span>html =
+                <span class="string">r"&lt;html&gt;&lt;head&gt;&lt;title&gt;Title only&lt;/title&gt;&lt;/head&gt;&lt;/html&gt;"</span>;
+            <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+                generate_meta_tags(html),
+                <span class="prelude-val">Err</span>(HtmlError::MissingHtmlElement(<span class="kw-2">ref </span>e)) <span class="kw">if </span>e == <span class="string">"description"
+            </span>));
+        }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_escape_html_no_special_characters() {
-        <span class="kw">let </span>input = <span class="string">"This is just a normal string."</span>;
-        <span class="kw">let </span>result = escape_html(input);
-        <span class="macro">assert_eq!</span>(result, <span class="string">"This is just a normal string."</span>);
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_extract_title() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Title&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>document = Html::parse_document(html);
-        <span class="kw">let </span>result = extract_title(<span class="kw-2">&amp;</span>document);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="string">"Test Title"</span>);
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_extract_title_missing() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>document = Html::parse_document(html);
-        <span class="kw">let </span>result = extract_title(<span class="kw-2">&amp;</span>document);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_extract_description() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;head&gt;&lt;meta name='description' content='This is a test description'&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>document = Html::parse_document(html);
-        <span class="kw">let </span>result = extract_description(<span class="kw-2">&amp;</span>document);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="string">"This is a test description"</span>);
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_extract_description_fallback_to_paragraph() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;body&gt;&lt;p&gt;This is a fallback description.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>document = Html::parse_document(html);
-        <span class="kw">let </span>result = extract_description(<span class="kw-2">&amp;</span>document);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="string">"This is a fallback description."</span>);
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_extract_description_missing() {
-        <span class="kw">let </span>html = <span class="string">"&lt;html&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"</span>;
-        <span class="kw">let </span>document = Html::parse_document(html);
-        <span class="kw">let </span>result = extract_description(<span class="kw-2">&amp;</span>document);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_empty_html() {
-        <span class="kw">let </span>html = <span class="string">""</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_structured_data_empty_html() {
-        <span class="kw">let </span>html = <span class="string">""</span>;
-        <span class="kw">let </span>result = generate_structured_data(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_only_meta_description() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;meta name="description" content="Meta description"&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_only_title() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Title&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;/body&gt;&lt;/html&gt;"#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_structured_data_with_special_characters() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test &amp; Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p&gt;This is a "test" page.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"#</span>;
-        <span class="kw">let </span>result = generate_structured_data(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>structured_data = result.unwrap();
-        <span class="macro">assert!</span>(
-            structured_data.contains(<span class="string">r#""name": "Test &amp;amp; Page""#</span>)
-        );
-        <span class="macro">assert!</span>(structured_data.contains(
-            <span class="string">r#""description": "This is a &amp;quot;test&amp;quot; page.""#
-        </span>));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_malformed_html() {
-        <span class="kw">let </span>html = <span class="string">r#"&lt;html&gt;&lt;head&gt;&lt;title&gt;Test Page"#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_err());
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-            result.unwrap_err(),
-            HtmlError::MissingHtmlElement(<span class="kw">_</span>)
-        ));
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_generate_meta_tags_multiple_titles() {
-        <span class="kw">let </span>html = <span class="string">r#"
-    &lt;html&gt;
-        &lt;head&gt;
-            &lt;title&gt;First Title&lt;/title&gt;
-            &lt;title&gt;Second Title&lt;/title&gt;
-        &lt;/head&gt;
-        &lt;body&gt;&lt;p&gt;This is a test page.&lt;/p&gt;&lt;/body&gt;
-    &lt;/html&gt;
-    "#</span>;
-        <span class="kw">let </span>result = generate_meta_tags(html);
-        <span class="macro">assert!</span>(result.is_ok());
-        <span class="kw">let </span>meta_tags = result.unwrap();
-        <span class="macro">assert!</span>(meta_tags
-            .contains(<span class="string">r#"&lt;meta name="title" content="First Title"&gt;"#</span>));
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>invalid_additional_data_keys() {
+            <span class="kw">let </span><span class="kw-2">mut </span>additional_data = HashMap::new();
+            <span class="kw">_ </span>= additional_data
+                .insert(<span class="string">"&lt;invalid&gt;"</span>.to_string(), <span class="string">"value"</span>.to_string());
+            <span class="kw">let </span>config = StructuredDataConfig {
+                additional_data: <span class="prelude-val">Some</span>(additional_data),
+                ..Default::default()
+            };
+            <span class="kw">let </span>result =
+                generate_structured_data(<span class="string">"&lt;html&gt;&lt;/html&gt;"</span>, <span class="prelude-val">Some</span>(config));
+            <span class="macro">assert!</span>(result.is_err());
+        }
     }
 }
 </code></pre></div></section></main></body></html>
