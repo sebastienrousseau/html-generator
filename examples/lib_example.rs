@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
 
 /// Demonstrates basic HTML generation from Markdown content.
 fn basic_html_generation_example() -> Result<()> {
-    println!("� Basic HTML Generation Example");
+    println!("🦀 Basic HTML Generation Example");
     println!("---------------------------------------------");
 
     let markdown = "# Welcome to html-generator!";

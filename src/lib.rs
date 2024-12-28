@@ -68,6 +68,7 @@ use std::{
 
 // Re-export public modules
 pub mod accessibility;
+pub mod emojis;
 pub mod error;
 pub mod generator;
 pub mod performance;
@@ -77,6 +78,7 @@ pub mod utils;
 // Re-export primary types and functions for convenience
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
+pub use emojis::load_emoji_sequences;
 pub use generator::generate_html;
 pub use performance::{async_generate_html, minify_html};
 pub use seo::{generate_meta_tags, generate_structured_data};

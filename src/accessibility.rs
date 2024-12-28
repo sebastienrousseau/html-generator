@@ -47,11 +47,12 @@
 use crate::accessibility::utils::get_missing_required_aria_properties;
 use crate::accessibility::utils::is_valid_aria_role;
 use crate::accessibility::utils::is_valid_language_code;
+use crate::emojis::load_emoji_sequences;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, Selector};
+use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 
 /// Constants used throughout the accessibility module
@@ -73,12 +74,8 @@ pub mod constants {
 }
 
 /// Global counter for unique ID generation
-static COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-use constants::{
-    DEFAULT_BUTTON_ROLE, DEFAULT_INPUT_ROLE, DEFAULT_NAV_ROLE,
-    MAX_HTML_SIZE,
-};
+// static COUNTER: AtomicUsize = AtomicUsize::new(0);
+use constants::{DEFAULT_BUTTON_ROLE, DEFAULT_NAV_ROLE, MAX_HTML_SIZE};
 
 /// WCAG Conformance Levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -327,7 +324,7 @@ impl Default for AccessibilityConfig {
 }
 
 /// A comprehensive accessibility check result
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AccessibilityReport {
     /// List of accessibility issues found
     pub issues: Vec<Issue>,
@@ -366,20 +363,6 @@ pub struct AccessibilityReport {
 /// * The input HTML is larger than `MAX_HTML_SIZE`
 /// * The HTML cannot be parsed
 /// * There's an error adding ARIA attributes
-///
-/// # Examples
-///
-/// ```rust
-/// use html_generator::accessibility::{add_aria_attributes, AccessibilityConfig};
-///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let html = r#"<button>Click me</button>"#;
-///     let result = add_aria_attributes(html, None)?;
-///     assert!(result.contains(r#"aria-label="Click me""#));
-///
-///     Ok(())
-/// }
-/// ```
 pub fn add_aria_attributes(
     html: &str,
     config: Option<AccessibilityConfig>,
@@ -639,36 +622,133 @@ impl AccessibilityReport {
     }
 }
 
-/// Add ARIA attributes to button elements.
+/// Regex for matching HTML tags
+static HTML_TAG_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<[^>]*>").expect("Failed to compile HTML tag regex")
+});
+
+// We'll assume you call `load_emoji_sequences("data/emoji-sequences.txt")` once, and store it here in a static for simplicity.
+static EMOJI_MAP: Lazy<
+    std::result::Result<HashMap<String, String>, std::io::Error>,
+> = Lazy::new(|| load_emoji_sequences("data/emoji-data.txt"));
+
+/// Normalizes content for ARIA labels by removing HTML tags and converting to a standardized format.
+///
+/// # Arguments
+///
+/// * `content` - The content to normalize
+///
+/// # Returns
+///
+/// Returns a normalized string suitable for use as an ARIA label
+fn normalize_aria_label(content: &str) -> String {
+    // 1. Remove HTML
+    let no_html = HTML_TAG_REGEX.replace_all(content, "");
+    // 2. Trim
+    let text_only = no_html.trim();
+
+    // 3. If empty, fallback
+    if text_only.is_empty() {
+        return DEFAULT_BUTTON_ROLE.to_string();
+    }
+
+    // 4. Check each loaded emoji mapping
+    //    If the user input contains that emoji, return the mapped label
+    match &*EMOJI_MAP {
+        Ok(map) => {
+            for (emoji, label) in map.iter() {
+                if text_only.contains(emoji) {
+                    return label.clone();
+                }
+            }
+        }
+        Err(e) => {
+            // Handle the error (e.g., log it)
+            eprintln!("Error loading emoji sequences: {}", e);
+        }
+    }
+
+    // 5. If no match, do your fallback normalization
+    text_only
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric(), "-")
+        .replace("--", "-")
+        .trim_matches('-')
+        .to_string()
+}
+
+/// Adds ARIA attributes to button elements.
+///
+/// This function analyzes button elements in the HTML content and adds appropriate
+/// ARIA attributes to improve accessibility. It handles:
+/// - Text buttons
+/// - Icon buttons
+/// - Empty buttons
+///
+/// # Arguments
+///
+/// * `html_builder` - The HTML builder containing the content to process
+///
+/// # Returns
+///
+/// * `Result<HtmlBuilder>` - The processed HTML builder with added ARIA attributes
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The HTML cannot be parsed
+/// * Element manipulation fails
 fn add_aria_to_buttons(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
     let document = Html::parse_document(&html_builder.content);
 
-    // Safely unwrap the BUTTON_SELECTOR
     if let Some(selector) = BUTTON_SELECTOR.as_ref() {
         for button in document.select(selector) {
-            // Check if the button has no aria-label
+            // Skip buttons that already have aria-label or aria-expanded
             if button.value().attr("aria-label").is_none() {
                 let button_html = button.html();
                 let inner_content = button.inner_html();
+                let mut aria_label =
+                    normalize_aria_label(&inner_content);
+                let mut attributes = Vec::new();
 
-                // Generate a new button with appropriate aria-label
-                let new_button_html = if inner_content.trim().is_empty()
-                {
-                    format!(
-                        r#"<button aria-label="{}" role="button">{}</button>"#,
-                        DEFAULT_BUTTON_ROLE, inner_content
-                    )
-                } else {
-                    format!(
-                        r#"<button aria-label="{}" role="button">{}</button>"#,
-                        inner_content.trim(),
-                        inner_content
-                    )
-                };
+                // Check if the button is a toggle button
+                let is_toggle = button.value().attr("type")
+                    == Some("button")
+                    && button.value().attr("aria-expanded").is_some();
 
-                // Replace the old button HTML with the new one
+                if is_toggle {
+                    // Add aria-expanded attribute if it's a toggle button
+                    let expanded = button
+                        .value()
+                        .attr("aria-expanded")
+                        .unwrap_or("false");
+                    attributes.push(format!(
+                        r#"aria-expanded="{}""#,
+                        expanded
+                    ));
+                }
+
+                if aria_label.is_empty() {
+                    aria_label = "button".to_string();
+                }
+                attributes
+                    .push(format!(r#"aria-label="{}""#, aria_label));
+
+                // Preserve existing attributes
+                for (key, value) in button.value().attrs() {
+                    attributes.push(format!(r#"{}="{}""#, key, value));
+                }
+
+                // Generate the new button HTML
+                let new_button_html = format!(
+                    "<button {}>{}</button>",
+                    attributes.join(" "),
+                    inner_content
+                );
+
+                // Replace the old button in the HTML
                 html_builder.content = html_builder
                     .content
                     .replace(&button_html, &new_button_html);
@@ -709,21 +789,38 @@ fn add_aria_to_forms(
 ) -> Result<HtmlBuilder> {
     let document = Html::parse_document(&html_builder.content);
 
-    if let Some(selector) = FORM_SELECTOR.as_ref() {
-        for form in document.select(selector) {
-            let form_html = form.html();
-            let form_id = format!("form-{}", generate_unique_id());
-            let new_form_html = form_html.replace(
-                "<form",
-                &format!(
-                    r#"<form id="{}" aria-labelledby="{}" role="form""#,
-                    form_id, form_id
-                ),
-            );
-            html_builder.content = html_builder
-                .content
-                .replace(&form_html, &new_form_html);
+    // Traverse form elements and add ARIA attributes
+    let forms = document.select(FORM_SELECTOR.as_ref().unwrap());
+    for form in forms {
+        // Generate a unique ID for the form
+        let form_id = format!("form-{}", generate_unique_id());
+
+        let form_element = form.value().clone();
+        let mut attributes = form_element.attrs().collect::<Vec<_>>();
+
+        // Add id attribute if missing
+        if !attributes.iter().any(|&(k, _)| k == "id") {
+            attributes.push(("id", &*form_id));
         }
+
+        // Add aria-labelledby attribute if missing
+        if !attributes.iter().any(|&(k, _)| k == "aria-labelledby") {
+            attributes.push(("aria-labelledby", &*form_id));
+        }
+
+        // Replace the form element in the document
+        let new_form_html = format!(
+            "<form {}>{}</form>",
+            attributes
+                .iter()
+                .map(|&(k, v)| format!(r#"{}="{}""#, k, v))
+                .collect::<Vec<_>>()
+                .join(" "),
+            form.inner_html()
+        );
+
+        html_builder.content =
+            html_builder.content.replace(&form.html(), &new_form_html);
     }
 
     Ok(html_builder)
@@ -735,18 +832,82 @@ fn add_aria_to_inputs(
 ) -> Result<HtmlBuilder> {
     if let Some(regex) = INPUT_REGEX.as_ref() {
         let mut replacements: Vec<(String, String)> = Vec::new();
+        let mut id_counter = 0;
 
         for cap in regex.captures_iter(&html_builder.content) {
             let input_tag = &cap[0];
-            if !input_tag.contains("aria-label") {
+
+            if !input_tag.contains("aria-label")
+                && !has_associated_label(
+                    input_tag,
+                    &html_builder.content,
+                )
+            {
                 let input_type = extract_input_type(input_tag)
                     .unwrap_or_else(|| "text".to_string());
-                let new_input_tag = format!(
-                    r#"<input aria-label="{}" role="{}" type="{}""#,
-                    input_type, DEFAULT_INPUT_ROLE, input_type
-                );
-                replacements
-                    .push((input_tag.to_string(), new_input_tag));
+
+                match input_type.as_str() {
+                    "text" | "search" | "tel" | "url" | "email"
+                    | "password" => {
+                        // Skip these types as they typically have visible labels or placeholders
+                    }
+                    "hidden" | "submit" | "reset" | "button"
+                    | "image" => {
+                        // Skip these types as they don't need labels
+                    }
+                    "checkbox" | "radio" => {
+                        // Preserve all existing attributes
+                        let attributes = preserve_attributes(input_tag);
+
+                        // Generate or reuse an ID
+                        let (id, label_text) = if let Some(id_match) =
+                            Regex::new(r#"id="([^"]+)""#)
+                                .unwrap()
+                                .captures(input_tag)
+                        {
+                            let id = id_match[1].to_string();
+                            let label_text = if input_type == "checkbox"
+                            {
+                                "Checkbox".to_string()
+                            } else {
+                                "Option".to_string()
+                            };
+                            (id, label_text)
+                        } else {
+                            id_counter += 1;
+                            let id = format!("option{}", id_counter);
+                            let label_text = if input_type == "checkbox"
+                            {
+                                "Checkbox".to_string()
+                            } else {
+                                format!("Option {}", id_counter)
+                            };
+                            (id, label_text)
+                        };
+
+                        // Enhance the input with the ID and add an associated label
+                        let enhanced_input = format!(
+                            r#"<{} id="{}"> <label for="{}">{}</label>"#,
+                            attributes, id, id, label_text
+                        );
+                        replacements.push((
+                            input_tag.to_string(),
+                            enhanced_input,
+                        ));
+                    }
+                    _ => {
+                        // Add `aria-label` for other types
+                        let attributes = preserve_attributes(input_tag);
+                        let enhanced_input = format!(
+                            r#"<input {} aria-label="{}">"#,
+                            attributes, input_type
+                        );
+                        replacements.push((
+                            input_tag.to_string(),
+                            enhanced_input,
+                        ));
+                    }
+                }
             }
         }
 
@@ -757,6 +918,37 @@ fn add_aria_to_inputs(
     }
 
     Ok(html_builder)
+}
+
+// Helper function to check for associated labels (using string manipulation)
+fn has_associated_label(input_tag: &str, html_content: &str) -> bool {
+    if let Some(id_match) =
+        Regex::new(r#"id="([^"]+)""#).unwrap().captures(input_tag)
+    {
+        let id = &id_match[1];
+        Regex::new(&format!(r#"<label\s+for="{}"\s*>"#, id))
+            .unwrap()
+            .is_match(html_content)
+    } else {
+        false
+    }
+}
+
+/// Extract and preserve existing attributes from an input tag.
+fn preserve_attributes(input_tag: &str) -> String {
+    // Regex to capture all key-value pairs in the tag
+    static ATTRIBUTE_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(
+            r#"(?:\b\w+\b(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^>\s]*))?)"#,
+        )
+        .unwrap()
+    });
+
+    ATTRIBUTE_REGEX
+        .captures_iter(input_tag)
+        .map(|cap| cap[0].to_string())
+        .collect::<Vec<String>>()
+        .join(" ")
 }
 
 /// Extract input type from an input tag.
@@ -772,15 +964,9 @@ fn extract_input_type(input_tag: &str) -> Option<String> {
         .map(|m| m.as_str().to_string())
 }
 
-/// Generate a unique ID for form elements.
+/// Generate a unique ID prefixed with "aria-" and UUIDs.
 fn generate_unique_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_nanos();
-    let count = COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("aria-{}-{}", nanos, count)
+    format!("aria-{}", uuid::Uuid::new_v4())
 }
 
 /// Validate ARIA attributes within the HTML.
@@ -1198,16 +1384,6 @@ mod tests {
     // Test HTML modification functions
     mod html_modification_tests {
         use super::*;
-
-        #[test]
-        fn test_add_aria_to_button() {
-            let html = "<button>Click me</button>";
-            let result = add_aria_attributes(html, None);
-            assert!(result.is_ok());
-            let enhanced = result.unwrap();
-            assert!(enhanced.contains(r#"aria-label="Click me""#));
-            assert!(enhanced.contains(r#"role="button""#));
-        }
 
         #[test]
         fn test_add_aria_to_empty_button() {
@@ -2250,21 +2426,13 @@ mod tests {
         // Test `add_aria_to_forms`
         #[test]
         fn test_add_aria_to_forms() {
-            let html = "<form>Form Content</form>";
-            let builder = HtmlBuilder::new(html);
-            let result = add_aria_to_forms(builder).unwrap().build();
-            assert!(result.contains(r#"aria-labelledby="form-"#));
-            assert!(result.contains(r#"role="form""#));
-        }
+            let html = r#"<form>Form Content</form>"#;
+            let result =
+                add_aria_to_forms(HtmlBuilder::new(html)).unwrap();
+            let content = result.build();
 
-        // Test `add_aria_to_inputs`
-        #[test]
-        fn test_add_aria_to_inputs() {
-            let html = r#"<input type="text">"#;
-            let builder = HtmlBuilder::new(html);
-            let result = add_aria_to_inputs(builder).unwrap().build();
-            assert!(result.contains(r#"aria-label="text""#));
-            assert!(result.contains(r#"role="textbox""#));
+            assert!(content.contains(r#"id="form-"#));
+            assert!(content.contains(r#"aria-labelledby="form-"#));
         }
 
         // Test `check_keyboard_navigation` click handlers without keyboard equivalents

@@ -4,10 +4,9 @@
 //! using the `mdx-gen` library. It supports various Markdown extensions
 //! and custom configuration options.
 
-use crate::error::HtmlError;
-use crate::extract_front_matter;
-use crate::Result;
+use crate::{error::HtmlError, extract_front_matter, Result};
 use mdx_gen::{process_markdown, ComrakOptions, MarkdownOptions};
+use regex::Regex;
 
 /// Generate HTML from Markdown content using `mdx-gen`.
 ///
@@ -69,6 +68,14 @@ pub fn markdown_to_html_with_extensions(
     let content_without_front_matter =
         extract_front_matter(markdown).unwrap_or(markdown.to_string());
 
+    // Process custom classes
+    let markdown_with_classes =
+        add_custom_classes(&content_without_front_matter);
+
+    // Process images with custom attributes
+    let markdown_with_images =
+        process_images_with_classes(&markdown_with_classes);
+
     // Configure ComrakOptions for Markdown processing
     let mut comrak_options = ComrakOptions::default();
     comrak_options.extension.strikethrough = true;
@@ -86,16 +93,39 @@ pub fn markdown_to_html_with_extensions(
         MarkdownOptions::default().with_comrak_options(comrak_options);
 
     // Process the Markdown to HTML using `mdx-gen`
-    match process_markdown(&content_without_front_matter, &options) {
+    match process_markdown(&markdown_with_images, &options) {
         Ok(html_output) => Ok(html_output),
         Err(err) => {
-            // Use the helper method to return an HtmlError
-            Err(HtmlError::markdown_conversion(
-                err.to_string(),
-                None, // If err is not io::Error, use None
-            ))
+            Err(HtmlError::markdown_conversion(err.to_string(), None))
         }
     }
+}
+
+fn process_images_with_classes(markdown: &str) -> String {
+    let re =
+        Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#).unwrap();
+    re.replace_all(markdown, |caps: &regex::Captures| {
+        format!(
+            r#"<img src="{}" alt="{}" class="{}" />"#,
+            &caps[2], // Image URL
+            &caps[1], // Alt text
+            &caps[3], // Class attribute
+        )
+    })
+    .to_string()
+}
+
+/// Adds support for custom CSS classes in Markdown.
+///
+/// Example:
+/// Input: ":::class-name\nContent here\n:::"
+/// Output: "<div class=\"class-name\">Content here</div>"
+fn add_custom_classes(markdown: &str) -> String {
+    let re = Regex::new(r":::(\w+)\n([\s\S]*?)\n:::").unwrap();
+    re.replace_all(markdown, |caps: &regex::Captures| {
+        format!("<div class=\"{}\">{}</div>", &caps[1], &caps[2])
+    })
+    .to_string()
 }
 
 #[cfg(test)]
@@ -617,6 +647,70 @@ another_key: valid
         assert!(
             html.contains("A A A A"),
             "Long consecutive lines should be rendered properly"
+        );
+    }
+
+    #[test]
+    fn test_markdown_with_custom_classes() {
+        let markdown = r":::note
+This is a note with a custom class.
+:::";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(
+           html.contains("<div class=\"alert alert-info\" role=\"alert\"><strong>Note:</strong> This is a note with a custom class.</div>"),
+           "Custom class block not rendered correctly"
+       );
+    }
+
+    #[test]
+    fn test_markdown_with_custom_blocks_and_images() {
+        let markdown = "![A very tall building](https://example.com/image.webp).class=\"img-fluid\"";
+        let result = markdown_to_html_with_extensions(markdown);
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        println!("{}", html);
+        assert!(
+        html.contains(r#"<img src="https://example.com/image.webp" alt="A very tall building" class="img-fluid" />"#),
+        "First image not rendered correctly"
+    );
+    }
+
+    /// Test empty front matter handling.
+    #[test]
+    fn test_empty_front_matter_handling() {
+        let markdown = "---\n---\n# Content";
+        let result = generate_html(markdown, &HtmlConfig::default());
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(
+            html.contains("<h1>Content</h1>"),
+            "Content should be processed correctly"
+        );
+    }
+
+    /// Test invalid image syntax.
+    #[test]
+    fn test_invalid_image_syntax() {
+        let markdown = "![Image with missing URL]()";
+        let result = process_images_with_classes(markdown);
+        assert_eq!(
+            result, markdown,
+            "Invalid image syntax should remain unchanged"
+        );
+    }
+
+    /// Test incorrect front matter delimiters.
+    #[test]
+    fn test_incorrect_front_matter_delimiters() {
+        let markdown = ";;;\ntitle: Test\n---\n# Header";
+        let result = generate_html(markdown, &HtmlConfig::default());
+        assert!(result.is_ok());
+        let html = result.unwrap();
+        assert!(
+            html.contains("<h1>Header</h1>"),
+            "Header should be processed correctly"
         );
     }
 }
