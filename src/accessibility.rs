@@ -2484,5 +2484,94 @@ mod tests {
                 get_missing_required_aria_properties(&element).unwrap();
             assert!(missing.contains(&"aria-valuenow".to_string()));
         }
+
+        /// Test invalid regex pattern handling
+        #[test]
+        fn test_invalid_regex_creation() {
+            let invalid_pattern = "[unclosed";
+            let regex = try_create_regex(invalid_pattern);
+            assert!(
+                regex.is_none(),
+                "Invalid regex should return None"
+            );
+        }
+
+        /// Test invalid selector handling
+        #[test]
+        fn test_invalid_selector_creation() {
+            let invalid_selector = "div..class";
+            let selector = try_create_selector(invalid_selector);
+            assert!(
+                selector.is_none(),
+                "Invalid selector should return None"
+            );
+        }
+
+        /// Test adding ARIA attributes to empty buttons
+        #[test]
+        fn test_add_aria_empty_buttons() {
+            let html = r#"<button></button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+            assert!(
+                result.contains("aria-label"),
+                "ARIA label should be added to empty button"
+            );
+        }
+
+        /// Test WCAG validation with Level AAA strictness
+        #[test]
+        fn test_wcag_aaa_validation() {
+            let html = "<h1>Main Title</h1><h4>Skipped Heading</h4>";
+            let config = AccessibilityConfig {
+                wcag_level: WcagLevel::AAA,
+                ..Default::default()
+            };
+            let report = validate_wcag(html, &config, None).unwrap();
+            assert!(
+                report.issue_count > 0,
+                "WCAG AAA should detect issues"
+            );
+        }
+
+        /// Test unique ID generation for collisions
+        #[test]
+        fn test_unique_id_collisions() {
+            let ids: HashSet<_> =
+                (0..10_000).map(|_| generate_unique_id()).collect();
+            assert_eq!(
+                ids.len(),
+                10_000,
+                "Generated IDs should be unique"
+            );
+        }
+
+        /// Test adding ARIA attributes to navigation elements
+        #[test]
+        fn test_add_aria_navigation() {
+            let html = "<nav>Main Navigation</nav>";
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_navs(builder).unwrap().build();
+            assert!(
+                result.contains("aria-label"),
+                "ARIA label should be added to navigation"
+            );
+        }
+
+        /// Test handling of empty HTML content
+        #[test]
+        fn test_empty_html_handling() {
+            let html = "";
+            let result = add_aria_attributes(html, None);
+            assert!(
+                result.is_ok(),
+                "Empty HTML should not cause errors"
+            );
+            assert_eq!(
+                result.unwrap(),
+                "",
+                "Empty HTML should remain unchanged"
+            );
+        }
     }
 }

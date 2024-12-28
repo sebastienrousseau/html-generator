@@ -186,7 +186,8 @@ mod tests {
         let result = load_emoji_sequences(file.path());
 
         let mut expected = HashMap::new();
-        let _ = expected.insert("👍".to_string(), "thumbs-up-sign".to_string());
+        let _ = expected
+            .insert("👍".to_string(), "thumbs-up-sign".to_string());
 
         assert_eq!(result.unwrap(), expected);
     }
@@ -260,7 +261,8 @@ mod tests {
         let result = load_emoji_sequences(file.path());
 
         let mut expected = HashMap::new();
-        let _ = expected.insert("👍".to_string(), "thumbs-up-sign".to_string());
+        let _ = expected
+            .insert("👍".to_string(), "thumbs-up-sign".to_string());
         let _ = expected.insert("😂".to_string(), "".to_string()); // Missing label
         let _ = expected.insert("😀".to_string(), "".to_string()); // Empty comment after '#'
 
