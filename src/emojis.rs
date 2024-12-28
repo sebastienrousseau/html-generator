@@ -308,4 +308,128 @@ mod tests {
 
         assert_eq!(result.unwrap(), expected);
     }
+
+    #[test]
+    fn test_load_emoji_sequences_skip_invalid_lines() {
+        let test_data = r#"
+    # Comment line
+    ; invalid line ; no hex code ; # Just semicolons
+    1F602 ; emoji ; L1 ; none ; j # V6.0 (😂) FACE WITH TEARS OF JOY
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        // Only the valid emoji line should be processed
+        let mut expected = HashMap::new();
+        let _ = expected.insert(
+            "😂".to_string(),
+            "face-with-tears-of-joy".to_string(),
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_load_emoji_sequences_split_behavior() {
+        let test_data = r#"
+    26A1;emoji;L1;none;a j# V4.0 (⚡) HIGH VOLTAGE SIGN
+    1F602 ; emoji ; L1 ; none ; j # V6.0 (😂) FACE WITH TEARS OF JOY
+    26A1  ;  emoji  ;  L1  ;  none  ;  a j  # V4.0 (⚡) HIGH VOLTAGE SIGN
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        let mut expected = HashMap::new();
+        let _ = expected
+            .insert("⚡".to_string(), "high-voltage-sign".to_string());
+        let _ = expected.insert(
+            "😂".to_string(),
+            "face-with-tears-of-joy".to_string(),
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_load_emoji_sequences_parenthesis_variations() {
+        let test_data = r#"
+    26A1 ; emoji ; L1 ; none ; a j # (⚡) HIGH VOLTAGE
+    1F602 ; emoji ; L1 ; none ; j # V6.0 (😂) FACE WITH TEARS
+    1F603 ; emoji ; L1 ; none ; j # V6.0 (😃) SMILEY FACE
+    1F604 ; emoji ; L1 ; none ; j # V6.0 (😄) GRINNING FACE
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        let mut expected = HashMap::new();
+        let _ = expected
+            .insert("⚡".to_string(), "high-voltage".to_string());
+        let _ = expected
+            .insert("😂".to_string(), "face-with-tears".to_string());
+        let _ = expected
+            .insert("😃".to_string(), "smiley-face".to_string());
+        let _ = expected
+            .insert("😄".to_string(), "grinning-face".to_string());
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_load_emoji_sequences_unparseable_sequences() {
+        let test_data = r#"
+    110000 ; emoji ; L1 ; none ; j # Above Unicode range INVALID
+    1F602 ; emoji ; L1 ; none ; j # V6.0 (😂) FACE WITH TEARS OF JOY
+    D800 ; emoji ; L1 ; none ; j # Surrogate code point
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        // Only the valid emoji should be included
+        let mut expected = HashMap::new();
+        let _ = expected.insert(
+            "😂".to_string(),
+            "face-with-tears-of-joy".to_string(),
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_load_emoji_sequences_empty_fields() {
+        let test_data = r#"
+    ; ; ; ; ; # Empty fields should be skipped
+    1F602 ; emoji ; L1 ; none ; j # V6.0 (😂) FACE WITH TEARS OF JOY
+    #
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        let mut expected = HashMap::new();
+        let _ = expected.insert(
+            "😂".to_string(),
+            "face-with-tears-of-joy".to_string(),
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_load_emoji_sequences_whitespace_variations() {
+        let test_data = r#"
+    1F602;emoji;L1;none;j# V6.0 (😂) FACE WITH TEARS OF JOY
+    1F603  ;  emoji  ;  L1  ;  none  ;  j  # V6.0 (😃) SMILEY FACE
+    "#;
+
+        let file = create_temp_file(test_data);
+        let result = load_emoji_sequences(file.path()).unwrap();
+
+        let mut expected = HashMap::new();
+        let _ = expected.insert(
+            "😂".to_string(),
+            "face-with-tears-of-joy".to_string(),
+        );
+        let _ = expected
+            .insert("😃".to_string(), "smiley-face".to_string());
+        assert_eq!(result, expected);
+    }
 }
