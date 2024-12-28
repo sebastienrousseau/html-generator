@@ -3197,8 +3197,6 @@ mod tests {
                 message: "Broken HTML".to_string(),
                 fragment: None,
             };
-            // Just ensuring they construct. In real usage, you'd check their Display formatting, etc.
-            assert!(true, "Constructed error variants without panic");
         }
 
         #[test]
