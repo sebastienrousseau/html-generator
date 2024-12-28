@@ -1340,6 +1340,8 @@ fn main() {
     }
 
     mod file_processing_tests {
+        use crate::constants;
+        use crate::HtmlConfig;
         use crate::{
             markdown_file_to_html, HtmlError, OutputDestination,
         };
@@ -1418,6 +1420,128 @@ fn main() {
             );
             assert!(result.is_err());
             Ok(())
+        }
+
+        // Test for Default implementation of OutputDestination
+        #[test]
+        fn test_output_destination_default() {
+            let default = OutputDestination::default();
+            assert!(matches!(default, OutputDestination::Stdout));
+        }
+
+        // Test for Debug implementation of OutputDestination
+        #[test]
+        fn test_output_destination_debug() {
+            let file_debug = format!(
+                "{:?}",
+                OutputDestination::File(
+                    "path/to/file.html".to_string()
+                )
+            );
+            assert_eq!(file_debug, r#"File("path/to/file.html")"#);
+
+            let writer_debug = format!(
+                "{:?}",
+                OutputDestination::Writer(Box::new(Cursor::new(
+                    Vec::new()
+                )))
+            );
+            assert_eq!(writer_debug, "Writer(<dyn Write>)");
+
+            let stdout_debug =
+                format!("{:?}", OutputDestination::Stdout);
+            assert_eq!(stdout_debug, "Stdout");
+        }
+
+        // Test for Display implementation of OutputDestination
+        #[test]
+        fn test_output_destination_display() {
+            let file_display = format!(
+                "{}",
+                OutputDestination::File(
+                    "path/to/file.html".to_string()
+                )
+            );
+            assert_eq!(file_display, "File(path/to/file.html)");
+
+            let writer_display = format!(
+                "{}",
+                OutputDestination::Writer(Box::new(Cursor::new(
+                    Vec::new()
+                )))
+            );
+            assert_eq!(writer_display, "Writer(<dyn Write>)");
+
+            let stdout_display =
+                format!("{}", OutputDestination::Stdout);
+            assert_eq!(stdout_display, "Stdout");
+        }
+
+        // Test for Default implementation of HtmlConfig
+        #[test]
+        fn test_html_config_default() {
+            let default = HtmlConfig::default();
+            assert!(default.enable_syntax_highlighting);
+            assert_eq!(
+                default.syntax_theme,
+                Some("github".to_string())
+            );
+            assert!(!default.minify_output);
+            assert!(default.add_aria_attributes);
+            assert!(!default.generate_structured_data);
+            assert_eq!(
+                default.max_input_size,
+                constants::DEFAULT_MAX_INPUT_SIZE
+            );
+            assert_eq!(
+                default.language,
+                constants::DEFAULT_LANGUAGE.to_string()
+            );
+            assert!(!default.generate_toc);
+        }
+
+        // Test for HtmlConfigBuilder
+        #[test]
+        fn test_html_config_builder() {
+            let builder = HtmlConfig::builder()
+                .with_syntax_highlighting(
+                    true,
+                    Some("monokai".to_string()),
+                )
+                .with_language("en-US")
+                .build()
+                .unwrap();
+
+            assert!(builder.enable_syntax_highlighting);
+            assert_eq!(
+                builder.syntax_theme,
+                Some("monokai".to_string())
+            );
+            assert_eq!(builder.language, "en-US");
+        }
+
+        // Test for long file path validation
+        #[test]
+        fn test_long_file_path_validation() {
+            let long_path = "a".repeat(constants::MAX_PATH_LENGTH + 1);
+            let result = HtmlConfig::validate_file_path(long_path);
+            assert!(
+                matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("File path exceeds maximum length"))
+            );
+        }
+
+        // Test for relative file path validation
+        #[test]
+        fn test_relative_file_path_validation() {
+            #[cfg(not(test))]
+            {
+                let absolute_path = "/absolute/path/to/file.md";
+                let result =
+                    HtmlConfig::validate_file_path(absolute_path);
+                assert!(
+                    matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("Only relative file paths are allowed"))
+                );
+            }
         }
     }
 
