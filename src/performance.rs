@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Performance optimization functionality for HTML processing.
 //!
 //! This module provides optimized utilities for HTML minification and generation,
@@ -35,7 +38,7 @@ use std::{fs, path::Path};
 use tokio::task;
 
 /// Maximum allowed file size for minification (10 MB).
-const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
 
 /// Initial capacity for string buffers (1 KB).
 const INITIAL_HTML_CAPACITY: usize = 1024;

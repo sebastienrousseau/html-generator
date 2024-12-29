@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Error types for HTML generation and processing.
 //!
 //! This module defines custom error types used throughout the HTML generation library.

@@ -1,73 +1,28 @@
-//! HTML Generator: A modern HTML generation and optimization library
-//!
-//! `html-generator` is a comprehensive suite of tools for generating, optimizing,
-//! and managing HTML content with a focus on accessibility, SEO, and performance.
-//!
-//! # Features
-//!
-//! - **Markdown to HTML**: Converts Markdown content and files to HTML with support for:
-//!   - CommonMark syntax
-//!   - GitHub Flavored Markdown
-//!   - Custom extensions and plugins
-//!
-//! - **Accessibility**:
-//!   - Automated ARIA attribute generation
-//!   - WCAG compliance checking
-//!   - Semantic HTML optimization
-//!
-//! - **SEO Optimization**:
-//!   - Meta tag generation
-//!   - Structured data (JSON-LD) support
-//!   - OpenGraph and Twitter card generation
-//!
-//! - **Performance**:
-//!   - HTML minification
-//!   - Async generation capabilities
-//!   - Memory-efficient processing
-//!
-//! # Examples
-//!
-//! ```rust
-//! use html_generator::{markdown_to_html, MarkdownConfig};
-//!
-//! fn main() -> Result<(), html_generator::error::HtmlError> {
-//!     let markdown = "# Hello World\n\nWelcome to HTML Generator.";
-//!     let config = MarkdownConfig::default();
-//!     let html = markdown_to_html(markdown, Some(config))?;
-//!     println!("Generated HTML: {html}");
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Security Features
-//!
-//! The library implements several security measures to protect against common vulnerabilities:
-//!
-//! - **Path Validation**: Prevents directory traversal attacks through strict path checking
-//! - **Input Limits**: Implements size restrictions to prevent denial of service attacks
-//! - **Unicode Safety**: Provides proper handling of Unicode text to prevent encoding attacks
-//! - **Memory Safety**: Leverages Rust's memory safety guarantees
-//! - **Error Handling**: Uses comprehensive error types to prevent undefined behavior
-//!
-//! # Architecture
-//!
-//! The library is organized into several key modules:
-//!
-//! - `accessibility`: ARIA attributes and WCAG compliance
-//! - `error`: Error types and handling
-//! - `generator`: Core HTML generation functionality
-//! - `performance`: Optimization and minification
-//! - `seo`: Search engine optimization features
-//! - `utils`: Utility functions and helpers
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+#![doc = include_str!("../README.md")]
+#![doc(
+    html_favicon_url = "https://kura.pro/html-generator/images/favicon.ico",
+    html_logo_url = "https://kura.pro/html-generator/images/logos/html-generator.svg",
+    html_root_url = "https://docs.rs/html-generator"
+)]
+#![crate_name = "html_generator"]
+#![crate_type = "lib"]
 
 use std::{
+    fmt,
     fs::File,
-    io::{self, Read, Write},
+    io::{self, BufReader, BufWriter, Read, Write},
     path::{Component, Path},
 };
 
+/// Maximum buffer size for reading files (16MB)
+const MAX_BUFFER_SIZE: usize = 16 * 1024 * 1024;
+
 // Re-export public modules
 pub mod accessibility;
+pub mod emojis;
 pub mod error;
 pub mod generator;
 pub mod performance;
@@ -77,6 +32,7 @@ pub mod utils;
 // Re-export primary types and functions for convenience
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
+pub use emojis::load_emoji_sequences;
 pub use generator::generate_html;
 pub use performance::{async_generate_html, minify_html};
 pub use seo::{generate_meta_tags, generate_structured_data};
@@ -137,6 +93,7 @@ impl Default for MarkdownConfig {
 
 /// Errors that can occur during configuration.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ConfigError {
     /// Error for invalid input size configuration
     #[error(
@@ -156,37 +113,106 @@ pub enum ConfigError {
 /// Output destination for HTML generation.
 ///
 /// Specifies where the generated HTML content should be written.
+///
+/// # Examples
+///
+/// Writing HTML to a file:
+/// ```
+/// use std::fs::File;
+/// use html_generator::OutputDestination;
+///
+/// let output = OutputDestination::File("output.html".to_string());
+/// ```
+///
+/// Writing HTML to an in-memory buffer:
+/// ```
+/// use std::io::Cursor;
+/// use html_generator::OutputDestination;
+///
+/// let buffer = Cursor::new(Vec::new());
+/// let output = OutputDestination::Writer(Box::new(buffer));
+/// ```
+///
+/// Writing HTML to standard output:
+/// ```
+/// use html_generator::OutputDestination;
+///
+/// let output = OutputDestination::Stdout;
+/// ```
 #[non_exhaustive]
 pub enum OutputDestination {
-    /// Write output to a file at the specified path
+    /// Write output to a file at the specified path.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use html_generator::OutputDestination;
+    ///
+    /// let output = OutputDestination::File("output.html".to_string());
+    /// ```
     File(String),
 
-    /// Write output using a custom writer implementation
+    /// Write output using a custom writer implementation.
     ///
     /// This can be used for in-memory buffers, network streams,
     /// or other custom output destinations.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::io::Cursor;
+    /// use html_generator::OutputDestination;
+    ///
+    /// let buffer = Cursor::new(Vec::new());
+    /// let output = OutputDestination::Writer(Box::new(buffer));
+    /// ```
     Writer(Box<dyn Write>),
 
-    /// Write output to standard output (default)
+    /// Write output to standard output (default).
     ///
     /// This is useful for command-line tools and scripts.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use html_generator::OutputDestination;
+    ///
+    /// let output = OutputDestination::Stdout;
+    /// ```
     Stdout,
 }
 
+/// Default implementation for OutputDestination.
 impl Default for OutputDestination {
     fn default() -> Self {
         Self::Stdout
     }
 }
 
-impl std::fmt::Debug for OutputDestination {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+/// Debug implementation for OutputDestination.
+impl fmt::Debug for OutputDestination {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::File(path) => {
                 f.debug_tuple("File").field(path).finish()
             }
             Self::Writer(_) => write!(f, "Writer(<dyn Write>)"),
             Self::Stdout => write!(f, "Stdout"),
+        }
+    }
+}
+
+/// Implements `Display` for `OutputDestination`.
+impl fmt::Display for OutputDestination {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OutputDestination::File(path) => {
+                write!(f, "File({})", path)
+            }
+            OutputDestination::Writer(_) => {
+                write!(f, "Writer(<dyn Write>)")
+            }
+            OutputDestination::Stdout => write!(f, "Stdout"),
         }
     }
 }
@@ -461,7 +487,7 @@ pub fn markdown_to_html(
 ///
 /// # Returns
 ///
-/// Returns `Ok
+/// Returns `Result<()>` indicating success or failure of the operation.
 ///
 /// # Errors
 ///
@@ -471,6 +497,28 @@ pub fn markdown_to_html(
 /// * Configuration is invalid
 /// * Input size exceeds configured maximum
 ///
+/// # Examples
+///
+/// ```no_run
+/// use html_generator::{markdown_file_to_html, OutputDestination, MarkdownConfig};
+/// use std::path::{Path, PathBuf};
+///
+/// // Convert file to HTML and write to stdout
+/// markdown_file_to_html(
+///     Some(PathBuf::from("input.md")),
+///     None,
+///     None,
+/// )?;
+///
+/// // Convert stdin to HTML file
+/// markdown_file_to_html(
+///     None::<PathBuf>,  // Explicit type annotation
+///     Some(OutputDestination::File("output.html".into())),
+///     Some(MarkdownConfig::default()),
+/// )?;
+/// # Ok::<(), html_generator::error::HtmlError>(())
+/// ```
+#[inline]
 pub fn markdown_file_to_html(
     input: Option<impl AsRef<Path>>,
     output: Option<OutputDestination>,
@@ -480,51 +528,131 @@ pub fn markdown_file_to_html(
     let output = output.unwrap_or_default();
 
     // Validate paths first
+    validate_paths(&input, &output)?;
+
+    // Read and process input
+    let content = read_input(input)?;
+
+    // Generate HTML
+    let html = markdown_to_html(&content, Some(config))?;
+
+    // Write output
+    write_output(output, html.as_bytes())
+}
+
+/// Validates input and output paths
+fn validate_paths(
+    input: &Option<impl AsRef<Path>>,
+    output: &OutputDestination,
+) -> Result<()> {
     if let Some(path) = input.as_ref() {
         HtmlConfig::validate_file_path(path)?;
     }
     if let OutputDestination::File(ref path) = output {
         HtmlConfig::validate_file_path(path)?;
     }
+    Ok(())
+}
 
-    // Read and validate input
-    let content = match input {
+/// Reads content from the input source
+fn read_input(input: Option<impl AsRef<Path>>) -> Result<String> {
+    match input {
         Some(path) => {
-            let mut file = File::open(path).map_err(HtmlError::Io)?;
-            let mut content = String::new();
-            _ = file
-                .read_to_string(&mut content)
-                .map_err(HtmlError::Io)?;
-            content
+            let file = File::open(path).map_err(HtmlError::Io)?;
+            let mut reader =
+                BufReader::with_capacity(MAX_BUFFER_SIZE, file);
+            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
+            let _ =
+                reader.read_to_string(&mut content).map_err(|e| {
+                    HtmlError::Io(io::Error::new(
+                        e.kind(),
+                        format!("Failed to read input: {}", e),
+                    ))
+                })?;
+            Ok(content)
         }
         None => {
-            let mut content = String::new();
-            _ = io::stdin()
-                .read_to_string(&mut content)
-                .map_err(HtmlError::Io)?;
-            content
-        }
-    };
-
-    // Generate HTML
-    let html = markdown_to_html(&content, Some(config))?;
-
-    // Write output
-    match output {
-        OutputDestination::File(path) => {
-            let mut file = File::create(path).map_err(HtmlError::Io)?;
-            file.write_all(html.as_bytes()).map_err(HtmlError::Io)?;
-        }
-        OutputDestination::Writer(mut writer) => {
-            writer.write_all(html.as_bytes()).map_err(HtmlError::Io)?;
-        }
-        OutputDestination::Stdout => {
-            io::stdout()
-                .write_all(html.as_bytes())
-                .map_err(HtmlError::Io)?;
+            let stdin = io::stdin();
+            let mut reader =
+                BufReader::with_capacity(MAX_BUFFER_SIZE, stdin.lock());
+            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
+            let _ =
+                reader.read_to_string(&mut content).map_err(|e| {
+                    HtmlError::Io(io::Error::new(
+                        e.kind(),
+                        format!("Failed to read from stdin: {}", e),
+                    ))
+                })?;
+            Ok(content)
         }
     }
+}
 
+/// Writes content to the output destination
+fn write_output(
+    output: OutputDestination,
+    content: &[u8],
+) -> Result<()> {
+    match output {
+        OutputDestination::File(path) => {
+            let file = File::create(&path).map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to create file '{}': {}", path, e),
+                ))
+            })?;
+            let mut writer = BufWriter::new(file);
+            writer.write_all(content).map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to write to file '{}': {}",
+                        path, e
+                    ),
+                ))
+            })?;
+            writer.flush().map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to flush output to file '{}': {}",
+                        path, e
+                    ),
+                ))
+            })?;
+        }
+        OutputDestination::Writer(mut writer) => {
+            let mut buffered = BufWriter::new(&mut writer);
+            buffered.write_all(content).map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to write to output: {}", e),
+                ))
+            })?;
+            buffered.flush().map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to flush output: {}", e),
+                ))
+            })?;
+        }
+        OutputDestination::Stdout => {
+            let stdout = io::stdout();
+            let mut writer = BufWriter::new(stdout.lock());
+            writer.write_all(content).map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to write to stdout: {}", e),
+                ))
+            })?;
+            writer.flush().map_err(|e| {
+                HtmlError::Io(io::Error::new(
+                    e.kind(),
+                    format!("Failed to flush stdout: {}", e),
+                ))
+            })?;
+        }
+    }
     Ok(())
 }
 
@@ -543,7 +671,7 @@ pub fn markdown_file_to_html(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```
 /// use html_generator::validate_language_code;
 ///
 /// assert!(validate_language_code("en-GB"));  // Valid
@@ -555,11 +683,13 @@ pub fn validate_language_code(lang: &str) -> bool {
     use once_cell::sync::Lazy;
     use regex::Regex;
 
+    // Pre-compiled regex using Lazy<Regex>
     static LANG_REGEX: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$")
             .expect("Failed to compile language code regex")
     });
 
+    // Match the input against the pre-compiled regex
     LANG_REGEX.is_match(lang)
 }
 
@@ -1160,11 +1290,60 @@ fn main() {
     }
 
     mod file_processing_tests {
+        use crate::constants;
+        use crate::HtmlConfig;
         use crate::{
             markdown_file_to_html, HtmlError, OutputDestination,
         };
+        use std::io::Cursor;
         use std::path::Path;
         use tempfile::NamedTempFile;
+
+        #[test]
+        fn test_display_file() {
+            let output =
+                OutputDestination::File("output.html".to_string());
+            let display = format!("{}", output);
+            assert_eq!(display, "File(output.html)");
+        }
+
+        #[test]
+        fn test_display_stdout() {
+            let output = OutputDestination::Stdout;
+            let display = format!("{}", output);
+            assert_eq!(display, "Stdout");
+        }
+
+        #[test]
+        fn test_display_writer() {
+            let buffer = Cursor::new(Vec::new());
+            let output = OutputDestination::Writer(Box::new(buffer));
+            let display = format!("{}", output);
+            assert_eq!(display, "Writer(<dyn Write>)");
+        }
+
+        #[test]
+        fn test_debug_file() {
+            let output =
+                OutputDestination::File("output.html".to_string());
+            let debug = format!("{:?}", output);
+            assert_eq!(debug, r#"File("output.html")"#);
+        }
+
+        #[test]
+        fn test_debug_stdout() {
+            let output = OutputDestination::Stdout;
+            let debug = format!("{:?}", output);
+            assert_eq!(debug, "Stdout");
+        }
+
+        #[test]
+        fn test_debug_writer() {
+            let buffer = Cursor::new(Vec::new());
+            let output = OutputDestination::Writer(Box::new(buffer));
+            let debug = format!("{:?}", output);
+            assert_eq!(debug, "Writer(<dyn Write>)");
+        }
 
         #[test]
         fn test_file_to_html_invalid_input() {
@@ -1191,6 +1370,128 @@ fn main() {
             );
             assert!(result.is_err());
             Ok(())
+        }
+
+        // Test for Default implementation of OutputDestination
+        #[test]
+        fn test_output_destination_default() {
+            let default = OutputDestination::default();
+            assert!(matches!(default, OutputDestination::Stdout));
+        }
+
+        // Test for Debug implementation of OutputDestination
+        #[test]
+        fn test_output_destination_debug() {
+            let file_debug = format!(
+                "{:?}",
+                OutputDestination::File(
+                    "path/to/file.html".to_string()
+                )
+            );
+            assert_eq!(file_debug, r#"File("path/to/file.html")"#);
+
+            let writer_debug = format!(
+                "{:?}",
+                OutputDestination::Writer(Box::new(Cursor::new(
+                    Vec::new()
+                )))
+            );
+            assert_eq!(writer_debug, "Writer(<dyn Write>)");
+
+            let stdout_debug =
+                format!("{:?}", OutputDestination::Stdout);
+            assert_eq!(stdout_debug, "Stdout");
+        }
+
+        // Test for Display implementation of OutputDestination
+        #[test]
+        fn test_output_destination_display() {
+            let file_display = format!(
+                "{}",
+                OutputDestination::File(
+                    "path/to/file.html".to_string()
+                )
+            );
+            assert_eq!(file_display, "File(path/to/file.html)");
+
+            let writer_display = format!(
+                "{}",
+                OutputDestination::Writer(Box::new(Cursor::new(
+                    Vec::new()
+                )))
+            );
+            assert_eq!(writer_display, "Writer(<dyn Write>)");
+
+            let stdout_display =
+                format!("{}", OutputDestination::Stdout);
+            assert_eq!(stdout_display, "Stdout");
+        }
+
+        // Test for Default implementation of HtmlConfig
+        #[test]
+        fn test_html_config_default() {
+            let default = HtmlConfig::default();
+            assert!(default.enable_syntax_highlighting);
+            assert_eq!(
+                default.syntax_theme,
+                Some("github".to_string())
+            );
+            assert!(!default.minify_output);
+            assert!(default.add_aria_attributes);
+            assert!(!default.generate_structured_data);
+            assert_eq!(
+                default.max_input_size,
+                constants::DEFAULT_MAX_INPUT_SIZE
+            );
+            assert_eq!(
+                default.language,
+                constants::DEFAULT_LANGUAGE.to_string()
+            );
+            assert!(!default.generate_toc);
+        }
+
+        // Test for HtmlConfigBuilder
+        #[test]
+        fn test_html_config_builder() {
+            let builder = HtmlConfig::builder()
+                .with_syntax_highlighting(
+                    true,
+                    Some("monokai".to_string()),
+                )
+                .with_language("en-US")
+                .build()
+                .unwrap();
+
+            assert!(builder.enable_syntax_highlighting);
+            assert_eq!(
+                builder.syntax_theme,
+                Some("monokai".to_string())
+            );
+            assert_eq!(builder.language, "en-US");
+        }
+
+        // Test for long file path validation
+        #[test]
+        fn test_long_file_path_validation() {
+            let long_path = "a".repeat(constants::MAX_PATH_LENGTH + 1);
+            let result = HtmlConfig::validate_file_path(long_path);
+            assert!(
+                matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("File path exceeds maximum length"))
+            );
+        }
+
+        // Test for relative file path validation
+        #[test]
+        fn test_relative_file_path_validation() {
+            #[cfg(not(test))]
+            {
+                let absolute_path = "/absolute/path/to/file.md";
+                let result =
+                    HtmlConfig::validate_file_path(absolute_path);
+                assert!(
+                    matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("Only relative file paths are allowed"))
+                );
+            }
         }
     }
 
