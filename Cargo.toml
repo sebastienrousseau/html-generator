@@ -154,6 +154,10 @@ name = "seo"
 path = "examples/seo_example.rs"
 
 [[example]]
+name = "style"
+path = "examples/style_example.rs"
+
+[[example]]
 name = "utils"
 path = "examples/utils_example.rs"
 
