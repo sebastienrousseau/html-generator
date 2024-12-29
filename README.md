@@ -31,7 +31,7 @@ A high-performance Rust library that transforms Markdown into semantically rich,
     - [Advanced Configuration](#advanced-configuration)
   - [Installation](#installation)
   - [Basic Usage](#basic-usage)
-  - [Advanced Configuration](#advanced-configuration-1)
+  - [Advanced Usage Configuration](#advanced-usage-configuration)
   - [Processing Methods](#processing-methods)
     - [Synchronous Processing](#synchronous-processing)
     - [Asynchronous Processing](#asynchronous-processing)
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-## Advanced Configuration
+## Advanced Usage Configuration
 
 ```rust
 use html_generator::HtmlConfig;
