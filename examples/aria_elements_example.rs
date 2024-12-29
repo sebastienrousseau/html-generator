@@ -20,6 +20,7 @@ fn convert_error(e: html_generator::accessibility::Error) -> HtmlError {
 fn main() -> Result<()> {
     println!("\n🧪 ARIA Elements Generation Examples\n");
 
+    // Existing examples
     button_examples()?;
     navigation_examples()?;
     form_examples()?;
@@ -27,10 +28,13 @@ fn main() -> Result<()> {
     interactive_elements_examples()?;
     modal_dialog_examples()?;
     table_examples()?;
-    live_region_examples()?;
-
-    // New: Additional emoji-based tests
     extra_emoji_examples()?;
+
+    // New: Extended ARIA coverage and dynamic content examples
+    dynamic_content_examples()?;
+    nested_interactive_examples()?;
+    complex_table_examples()?;
+    live_region_examples()?;
 
     println!("\n🎉 All ARIA element examples completed successfully!");
     Ok(())
@@ -74,6 +78,11 @@ fn button_examples() -> Result<()> {
         (r#"<button type="button">Menu</button>"#, "Toggle button"),
         // Disabled button
         (r#"<button disabled>Submit</button>"#, "Disabled button"),
+        // Button with aria-haspopup for a dropdown menu
+        (
+            r#"<button aria-haspopup="true">Profile</button>"#,
+            "Button with dropdown (aria-haspopup)",
+        ),
     ];
 
     for (html, description) in examples {
@@ -151,6 +160,15 @@ fn form_examples() -> Result<()> {
             r#"<textarea placeholder="Enter description"></textarea>"#,
             "Textarea",
         ),
+        // Input with aria-describedby for additional help text
+        (
+            r#"<div>
+                 <label for="username">Username</label>
+                 <input type="text" id="username" aria-describedby="usernameHelp">
+                 <small id="usernameHelp">No spaces allowed</small>
+               </div>"#,
+            "Input with aria-describedby",
+        ),
     ];
 
     for (html, description) in examples {
@@ -191,6 +209,7 @@ fn landmark_examples() -> Result<()> {
 
     for (html, description) in examples {
         println!("\nTesting {}", description);
+        println!("This element has implicit ARIA roles, meaning it inherently conveys its landmark purpose to assistive technologies without needing explicit ARIA attributes. No major changes expected.");
         let enhanced =
             add_aria_attributes(html, None).map_err(convert_error)?;
         println!("Original:  {}", html);
@@ -217,11 +236,11 @@ fn interactive_elements_examples() -> Result<()> {
             "Accordion",
         ),
         // Tooltip
-        (r#"<button title="More information">?"#, "Tooltip"),
-        // Menu
+        (r#"<button title="More information">?</button>"#, "Tooltip"),
+        // Menu with aria-haspopup
         (
-            r#"<div class="menu"><button>Menu</button><ul><li>Item 1</li></ul></div>"#,
-            "Menu",
+            r#"<button aria-haspopup="true">Open Menu</button><ul class="menu"><li>Item 1</li><li>Item 2</li></ul>"#,
+            "Button + Menu",
         ),
     ];
 
@@ -244,17 +263,17 @@ fn modal_dialog_examples() -> Result<()> {
     let examples = [
         // Basic modal
         (
-            r#"<div class="modal"><div class="modal-content"><button>Close</button></div></div>"#,
+            r#"<div class="modal" aria-hidden="true"><div class="modal-content"><button>Close</button></div></div>"#,
             "Basic modal",
         ),
         // Alert dialog
         (
-            r#"<div class="modal alert"><div class="modal-content"><h2>Warning</h2><button>OK</button></div></div>"#,
+            r#"<div class="modal alert" role="alertdialog"><div class="modal-content"><h2>Warning</h2><button>OK</button></div></div>"#,
             "Alert dialog",
         ),
         // Confirmation dialog
         (
-            r#"<div class="modal"><div class="modal-content"><h2>Confirm</h2><button>Yes</button><button>No</button></div></div>"#,
+            r#"<div class="modal" aria-modal="true"><div class="modal-content"><h2>Confirm</h2><button>Yes</button><button>No</button></div></div>"#,
             "Confirmation dialog",
         ),
     ];
@@ -288,44 +307,11 @@ fn table_examples() -> Result<()> {
         ),
         // Complex table with spanning cells
         (
-            r#"<table><tr><th colspan="2">Header</th></tr><tr><td>Data 1</td><td>Data 2</td></tr></table>"#,
+            r#"<table>
+                 <tr><th colspan="2">Header</th></tr>
+                 <tr><td>Data 1</td><td>Data 2</td></tr>
+               </table>"#,
             "Complex table",
-        ),
-    ];
-
-    for (html, description) in examples {
-        println!("\nTesting {}", description);
-        let enhanced =
-            add_aria_attributes(html, None).map_err(convert_error)?;
-        println!("Original:  {}", html);
-        println!("Enhanced:  {}", enhanced);
-    }
-
-    Ok(())
-}
-
-/// Demonstrates ARIA attributes for **live regions** (alert, status, etc.).
-fn live_region_examples() -> Result<()> {
-    println!("\n🦀 Live Region ARIA Examples");
-    println!("---------------------------------------------");
-
-    let examples = [
-        // Alert
-        (
-            r#"<div class="alert">Error occurred!</div>"#,
-            "Alert region",
-        ),
-        // Status
-        (r#"<div class="status">Loading...</div>"#, "Status region"),
-        // Live region
-        (
-            r#"<div class="updates">New message received</div>"#,
-            "Live region",
-        ),
-        // Timer
-        (
-            r#"<div class="timer">Time remaining: 5:00</div>"#,
-            "Timer region",
         ),
     ];
 
@@ -371,6 +357,168 @@ fn extra_emoji_examples() -> Result<()> {
         println!("Original:  {}", html);
         println!("Enhanced:  {}", enhanced);
     }
+
+    Ok(())
+}
+
+/* ---------------------------------------------------------------------------
+   NEW SECTIONS: Demonstrating dynamic content, nested elements, complex tables,
+   and live regions, with additional context for each example.
+---------------------------------------------------------------------------- */
+
+/// **New**: Demonstrates how to manage ARIA attributes dynamically
+/// (e.g., expanding/collapsing accordions, opening/closing modals).
+fn dynamic_content_examples() -> Result<()> {
+    println!("\n🦀 Dynamic Content ARIA Examples");
+    println!("---------------------------------------------");
+    println!("These examples illustrate how ARIA attributes can be updated at runtime.");
+
+    // Example of an accordion with aria-expanded toggled dynamically
+    let accordion_html = r#"
+    <div class="accordion">
+      <button aria-expanded="false" aria-controls="section1-content">
+        Section 1
+      </button>
+      <div id="section1-content" hidden>
+        <p>Content for section 1</p>
+      </div>
+    </div>
+    "#;
+
+    println!("\nTesting Accordion with aria-expanded toggle");
+    println!("Explanation: The button uses `aria-expanded` to indicate the accordion state, while `aria-controls` associates it with the collapsible content.");
+    let enhanced_accordion = add_aria_attributes(accordion_html, None)
+        .map_err(convert_error)?;
+    println!("Original:  {}", accordion_html);
+    println!("Enhanced:  {}", enhanced_accordion);
+
+    // Example of a modal that gets aria-hidden toggled
+    let modal_html = r#"
+    <div class="modal" aria-hidden="true">
+      <div class="modal-content" role="dialog">
+        <h2>Welcome</h2>
+        <button>Close</button>
+      </div>
+    </div>
+    "#;
+    println!("\nTesting Modal with aria-hidden toggle");
+    println!("Explanation: When the modal opens, `aria-hidden` should be set to `false`, and focus is trapped inside the dialog for screen reader clarity.");
+    let enhanced_modal =
+        add_aria_attributes(modal_html, None).map_err(convert_error)?;
+    println!("Original:  {}", modal_html);
+    println!("Enhanced:  {}", enhanced_modal);
+
+    Ok(())
+}
+
+/// **New**: Demonstrates nested interactive elements (e.g., a menu within a modal dialog).
+fn nested_interactive_examples() -> Result<()> {
+    println!("\n🦀 Nested Interactive Elements ARIA Examples");
+    println!("---------------------------------------------");
+    println!("These scenarios illustrate layered UI components with proper ARIA relationships.");
+
+    let nested_html = r##"
+<div class="modal" aria-modal="true" role="dialog">
+  <div class="modal-content">
+    <h2>Settings</h2>
+    <button aria-haspopup="true" aria-controls="settings-menu">Preferences</button>
+    <ul id="settings-menu" class="menu" hidden>
+      <li><a href="#profile">Profile</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+    </ul>
+    <button>Close</button>
+  </div>
+</div>
+"##;
+
+    println!("\nTesting Modal with nested menu");
+    println!("Explanation: `role=\"dialog\"` identifies the modal. The `Preferences` button indicates a submenu with `aria-haspopup` and `aria-controls` linking to the hidden menu.");
+    let enhanced_nested = add_aria_attributes(nested_html, None)
+        .map_err(convert_error)?;
+    println!("Original:  {}", nested_html);
+    println!("Enhanced:  {}", enhanced_nested);
+
+    Ok(())
+}
+
+/// **New**: Demonstrates more complex tables with row/column headers, summaries, and multi-level headers.
+fn complex_table_examples() -> Result<()> {
+    println!("\n🦀 Complex Table ARIA Examples");
+    println!("---------------------------------------------");
+    println!("Tables with row groups, column groups, and summary text for screen readers.");
+
+    let complex_table_html = r#"
+    <table aria-describedby="table-summary">
+      <caption>Quarterly Financial Report</caption>
+      <thead>
+        <tr>
+          <th rowspan="2">Region</th>
+          <th colspan="2">Q1</th>
+          <th colspan="2">Q2</th>
+        </tr>
+        <tr>
+          <th>Revenue</th>
+          <th>Expenses</th>
+          <th>Revenue</th>
+          <th>Expenses</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">North</th>
+          <td>$120k</td>
+          <td>$90k</td>
+          <td>$150k</td>
+          <td>$100k</td>
+        </tr>
+        <tr>
+          <th scope="row">South</th>
+          <td>$100k</td>
+          <td>$70k</td>
+          <td>$110k</td>
+          <td>$80k</td>
+        </tr>
+      </tbody>
+    </table>
+    <div id="table-summary" hidden>
+      This table shows quarterly revenue and expenses for different regions.
+    </div>
+    "#;
+
+    println!("\nTesting complex table with row/column headers");
+    println!("Explanation: Using `rowspan` and `colspan` properly, plus `aria-describedby` referencing a hidden summary for screen readers.");
+    let enhanced_table = add_aria_attributes(complex_table_html, None)
+        .map_err(convert_error)?;
+    println!("Original:  {}", complex_table_html);
+    println!("Enhanced:  {}", enhanced_table);
+
+    Ok(())
+}
+
+/// **New**: Demonstrates ARIA live region usage for dynamic content updates.
+fn live_region_examples() -> Result<()> {
+    println!("\n🦀 Live Region ARIA Examples");
+    println!("---------------------------------------------");
+    println!("ARIA live regions help assistive technologies announce updates.");
+
+    let live_region_html = r#"
+    <div>
+      <button id="notify-btn">Notify</button>
+      <!--
+        The aria-live attribute here informs screen readers that any text change
+        within this container should be announced automatically.
+      -->
+      <div id="notification-area" aria-live="polite"></div>
+    </div>
+    "#;
+
+    println!("\nTesting live region usage");
+    println!("Explanation: `aria-live=\"polite\"` ensures new text in this region is read by screen readers without interrupting the user immediately.");
+    let enhanced_live_region =
+        add_aria_attributes(live_region_html, None)
+            .map_err(convert_error)?;
+    println!("Original:  {}", live_region_html);
+    println!("Enhanced:  {}", enhanced_live_region);
 
     Ok(())
 }
@@ -432,6 +580,45 @@ mod tests {
         // you might get aria-label="leftwards-rightwards" or similar.
         // We'll just check that the aria-label is non-empty.
         assert!(enhanced.contains("aria-label"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_dynamic_content_examples() -> Result<()> {
+        let accordion_html = r#"
+        <div class="accordion">
+          <button aria-expanded="false" aria-controls="section1-content">
+            Section 1
+          </button>
+          <div id="section1-content" hidden>
+            <p>Content for section 1</p>
+          </div>
+        </div>
+        "#;
+
+        let enhanced_accordion =
+            add_aria_attributes(accordion_html, None)
+                .map_err(convert_error)?;
+        // Check for aria-expanded, aria-controls presence or correct usage
+        assert!(enhanced_accordion.contains("aria-expanded"));
+        assert!(enhanced_accordion.contains("aria-controls"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_live_region_examples() -> Result<()> {
+        let live_region_html = r#"
+        <div>
+          <button id="notify-btn">Notify</button>
+          <div id="notification-area" aria-live="polite"></div>
+        </div>
+        "#;
+
+        let enhanced_live_region =
+            add_aria_attributes(live_region_html, None)
+                .map_err(convert_error)?;
+        // Check that aria-live attribute remains or is set
+        assert!(enhanced_live_region.contains(r#"aria-live="polite""#));
         Ok(())
     }
 }

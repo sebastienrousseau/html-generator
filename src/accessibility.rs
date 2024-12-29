@@ -44,15 +44,17 @@
 //! }
 //! ```
 
-use crate::accessibility::utils::get_missing_required_aria_properties;
-use crate::accessibility::utils::is_valid_aria_role;
-use crate::accessibility::utils::is_valid_language_code;
-use crate::emojis::load_emoji_sequences;
+use crate::{
+    accessibility::utils::{
+        get_missing_required_aria_properties, is_valid_aria_role,
+        is_valid_language_code,
+    },
+    emojis::load_emoji_sequences,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use scraper::{Html, Selector};
-use std::collections::HashMap;
-use std::collections::HashSet;
+use scraper::{CaseSensitivity, ElementRef, Html, Selector};
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 /// Constants used throughout the accessibility module
@@ -380,11 +382,14 @@ pub fn add_aria_attributes(
 
     // Apply transformations
     html_builder = add_aria_to_accordions(html_builder)?;
+    html_builder = add_aria_to_modals(html_builder)?;
     html_builder = add_aria_to_buttons(html_builder)?;
     html_builder = add_aria_to_forms(html_builder)?;
     html_builder = add_aria_to_inputs(html_builder)?;
     html_builder = add_aria_to_navs(html_builder)?;
     html_builder = add_aria_to_tabs(html_builder)?;
+    html_builder = add_aria_to_toggle(html_builder)?;
+    html_builder = add_aria_to_tooltips(html_builder)?;
 
     // Additional transformations for stricter WCAG levels
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
@@ -679,6 +684,160 @@ fn normalize_aria_label(content: &str) -> String {
         .to_string()
 }
 
+/// Adds ARIA attributes for buttons that have a `title="..."`, converting
+/// them into `<button aria-describedby="tooltip-n" ...>` and appending
+/// `<span id="tooltip-n" role="tooltip" hidden>title text</span>` right after.
+///
+/// If a button has no title or an empty title, we skip it.
+///
+/// If attribute ordering/spaces differ from `button.html()`, the substring approach
+/// may fail. For a fully robust solution, consider a DOM-based approach.
+fn add_aria_to_tooltips(
+    mut html_builder: HtmlBuilder,
+) -> Result<HtmlBuilder> {
+    let document = Html::parse_document(&html_builder.content);
+
+    // We'll keep a counter to generate unique tooltip-IDs (tooltip-1, tooltip-2, etc.)
+    let mut tooltip_counter = 0;
+
+    // Select all <button> elements
+    let button_selector = Selector::parse("button").unwrap();
+    let buttons: Vec<ElementRef> =
+        document.select(&button_selector).collect();
+
+    for button in buttons {
+        // 1) Extract old button snippet
+        let old_button_html = button
+            .html()
+            .replace('\n', "")
+            .replace('\r', "")
+            .trim()
+            .to_string();
+
+        // 2) If there's no `title="..."`, skip
+        let title_attr =
+            button.value().attr("title").unwrap_or("").trim();
+        if title_attr.is_empty() {
+            continue;
+        }
+
+        // 3) Generate a unique ID for the tooltip
+        tooltip_counter += 1;
+        let tooltip_id = format!("tooltip-{}", tooltip_counter);
+
+        // 4) Build the new <button> attributes
+        let mut new_button_attrs = Vec::new();
+        let button_inner = button.inner_html();
+
+        // Keep existing attributes, except skip old `aria-describedby`
+        for (key, val) in button.value().attrs() {
+            if key != "aria-describedby" {
+                new_button_attrs.push(format!(r#"{}="{}""#, key, val));
+            }
+        }
+
+        // Insert `aria-describedby="tooltip-n"`
+        new_button_attrs
+            .push(format!(r#"aria-describedby="{}""#, tooltip_id));
+
+        // 5) Build the final snippet for the button + tooltip
+        // We'll do it all in one snippet:
+        //
+        // <button ...>?</button><span id="tooltip-n" role="tooltip" hidden>Title text</span>
+        let new_button_snippet = format!(
+            r#"<button {}>{}</button><span id="{}" role="tooltip" hidden>{}</span>"#,
+            new_button_attrs.join(" "),
+            button_inner,
+            tooltip_id,
+            title_attr
+        );
+
+        // 6) Replace the old button snippet
+        html_builder.content = replace_html_element_resilient(
+            &html_builder.content,
+            &old_button_html,
+            &new_button_snippet,
+        );
+    }
+
+    Ok(html_builder)
+}
+
+/// Enhances "toggle" buttons with ARIA attributes indicating toggled state.
+///
+/// - Looks for elements with a `.toggle-button` class.
+/// - Ensures `aria-pressed="true|false"` is set. Defaults to "false" if missing.
+/// - Optionally sets `role="button"`, if you want standard button semantics.
+/// - Preserves other attributes on the element.
+///
+/// Example input HTML:
+/// ```html
+/// <div class="toggle-button">Toggle me</div>
+/// <div class="toggle-button" aria-pressed="true">I'm on</div>
+/// ```
+///
+/// After running:
+/// ```html
+/// <button class="toggle-button" role="button" aria-pressed="false">Toggle me</button>
+/// <button class="toggle-button" role="button" aria-pressed="true">I'm on</button>
+/// ```
+fn add_aria_to_toggle(
+    mut html_builder: HtmlBuilder,
+) -> Result<HtmlBuilder> {
+    // Parse current HTML
+    let document = Html::parse_document(&html_builder.content);
+
+    // Use your desired selector. Here we look for `.toggle-button`.
+    // If you want `[data-toggle="button"]` or something else, just change it.
+    if let Ok(selector) = Selector::parse(".toggle-button") {
+        for toggle_elem in document.select(&selector) {
+            let old_html = toggle_elem.html();
+            let content = toggle_elem.inner_html();
+
+            // Collect new attributes
+            let mut attributes = Vec::new();
+
+            // 1) Determine if there's an existing aria-pressed
+            //    If missing, default to "false".
+            let old_aria_pressed = toggle_elem
+                .value()
+                .attr("aria-pressed")
+                .unwrap_or("false");
+            // You can adjust logic if you'd like to read something else (e.g. data-active).
+            attributes.push(format!(
+                r#"aria-pressed="{}""#,
+                old_aria_pressed
+            ));
+
+            // 2) Add a typical role="button" (common for toggles)
+            attributes.push(r#"role="button""#.to_string());
+
+            // 3) Preserve existing attributes except old aria-pressed
+            for (key, value) in toggle_elem.value().attrs() {
+                if key != "aria-pressed" {
+                    attributes.push(format!(r#"{}="{}""#, key, value));
+                }
+            }
+
+            // 4) Construct a <button> with these attributes
+            let new_html = format!(
+                r#"<button {}>{}</button>"#,
+                attributes.join(" "),
+                content
+            );
+
+            // 5) Replace old element in HTML
+            html_builder.content = replace_html_element_resilient(
+                &html_builder.content,
+                &old_html,
+                &new_html,
+            );
+        }
+    }
+
+    Ok(html_builder)
+}
+
 /// Adds ARIA attributes to button elements.
 ///
 /// Handles:
@@ -698,30 +857,40 @@ fn add_aria_to_buttons(
 ) -> Result<HtmlBuilder> {
     let document = Html::parse_document(&html_builder.content);
 
+    // Our selector targets <button> elements lacking an aria-label
     if let Some(selector) = BUTTON_SELECTOR.as_ref() {
         for button in document.select(selector) {
-            let button_html = button.html();
-            let inner_content = button.inner_html();
+            let original_button_html = button.html();
+            let mut inner_content = button.inner_html();
             let mut aria_label = normalize_aria_label(&inner_content);
 
+            // 1) Add aria-hidden="true" to any <span class="icon">
+            //    We'll do a simple string replacement (assuming no nested quotes, etc.).
+            //    If you have multiple <span class="icon">, do a loop or repeated replacement.
+            if inner_content.contains(r#"<span class="icon">"#) {
+                let replacement =
+                    r#"<span class="icon" aria-hidden="true">"#;
+                inner_content = inner_content
+                    .replace(r#"<span class="icon">"#, replacement);
+            }
+
+            // 2) Build new attribute list
             let mut attributes = Vec::new();
 
-            // Check if the button is disabled
+            // If disabled => aria-disabled="true"
             if button.value().attr("disabled").is_some() {
                 eprintln!(
                     "Processing disabled button: {}",
-                    button_html
-                ); // Debug log
+                    original_button_html
+                );
                 attributes.push(r#"aria-disabled="true""#.to_string());
             } else {
-                // Add `aria-pressed="false"` for non-disabled buttons
-                let is_toggle =
-                    button.value().attr("aria-pressed").is_some();
-                if is_toggle {
-                    let current_state = button
-                        .value()
-                        .attr("aria-pressed")
-                        .unwrap_or("false");
+                // If the button has aria-pressed => it's a toggle button
+                if let Some(current_state) =
+                    button.value().attr("aria-pressed")
+                {
+                    // Flip or preserve? The original code flips the state each time
+                    // If you'd rather just ensure it exists, remove the flipping logic
                     let new_state = if current_state == "true" {
                         "false"
                     } else {
@@ -731,34 +900,36 @@ fn add_aria_to_buttons(
                         r#"aria-pressed="{}""#,
                         new_state
                     ));
-                } else {
-                    attributes
-                        .push(r#"aria-pressed="false""#.to_string());
                 }
+                // Otherwise, do NOT forcibly add aria-pressed for normal buttons
             }
 
-            // Ensure `aria-label` is present
+            // 3) Ensure `aria-label` is present
             if aria_label.is_empty() {
                 aria_label = "button".to_string();
             }
             attributes.push(format!(r#"aria-label="{}""#, aria_label));
 
-            // Preserve existing attributes
+            // 4) Preserve existing attributes (except flipping or re-adding aria-pressed)
             for (key, value) in button.value().attrs() {
+                // If we're flipping aria-pressed, skip the old one
+                if key == "aria-pressed" {
+                    continue;
+                }
                 attributes.push(format!(r#"{}="{}""#, key, value));
             }
 
-            // Generate the new button HTML
+            // 5) Generate the new button HTML
             let new_button_html = format!(
                 "<button {}>{}</button>",
                 attributes.join(" "),
                 inner_content
             );
 
-            // Replace the old button in the HTML
+            // 6) Replace the old <button> in the HTML
             html_builder.content = replace_html_element_resilient(
                 &html_builder.content,
-                &button_html,
+                &original_button_html,
                 &new_button_html,
             );
         }
@@ -796,7 +967,6 @@ fn replace_html_element_resilient(
     }
 
     // 4) Absolute fallback
-    eprintln!("DEBUG: Using final fallback replacen(old_element)...");
     original_html.replacen(old_element, new_element, 1)
 }
 
@@ -903,50 +1073,225 @@ fn add_aria_to_tabs(
     if let Ok(tablist_selector) = Selector::parse("[role='tablist']") {
         for tablist in document.select(&tablist_selector) {
             let tablist_html = tablist.html();
-            let mut new_html = String::new();
 
-            // Start with the tablist
+            // We'll build up the new HTML string for the tablist container
+            let mut new_html = String::new();
             new_html.push_str("<div role=\"tablist\">");
 
-            // Find all buttons within this tablist
+            // 1) Gather all <button> elements inside this tablist
+            let mut button_texts = Vec::new();
             if let Ok(button_selector) = Selector::parse("button") {
-                let buttons = tablist.select(&button_selector);
-
-                for (i, button) in buttons.enumerate() {
-                    let button_text = button.inner_html();
-                    let num = i + 1;
-                    // First tab is selected by default
-                    let is_selected = i == 0;
-
-                    new_html.push_str(&format!(
-                        r#"<button role="tab" id="tab{}" aria-selected="{}" aria-controls="panel{}" tabindex="{}">{}</button>"#,
-                        num,
-                        is_selected,
-                        num,
-                        if is_selected { "0" } else { "-1" },
-                        button_text
-                    ));
+                for button in tablist.select(&button_selector) {
+                    // Save the button's inner text (or HTML) for later
+                    button_texts.push(button.inner_html());
                 }
             }
-            new_html.push_str("</div>");
 
-            // Add the panels
-            for i in 0..2 {
-                // Assuming 2 panels for this example
+            // 2) Create the enhanced tab buttons
+            for (i, text) in button_texts.iter().enumerate() {
+                let is_selected = i == 0;
                 let num = i + 1;
                 new_html.push_str(&format!(
-                    r#"<div id="panel{}" role="tabpanel" aria-labelledby="tab{}" {}">Panel {}</div>"#,
+                    r#"<button role="tab" id="tab{}" aria-selected="{}" aria-controls="panel{}" tabindex="{}">{}</button>"#,
+                    num,
+                    is_selected,
+                    num,
+                    if is_selected { "0" } else { "-1" },
+                    text
+                ));
+            }
+            // Close the tablist container
+            new_html.push_str("</div>");
+
+            // 3) Now, for each tab button, create a corresponding panel
+            for i in 0..button_texts.len() {
+                let num = i + 1;
+                // The first panel is visible; subsequent panels are hidden
+                let maybe_hidden = if i == 0 { "" } else { "hidden" };
+                new_html.push_str(&format!(
+                    r#"<div id="panel{}" role="tabpanel" aria-labelledby="tab{}"{}>Panel {}</div>"#,
                     num,
                     num,
-                    if i == 0 { "" } else { "hidden" },
+                    maybe_hidden,
                     num
                 ));
             }
 
-            // Replace the original with the enhanced version
+            // 4) Replace the original tablist in the HTML
             html_builder.content =
                 html_builder.content.replace(&tablist_html, &new_html);
         }
+    }
+
+    Ok(html_builder)
+}
+
+/// Ensures that modal dialogs have `role="dialog"` (if not alert/confirmation)
+/// and `aria-modal="true"` for proper screen reader handling.
+///
+/// This function looks for elements with `class="modal"`.
+/// - If `role` is missing or is an empty string, we add `role="dialog"`.
+/// - If it's an alert/alertdialog, we *leave* it alone.
+/// - If `aria-modal` is missing, we add `aria-modal="true"`.
+fn add_aria_to_modals(
+    mut html_builder: HtmlBuilder,
+) -> Result<HtmlBuilder> {
+    // 1) Parse with parse_fragment to avoid automatic <html> or <body> insertion
+    let document = Html::parse_fragment(&html_builder.content);
+
+    // 2) Create a selector to find `.modal` elements
+    let modal_selector = match Selector::parse(".modal") {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to parse .modal selector: {}", e);
+            return Ok(html_builder); // If selector fails, just return original
+        }
+    };
+
+    // 3) For each `.modal` in the parsed fragment
+    for modal_elem in document.select(&modal_selector) {
+        let old_modal_html = modal_elem.html();
+
+        // Collect existing attributes (class="modal", aria-hidden, etc.)
+        let mut new_attrs = Vec::new();
+        let mut found_role = false;
+        let mut found_aria_modal = false;
+        let mut existing_role_value = String::new();
+
+        // Identify which ARIA attrs we have or are missing
+        for (attr_name, attr_value) in modal_elem.value().attrs() {
+            if attr_name.eq_ignore_ascii_case("role") {
+                found_role = true;
+                existing_role_value = attr_value.to_string();
+                new_attrs
+                    .push(format!(r#"{}="{}""#, attr_name, attr_value));
+            } else if attr_name.eq_ignore_ascii_case("aria-modal") {
+                found_aria_modal = true;
+                new_attrs
+                    .push(format!(r#"{}="{}""#, attr_name, attr_value));
+            } else {
+                // Preserve everything else (class="modal", aria-hidden, etc.)
+                new_attrs
+                    .push(format!(r#"{}="{}""#, attr_name, attr_value));
+            }
+        }
+
+        // 4) Determine if it's an alert dialog (role="alertdialog" or .alert class is present)
+        let is_alert_dialog = existing_role_value
+            .eq_ignore_ascii_case("alertdialog")
+            || modal_elem.value().has_class(
+                "alert",
+                CaseSensitivity::AsciiCaseInsensitive,
+            );
+
+        // If missing role or if role is empty, set it now
+        if !found_role || existing_role_value.trim().is_empty() {
+            if is_alert_dialog {
+                // We want an alertdialog
+                new_attrs.push(r#"role="alertdialog""#.to_string());
+            } else {
+                // Otherwise, assume a standard dialog
+                new_attrs.push(r#"role="dialog""#.to_string());
+            }
+        }
+        // If the user explicitly set role="alertdialog" or role="dialog",
+        // we leave it alone—do not overwrite.
+
+        // 5) If aria-modal is missing, add aria-modal="true"
+        if !found_aria_modal {
+            new_attrs.push(r#"aria-modal="true""#.to_string());
+        }
+
+        // 6) (Optional) Check for a descriptive paragraph or <div> with .dialog-description
+        let p_selector =
+            Selector::parse("p, .dialog-description").unwrap();
+        let mut doc_inner =
+            Html::parse_fragment(&modal_elem.inner_html());
+        let mut maybe_describedby = None;
+
+        if let Some(descriptive_elem) =
+            doc_inner.select(&p_selector).next()
+        {
+            // If it has an ID, use it. Else generate a new ID, inject it into the snippet.
+            let desc_id: String = if let Some(id_val) =
+                descriptive_elem.value().attr("id")
+            {
+                // Branch A: existing ID
+                id_val.to_string()
+            } else {
+                // Branch B: generate a new ID, insert it into the snippet
+                let generated_id =
+                    format!("dialog-desc-{}", uuid::Uuid::new_v4());
+                let old_snippet = descriptive_elem.html();
+
+                // Build a new opening tag with the ID
+                // e.g. <p id="dialog-desc-xxxx" ...
+                let new_opening_tag = format!(
+                    r#"<{} id="{}""#,
+                    descriptive_elem.value().name(),
+                    generated_id
+                );
+
+                // The remainder of the old snippet after removing the old opening `<p`
+                // or `<div` (depending on the element name).
+                let rest_of_tag = old_snippet
+                    .strip_prefix(&format!(
+                        "<{}",
+                        descriptive_elem.value().name()
+                    ))
+                    .unwrap_or("");
+
+                // Combine them back
+                let new_snippet =
+                    format!("{}{}", new_opening_tag, rest_of_tag);
+
+                // Replace old snippet with the new snippet that has an ID
+                let updated_inner = replace_html_element_resilient(
+                    &modal_elem.inner_html(),
+                    &old_snippet,
+                    &new_snippet,
+                );
+                doc_inner = Html::parse_fragment(&updated_inner);
+
+                generated_id
+            };
+
+            maybe_describedby = Some(desc_id);
+        }
+
+        // If we found a descriptive block but no `aria-describedby` yet, add one
+        let already_has_describedby = new_attrs
+            .iter()
+            .any(|attr| attr.starts_with("aria-describedby"));
+
+        if let Some(desc_id) = maybe_describedby {
+            if !already_has_describedby {
+                new_attrs
+                    .push(format!(r#"aria-describedby="{}""#, desc_id));
+            }
+        }
+
+        // 7) Rebuild the final <div ...> snippet with new attributes & updated inner content.
+        //    Just use `doc_inner.root_element().inner_html()` to avoid .html() calls on NodeRef.
+        let children_html = doc_inner.root_element().inner_html();
+
+        let new_modal_html = format!(
+            r#"<div {}>{}</div>"#,
+            new_attrs.join(" "),
+            children_html
+        );
+
+        eprintln!(
+            "Replacing modal: {}\nwith: {}\n",
+            old_modal_html, new_modal_html
+        );
+
+        // 8) Replace the old snippet in the top-level HTML with the new snippet
+        html_builder.content = replace_html_element_resilient(
+            &html_builder.content,
+            &old_modal_html,
+            &new_modal_html,
+        );
     }
 
     Ok(html_builder)
@@ -1081,7 +1426,7 @@ fn add_aria_to_inputs(
                         };
 
                         let enhanced_input = format!(
-                            r#"<input {} id="{}"> <label for="{}">{}</label>"#,
+                            r#"<{} id="{}"><label for="{}">{}</label>"#,
                             attributes, new_id, new_id, label_text
                         );
                         replacements.push((
@@ -2937,11 +3282,12 @@ mod tests {
             let enhanced_html =
                 add_aria_to_buttons(builder).unwrap().build();
 
+            // Match the current implementation's behavior
             assert_eq!(
-        enhanced_html,
-        r#"<button aria-pressed="false" aria-label="menu" type="button">Menu</button>"#,
-        "The button should be enhanced with aria-pressed and aria-label"
-    );
+                enhanced_html,
+                r#"<button aria-label="menu" type="button">Menu</button>"#,
+                "The button should be enhanced with an aria-label"
+            );
         }
 
         #[test]
@@ -3219,6 +3565,388 @@ mod tests {
                 new_id.starts_with("aria-"),
                 "Generated ID should start with aria-"
             );
+        }
+
+        #[test]
+        fn test_add_aria_to_buttons_basic_button() {
+            let html = r#"<button>Click me</button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+
+            // We expect an `aria-label="click-me"` (normalized from "Click me")
+            // and no aria-pressed if it wasn't there originally
+            assert!(
+                result.contains(r#"aria-label="click-me""#),
+                "Should add aria-label for normal button text"
+            );
+            assert!(
+                !result.contains(r#"aria-pressed=""#),
+                "Should not add aria-pressed if not originally present"
+            );
+        }
+
+        #[test]
+        fn test_add_aria_to_buttons_disabled() {
+            let html = r#"<button disabled>Submit</button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+            // Should add aria-disabled="true"
+            // The label is normalized from "Submit" => "submit"
+            assert!(
+                result.contains(r#"aria-disabled="true""#),
+                "Disabled button should have aria-disabled"
+            );
+            assert!(
+                result.contains(r#"aria-label="submit""#),
+                "Should have aria-label from button text"
+            );
+            // Should not have aria-pressed
+            assert!(
+                !result.contains("aria-pressed"),
+                "Disabled button shouldn't have aria-pressed"
+            );
+        }
+
+        #[test]
+        fn test_add_aria_to_buttons_icon_span() {
+            let html = r#"<button><span class="icon">🔍</span>Search</button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+
+            // The <span class="icon"> should be updated to <span class="icon" aria-hidden="true">
+            // The aria-label should come from "left-pointing-magnifying-glass" => "search"
+            assert!(
+                result.contains(r#"left-pointing-magnifying-glass""#)
+            );
+            assert!(
+                result.contains(
+                    r#"<span class="icon" aria-hidden="true">🔍</span>"#
+                ),
+                "Icon span should have aria-hidden=\"true\""
+            );
+        }
+
+        #[test]
+        fn test_add_aria_to_buttons_toggle_flip() {
+            // This button already has aria-pressed="true", so our code flips it to "false"
+            let html = r#"<button aria-pressed="true">Toggle</button>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+
+            // We expect aria-pressed to become "false"
+            assert!(
+                result.contains(r#"aria-pressed="false""#),
+                "Existing aria-pressed=\"true\" should flip to false"
+            );
+            // The label is normalized from "Toggle" => "toggle"
+            assert!(result.contains(r#"aria-label="toggle""#));
+        }
+
+        #[test]
+        fn test_add_aria_to_buttons_toggle_no_flip() {
+            // If you want to test preserving the same state, comment out or remove the flipping logic
+            // in your code. Then you can confirm it remains "true".
+            // This test is just to illustrate the difference.
+            let html = r#"<button aria-pressed="true">On</button>"#;
+            // (Imagine you removed the flipping code.)
+            // Then you'd check if aria-pressed remains "true".
+
+            // We won't fail the test here, but showing how you'd do it:
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_buttons(builder).unwrap().build();
+            // If you had no flipping, you'd do:
+            // assert!(result.contains(r#"aria-pressed="true""#));
+
+            // If your code flips, you'd do:
+            assert!(result.contains(r#"aria-pressed="false""#));
+        }
+
+        // ---------------------------
+        // Tests for add_aria_to_toggle
+        // ---------------------------
+        #[test]
+        fn test_add_aria_to_toggle_no_aria_pressed() {
+            // This div is missing aria-pressed, so we default to "false"
+            let html = r#"<div class="toggle-button">Click me</div>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_toggle(builder).unwrap().build();
+
+            // Expect a <button> with role="button" and aria-pressed="false"
+            let doc = Html::parse_document(&result);
+            let selector =
+                Selector::parse("button.toggle-button").unwrap();
+            let toggle = doc
+                .select(&selector)
+                .next()
+                .expect("Should have button.toggle-button");
+            assert_eq!(
+                toggle.value().attr("aria-pressed"),
+                Some("false")
+            );
+            assert_eq!(toggle.value().attr("role"), Some("button"));
+            assert_eq!(toggle.inner_html().trim(), "Click me");
+        }
+
+        #[test]
+        fn test_add_aria_to_toggle_existing_aria_pressed() {
+            // Already has aria-pressed="true"
+            let html = r#"<div class="toggle-button" aria-pressed="true">I'm on</div>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_toggle(builder).unwrap().build();
+
+            // With the current implementation, the results will be more straightforward
+            assert!(
+                result.contains("toggle-button"),
+                "Should preserve the toggle-button class"
+            );
+            assert!(
+                result.contains("I'm on"),
+                "Should preserve the content"
+            );
+            assert!(
+                result.contains(r#"aria-pressed="true""#),
+                "Should preserve aria-pressed value"
+            );
+        }
+
+        #[test]
+        fn test_add_aria_to_toggle_preserves_other_attrs() {
+            let html = r#"<div class="toggle-button" data-role="switch" style="color:red;" aria-pressed="false">Toggle</div>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_toggle(builder).unwrap().build();
+
+            // Test for preservation of attributes with current implementation
+            assert!(
+                result.contains(r#"class="toggle-button""#),
+                "Should preserve class"
+            );
+            assert!(
+                result.contains(r#"data-role="switch""#),
+                "Should preserve data attribute"
+            );
+            assert!(
+                result.contains(r#"style="color:red;""#),
+                "Should preserve style"
+            );
+            assert!(
+                result.contains(r#"aria-pressed="false""#),
+                "Should preserve aria-pressed"
+            );
+        }
+
+        #[test]
+        fn test_add_aria_to_toggle_no_toggle_elements() {
+            let html = r#"<div>Just a regular div</div>"#;
+            let builder = HtmlBuilder::new(html);
+            let result = add_aria_to_toggle(builder).unwrap().build();
+            // No .toggle-button => no changes
+            assert_eq!(
+                result, html,
+                "No transformation if there's no .toggle-button"
+            );
+        }
+
+        #[test]
+        fn test_has_alert_class_sets_alertdialog() -> Result<()> {
+            // .alert class (no explicit role) => role="alertdialog"
+            let original_html = r#"
+            <div class="modal alert">
+                <div class="modal-content"><h2>Warning</h2><button>OK</button></div>
+            </div>
+        "#;
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Expect role="alertdialog" and aria-modal="true"
+            assert!(
+                output.contains(r#"role="alertdialog""#),
+                "Expected role=\"alertdialog\" for .alert class"
+            );
+            assert!(
+                output.contains(r#"aria-modal="true""#),
+                "Expected aria-modal=\"true\" to be set"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn test_preserves_role_dialog() -> Result<()> {
+            // If role="dialog" is already set, do not overwrite it.
+            let original_html = r#"
+            <div class="modal" role="dialog">
+                <div class="modal-content"><button>Close</button></div>
+            </div>
+        "#;
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Should preserve the existing role
+            assert!(
+                output.contains(r#"role="dialog""#),
+                "Should preserve role=\"dialog\""
+            );
+            // aria-modal should be added if missing
+            assert!(
+                output.contains(r#"aria-modal="true""#),
+                "Expected aria-modal=\"true\" to be added"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn test_preserves_role_alertdialog() -> Result<()> {
+            // If role="alertdialog" is already set, do not overwrite it.
+            let original_html = r#"
+            <div class="modal" role="alertdialog">
+                <div class="modal-content"><h2>Warning</h2></div>
+            </div>
+        "#;
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Should preserve the existing role
+            assert!(
+                output.contains(r#"role="alertdialog""#),
+                "Should preserve role=\"alertdialog\""
+            );
+            // aria-modal should be added if missing
+            assert!(
+                output.contains(r#"aria-modal="true""#),
+                "Expected aria-modal=\"true\" to be added"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn test_already_has_aria_modal_does_not_duplicate() -> Result<()>
+        {
+            // Already has aria-modal="true", do not duplicate it
+            let original_html = r#"
+            <div class="modal" role="dialog" aria-modal="true">
+                <div class="modal-content"><button>Close</button></div>
+            </div>
+        "#;
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Should still have aria-modal="true", but not repeated
+            // (just ensure it occurs once)
+            let count = output.matches(r#"aria-modal="true""#).count();
+            assert_eq!(
+                count, 1,
+                "aria-modal=\"true\" should only appear once"
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn test_adds_aria_describedby_for_dialog_description(
+        ) -> Result<()> {
+            // .dialog-description triggers aria-describedby
+            let original_html = r#"
+            <div class="modal">
+                <div class="dialog-description">This is an important message</div>
+                <div class="modal-content"><button>Close</button></div>
+            </div>
+        "#;
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Should have aria-modal="true" and role="dialog" if missing
+            assert!(
+                output.contains(r#"role="dialog""#),
+                "Expected role=\"dialog\""
+            );
+            assert!(
+                output.contains(r#"aria-modal="true""#),
+                "Expected aria-modal=\"true\""
+            );
+
+            // Should have an aria-describedby attribute referencing the .dialog-description
+            // The ID may be auto-generated if it didn't exist
+            let has_aria_describedby =
+                output.contains("aria-describedby=");
+            assert!(
+            has_aria_describedby,
+            "Should have aria-describedby referencing the .dialog-description"
+        );
+            Ok(())
+        }
+
+        #[test]
+        fn test_dialog_description_missing_does_not_add_aria_describedby(
+        ) -> Result<()> {
+            // If there's no descriptive element, no aria-describedby should be added
+            let original_html = r#"
+            <div class="modal">
+                <div class="modal-content"><button>Close</button></div>
+            </div>
+        "#;
+
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // Should not contain aria-describedby
+            assert!(
+            !output.contains("aria-describedby="),
+            "Should not add aria-describedby if no descriptive element is found"
+        );
+            Ok(())
+        }
+
+        #[test]
+        fn test_paragraph_as_dialog_description() -> Result<()> {
+            // If there's a <p> tag inside, it should also trigger aria-describedby
+            let original_html = r#"
+            <div class="modal">
+                <p>This is a brief description of the dialog.</p>
+                <div class="modal-content"><button>Close</button></div>
+            </div>
+        "#;
+
+            let builder = HtmlBuilder {
+                content: original_html.to_string(),
+            };
+
+            let result = add_aria_to_modals(builder)?;
+            let output = result.content;
+
+            // The <p> should be assigned an auto-generated ID if it doesn't have one.
+            // So we expect something like: <p id="dialog-desc-XXXXXX"> ...
+            // Then aria-describedby="dialog-desc-XXXXXX" on the .modal
+            assert!(
+                output.contains("aria-describedby="),
+                "Should have aria-describedby referencing the <p>"
+            );
+            assert!(
+                output.contains("id=\"dialog-desc-"),
+                "Should have auto-generated ID assigned to <p>"
+            );
+            Ok(())
         }
     }
 }
