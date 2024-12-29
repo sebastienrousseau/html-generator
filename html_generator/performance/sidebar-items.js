@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["async_generate_html","generate_html","minify_html"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_FILE_SIZE"],"fn":["async_generate_html","generate_html","minify_html"]};

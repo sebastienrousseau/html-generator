@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["generate_html","markdown_to_html_with_extensions"]};
+window.SIDEBAR_ITEMS = {"fn":["generate_html","markdown_to_html_with_extensions","process_markdown_inline"]};

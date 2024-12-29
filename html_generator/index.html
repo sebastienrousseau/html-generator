@@ -1,68 +1,300 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="HTML Generator: A modern HTML generation and optimization library"><title>html_generator - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="html_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (4ba4ac612 2024-12-18)" data-channel="nightly" data-search-js="search-036cda7a.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../html_generator/index.html">html_<wbr>generator</a><span class="version">0.0.2</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#features" title="Features">Features</a></li><li><a href="#examples" title="Examples">Examples</a></li><li><a href="#security-features" title="Security Features">Security Features</a></li><li><a href="#architecture" title="Architecture">Architecture</a></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>html_generator</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/html_generator/lib.rs.html#1-1378">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>HTML Generator: A modern HTML generation and optimization library</p>
-<p><code>html-generator</code> is a comprehensive suite of tools for generating, optimizing,
-and managing HTML content with a focus on accessibility, SEO, and performance.</p>
-<h2 id="features"><a class="doc-anchor" href="#features">§</a>Features</h2>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `html_generator` crate."><title>html_generator - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-46132b98.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="html_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.85.0-nightly (8742e0556 2024-12-28)" data-channel="nightly" data-search-js="search-036cda7a.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://kura.pro/html-generator/images/favicon.ico"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../html_generator/index.html"><img src="https://kura.pro/html-generator/images/logos/html-generator.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../html_generator/index.html"><img src="https://kura.pro/html-generator/images/logos/html-generator.svg" alt="logo"></a><h2><a href="../html_generator/index.html">html_<wbr>generator</a><span class="version">0.0.3</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#html-generator-html-generator" title="HTML Generator (html-generator)">HTML Generator (html-generator)</a><ul><li><a href="#quick-links" title="Quick Links">Quick Links</a></li><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#key-features" title="Key Features">Key Features</a></li><li><a href="#installation" title="Installation">Installation</a></li><li><a href="#basic-usage" title="Basic Usage">Basic Usage</a></li><li><a href="#advanced-configuration-1" title="Advanced Configuration">Advanced Configuration</a></li><li><a href="#processing-methods" title="Processing Methods">Processing Methods</a></li><li><a href="#error-handling" title="Error Handling">Error Handling</a></li><li><a href="#examples" title="Examples">Examples</a></li><li><a href="#performance-characteristics" title="Performance Characteristics">Performance Characteristics</a></li><li><a href="#platform-support" title="Platform Support">Platform Support</a></li><li><a href="#conversion-error-handling" title="Conversion Error Handling">Conversion Error Handling</a></li><li><a href="#running-examples" title="Running Examples">Running Examples</a></li><li><a href="#contributing" title="Contributing">Contributing</a></li><li><a href="#licensing" title="Licensing">Licensing</a></li><li><a href="#acknowledgements" title="Acknowledgements">Acknowledgements</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>html_generator</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/html_generator/lib.rs.html#4-1679">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><!-- markdownlint-disable MD033 MD041 -->
+<p><img src="https://kura.pro/html-generator/images/logos/html-generator.svg"
+alt="HTML Generator logo" height="66" align="right" /></p>
+<!-- markdownlint-enable MD033 MD041 -->
+<h2 id="html-generator-html-generator"><a class="doc-anchor" href="#html-generator-html-generator">§</a>HTML Generator (html-generator)</h2>
+<p>A high-performance Rust library that transforms Markdown into semantically rich, accessible HTML with WCAG 2.1 compliance.</p>
+<!-- markdownlint-disable MD033 MD041 -->
+<center>
+<!-- markdownlint-enable MD033 MD041 -->
+<p><a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-f04041?style=for-the-badge&amp;labelColor=c0282d&amp;logo=rust" alt="Made With Love" /></a> <a href="https://crates.io/crates/html-generator"><img src="https://img.shields.io/crates/v/html-generator.svg?style=for-the-badge&amp;color=fc8d62&amp;logo=rust" alt="Crates.io" /></a> <a href="https://lib.rs/crates/html-generator"><img src="https://img.shields.io/badge/lib.rs-v0.0.3-orange.svg?style=for-the-badge" alt="lib.rs" /></a> <a href="https://docs.rs/html-generator"><img src="https://img.shields.io/badge/docs.rs-html--generator-66c2a5?style=for-the-badge&amp;labelColor=555555&amp;logo=docs.rs" alt="Docs.rs" /></a> <a href="https://codecov.io/gh/sebastienrousseau/html-generator"><img src="https://img.shields.io/codecov/c/github/sebastienrousseau/html-generator?style=for-the-badge&amp;token=Q9KJ6XXL67&amp;logo=codecov" alt="Codecov" /></a> <a href="https://github.com/sebastienrousseau/html-generator/actions?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/sebastienrousseau/html-generator/release.yml?branch=main&amp;style=for-the-badge&amp;logo=github" alt="Build Status" /></a> <a href="https://github.com/sebastienrousseau/html-generator"><img src="https://img.shields.io/badge/github-sebastienrousseau/html--generator-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github" alt="GitHub" /></a></p>
+<p>• <a href="https://html-generator.co">Website</a> • <a href="https://docs.rs/html-generator">Documentation</a> • <a href="https://github.com/sebastienrousseau/html-generator/issues">Report Bug</a> • <a href="https://github.com/sebastienrousseau/html-generator/issues">Request Feature</a> • <a href="https://github.com/sebastienrousseau/html-generator/blob/main/CONTRIBUTING.md">Contributing Guidelines</a></p>
+<!-- markdownlint-disable MD033 MD041 -->
+</center>
+<!-- markdownlint-enable MD033 MD041 -->
+<h3 id="quick-links"><a class="doc-anchor" href="#quick-links">§</a>Quick Links</h3>
 <ul>
-<li>
-<p><strong>Markdown to HTML</strong>: Converts Markdown content and files to HTML with support for:</p>
+<li><a href="#html-generator-html-generator">HTML Generator (html-generator)</a>
 <ul>
-<li>CommonMark syntax</li>
-<li>GitHub Flavored Markdown</li>
-<li>Custom extensions and plugins</li>
+<li><a href="#quick-links">Quick Links</a></li>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#key-features">Key Features</a>
+<ul>
+<li><a href="#markdown-conversion">Markdown Conversion</a></li>
+<li><a href="#accessibility-and-semantic-markup">Accessibility and Semantic Markup</a></li>
+<li><a href="#performance-optimizations">Performance Optimizations</a></li>
+<li><a href="#advanced-configuration">Advanced Configuration</a></li>
 </ul>
 </li>
-<li>
-<p><strong>Accessibility</strong>:</p>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#basic-usage">Basic Usage</a></li>
+<li><a href="#advanced-configuration-1">Advanced Configuration</a></li>
+<li><a href="#processing-methods">Processing Methods</a>
 <ul>
-<li>Automated ARIA attribute generation</li>
-<li>WCAG compliance checking</li>
-<li>Semantic HTML optimization</li>
+<li><a href="#synchronous-processing">Synchronous Processing</a></li>
+<li><a href="#asynchronous-processing">Asynchronous Processing</a></li>
 </ul>
 </li>
-<li>
-<p><strong>SEO Optimization</strong>:</p>
+<li><a href="#error-handling">Error Handling</a></li>
+<li><a href="#examples">Examples</a>
 <ul>
-<li>Meta tag generation</li>
-<li>Structured data (JSON-LD) support</li>
-<li>OpenGraph and Twitter card generation</li>
+<li><a href="#aria-elements--accessibility">ARIA Elements &amp; Accessibility</a></li>
+<li><a href="#custom-markdown-styling">Custom Markdown Styling</a></li>
+<li><a href="#bringing-it-all-together">Bringing It All Together</a></li>
 </ul>
 </li>
-<li>
-<p><strong>Performance</strong>:</p>
+<li><a href="#performance-characteristics">Performance Characteristics</a></li>
+<li><a href="#platform-support">Platform Support</a>
 <ul>
-<li>HTML minification</li>
-<li>Async generation capabilities</li>
-<li>Memory-efficient processing</li>
+<li><a href="#continuous-integration">Continuous Integration</a></li>
+</ul>
+</li>
+<li><a href="#conversion-error-handling">Conversion Error Handling</a></li>
+<li><a href="#running-examples">Running Examples</a></li>
+<li><a href="#contributing">Contributing</a></li>
+<li><a href="#licensing">Licensing</a></li>
+<li><a href="#acknowledgements">Acknowledgements</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::{markdown_to_html, MarkdownConfig};
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>HTML Generator is a high-performance Rust library for transforming Markdown into semantically rich, accessible HTML.</p>
+<h3 id="key-features"><a class="doc-anchor" href="#key-features">§</a>Key Features</h3><h4 id="markdown-conversion"><a class="doc-anchor" href="#markdown-conversion">§</a>Markdown Conversion</h4>
+<ul>
+<li><strong>Core Processing</strong>:
+<ul>
+<li>Standard Markdown to HTML transformation</li>
+<li>Configurable parsing with <code>ComrakOptions</code></li>
+<li>Front matter extraction support</li>
+<li>Basic syntax highlighting via <code>syntect</code></li>
+<li>Inline HTML preservation</li>
+</ul>
+</li>
+</ul>
+<h4 id="accessibility-and-semantic-markup"><a class="doc-anchor" href="#accessibility-and-semantic-markup">§</a>Accessibility and Semantic Markup</h4>
+<ul>
+<li><strong>ARIA and Accessibility Features</strong>:
+<ul>
+<li>Automated ARIA attribute generation for:
+<ul>
+<li>Buttons</li>
+<li>Form elements</li>
+<li>Navigation structures</li>
+<li>Interactive components</li>
+</ul>
+</li>
+<li>WCAG 2.1 validation checks</li>
+<li>Semantic HTML structure preservation</li>
+<li>Automatic role inference for HTML elements</li>
+</ul>
+</li>
+</ul>
+<h4 id="performance-optimizations"><a class="doc-anchor" href="#performance-optimizations">§</a>Performance Optimizations</h4>
+<ul>
+<li><strong>Efficient Processing</strong>:
+<ul>
+<li>O(n) time complexity parsing</li>
+<li>Constant memory overhead for small documents</li>
+<li>Synchronous and asynchronous HTML generation methods</li>
+<li>Minimal runtime overhead</li>
+<li>Optional HTML minification</li>
+</ul>
+</li>
+</ul>
+<h4 id="advanced-configuration"><a class="doc-anchor" href="#advanced-configuration">§</a>Advanced Configuration</h4>
+<ul>
+<li><strong>Flexible Transformation</strong>:
+<ul>
+<li>Language-specific rendering</li>
+<li>Configurable syntax highlighting</li>
+<li>Custom block processing</li>
+<li>Emoji handling (limited)</li>
+<li>SEO metadata generation</li>
+</ul>
+</li>
+</ul>
+<h3 id="installation"><a class="doc-anchor" href="#installation">§</a>Installation</h3>
+<p>Add to your <code>Cargo.toml</code>:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+html-generator = &quot;0.0.3&quot;</code></pre></div><h3 id="basic-usage"><a class="doc-anchor" href="#basic-usage">§</a>Basic Usage</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::{generate_html, HtmlConfig};
+<span class="kw">use </span>std::error::Error;
 
-<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), html_generator::error::HtmlError&gt; {
-    <span class="kw">let </span>markdown = <span class="string">"# Hello World\n\nWelcome to HTML Generator."</span>;
-    <span class="kw">let </span>config = MarkdownConfig::default();
-    <span class="kw">let </span>html = markdown_to_html(markdown, <span class="prelude-val">Some</span>(config))<span class="question-mark">?</span>;
-    <span class="macro">println!</span>(<span class="string">"Generated HTML: {html}"</span>);
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+    <span class="kw">let </span>markdown = <span class="string">"# Welcome\n\nThis is **HTML Generator**!"</span>;
+    <span class="kw">let </span>config = HtmlConfig::default();
+    <span class="kw">let </span>html = generate_html(markdown, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+    <span class="macro">println!</span>(<span class="string">"{}"</span>, html);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-<h2 id="security-features"><a class="doc-anchor" href="#security-features">§</a>Security Features</h2>
-<p>The library implements several security measures to protect against common vulnerabilities:</p>
+<h3 id="advanced-configuration-1"><a class="doc-anchor" href="#advanced-configuration-1">§</a>Advanced Configuration</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::HtmlConfig;
+<span class="kw">use </span>html_generator::error::HtmlError;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), HtmlError&gt; {
+    <span class="kw">let </span>config = HtmlConfig::builder()
+        .with_language(<span class="string">"en-GB"</span>)
+        .with_syntax_highlighting(<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(<span class="string">"monokai"</span>.to_string()))
+        .build()<span class="question-mark">?</span>;
+
+    <span class="macro">println!</span>(<span class="string">"Built config: {:?}"</span>, config);
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h3 id="processing-methods"><a class="doc-anchor" href="#processing-methods">§</a>Processing Methods</h3><h4 id="synchronous-processing"><a class="doc-anchor" href="#synchronous-processing">§</a>Synchronous Processing</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::{generate_html, HtmlConfig};
+<span class="kw">use </span>std::error::Error;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+    <span class="kw">let </span>markdown = <span class="string">"# Hello from synchronous processing"</span>;
+    <span class="kw">let </span>config = HtmlConfig::default();
+    <span class="kw">let </span>html = generate_html(markdown, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
+    <span class="macro">println!</span>(<span class="string">"{}"</span>, html);
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h4 id="asynchronous-processing"><a class="doc-anchor" href="#asynchronous-processing">§</a>Asynchronous Processing</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>    <span class="kw">let </span>markdown = <span class="string">"# Async Processing\n\nThis is **HTML Generator**!"</span>;
+    <span class="kw">let </span>html = async_generate_html(markdown).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="macro">println!</span>(<span class="string">"{}"</span>, html);
+    <span class="prelude-val">Ok</span>(())</code></pre></div>
+<h3 id="error-handling"><a class="doc-anchor" href="#error-handling">§</a>Error Handling</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::{generate_html, HtmlConfig};
+<span class="kw">use </span>html_generator::error::HtmlError;
+
+<span class="kw">fn </span>handle_conversion_error(markdown: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), HtmlError&gt; {
+    <span class="kw">let </span>config = HtmlConfig::default();
+    <span class="kw">match </span>generate_html(markdown, <span class="kw-2">&amp;</span>config) {
+        <span class="prelude-val">Ok</span>(html) =&gt; <span class="macro">println!</span>(<span class="string">"Conversion successful: {}"</span>, html),
+        <span class="prelude-val">Err</span>(HtmlError::InvalidInput(msg)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Invalid input: {}"</span>, msg);
+        },
+        <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(size)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Input too large: {} bytes"</span>, size);
+        },
+        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">"Unexpected error: {}"</span>, e),
+    }
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<p>HTML Generator provides many advanced capabilities for accessibility, ARIA attributes, and custom Markdown styling. Below is a summary of what you can explore. For more detailed code, see the <code>src/examples/</code> directory in this repository.</p>
+<h4 id="aria-elements--accessibility"><a class="doc-anchor" href="#aria-elements--accessibility">§</a>ARIA Elements &amp; Accessibility</h4>
+<p>Add ARIA attributes to common HTML elements (buttons, forms, tables, and more) to ensure accessibility compliance. The library automatically infers roles and labels for screen readers.</p>
+<p><strong>Example Snippet</strong> <em>(from <code>aria_elements_example.rs</code>)</em>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::accessibility::add_aria_attributes;
+<span class="kw">use </span>html_generator::error::HtmlError;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), HtmlError&gt; {
+    <span class="comment">// Basic HTML snippet for a button
+    </span><span class="kw">let </span>html_button = <span class="string">"&lt;button&gt;Click me&lt;/button&gt;"</span>;
+
+    <span class="comment">// Enhance with ARIA attributes
+    </span><span class="kw">let </span>enhanced_button =
+        add_aria_attributes(html_button, <span class="prelude-val">None</span>).map_err(|e| {
+            <span class="comment">// Convert from an accessibility::Error to an HtmlError
+            </span>HtmlError::InvalidInput(e.to_string())
+        })<span class="question-mark">?</span>;
+    <span class="macro">println!</span>(<span class="string">"Original:  {}"</span>, html_button);
+    <span class="macro">println!</span>(<span class="string">"Enhanced:  {}"</span>, enhanced_button);
+
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p><strong>Run the full ARIA demo</strong>:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo run --example aria</code></pre></div>
+<p>This will print out multiple examples showcasing enhancements for buttons, forms, navigation elements, tables, live regions, and nested components.</p>
+<h4 id="custom-markdown-styling"><a class="doc-anchor" href="#custom-markdown-styling">§</a>Custom Markdown Styling</h4>
+<p>Demonstrate transforming extended Markdown features such as:</p>
 <ul>
-<li><strong>Path Validation</strong>: Prevents directory traversal attacks through strict path checking</li>
-<li><strong>Input Limits</strong>: Implements size restrictions to prevent denial of service attacks</li>
-<li><strong>Unicode Safety</strong>: Provides proper handling of Unicode text to prevent encoding attacks</li>
-<li><strong>Memory Safety</strong>: Leverages Rust’s memory safety guarantees</li>
-<li><strong>Error Handling</strong>: Uses comprehensive error types to prevent undefined behavior</li>
+<li><strong>Custom blocks</strong> (e.g., <code>:::note</code>, <code>:::warning</code>)</li>
+<li><strong>Inline <code>.class="..."</code> directives</strong> for images or elements</li>
+<li><strong>Syntax highlighting</strong> for fenced code blocks</li>
+<li><strong>Blockquotes with optional citation</strong></li>
 </ul>
-<h2 id="architecture"><a class="doc-anchor" href="#architecture">§</a>Architecture</h2>
-<p>The library is organized into several key modules:</p>
+<p>…and much more.</p>
+<p><strong>Example Snippet</strong> <em>(from <code>style_example.rs</code>)</em>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>html_generator::error::HtmlError;
+<span class="kw">use </span>html_generator::generator::markdown_to_html_with_extensions;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), HtmlError&gt; {
+    <span class="kw">let </span>markdown = <span class="string">r":::note
+Custom note block with a specific style
+:::"</span>;
+
+    <span class="kw">match </span>markdown_to_html_with_extensions(markdown) {
+        <span class="prelude-val">Ok</span>(html) =&gt; <span class="macro">println!</span>(<span class="string">"Converted:\n{}"</span>, html),
+        <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">"Error: {}"</span>, e),
+    }
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<p><strong>Run the full style demo</strong>:</p>
+<div class="example-wrap"><pre class="language-bash"><code>cargo run --example style</code></pre></div>
+<p>This will print out multiple styled examples (custom blocks, images, tables, bullet lists, code blocks, etc.) and show how they render as HTML.</p>
+<h4 id="bringing-it-all-together"><a class="doc-anchor" href="#bringing-it-all-together">§</a>Bringing It All Together</h4>
+<p>If you’d like to combine accessibility features and custom Markdown styling, you can configure your <a href="#advanced-configuration"><code>HtmlConfig</code></a> to enable:</p>
+<ol>
+<li><strong>Syntax highlighting</strong></li>
+<li><strong>ARIA attribute generation</strong></li>
+<li><strong>Custom block parsing</strong></li>
+<li><strong>Emoji support</strong></li>
+</ol>
+<p>…thereby providing a powerful, end-to-end Markdown-to-HTML transformation pipeline suitable for high-performance, semantically rich, and user-friendly content.</p>
+<h3 id="performance-characteristics"><a class="doc-anchor" href="#performance-characteristics">§</a>Performance Characteristics</h3><div><table><thead><tr><th>Document Scale</th><th>Processing Time</th><th>Memory Utilization</th></tr></thead><tbody>
+<tr><td>Small (&lt;1KB)</td><td>~0.1ms</td><td>Constant O(1)</td></tr>
+<tr><td>Medium (10KB)</td><td>~1ms</td><td>Linear O(n)</td></tr>
+<tr><td>Large (100KB)</td><td>~10ms</td><td>Linear O(n)</td></tr>
+</tbody></table>
+</div><h3 id="platform-support"><a class="doc-anchor" href="#platform-support">§</a>Platform Support</h3><div><table><thead><tr><th>Platform</th><th>Status</th><th>Rust Version</th><th>Notes</th></tr></thead><tbody>
+<tr><td>Linux</td><td>✅ Fully</td><td>1.56+</td><td>Comprehensive support</td></tr>
+<tr><td>macOS</td><td>✅ Fully</td><td>1.56+</td><td>Native performance</td></tr>
+<tr><td>Windows</td><td>✅ Fully</td><td>1.56+</td><td>Complete compatibility</td></tr>
+<tr><td>WebAssembly</td><td>⚠️ Partial</td><td>1.56+</td><td>Limited feature support</td></tr>
+</tbody></table>
+</div><h4 id="continuous-integration"><a class="doc-anchor" href="#continuous-integration">§</a>Continuous Integration</h4>
+<p>We use GitHub Actions for comprehensive testing:</p>
 <ul>
-<li><code>accessibility</code>: ARIA attributes and WCAG compliance</li>
-<li><code>error</code>: Error types and handling</li>
-<li><code>generator</code>: Core HTML generation functionality</li>
-<li><code>performance</code>: Optimization and minification</li>
-<li><code>seo</code>: Search engine optimization features</li>
-<li><code>utils</code>: Utility functions and helpers</li>
+<li>Cross-platform compatibility checks</li>
+<li>Extensive test coverage</li>
 </ul>
-</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.HtmlError"><code>pub use crate::error::<a class="enum" href="error/enum.HtmlError.html" title="enum html_generator::error::HtmlError">HtmlError</a>;</code></div></li><li><div class="item-name" id="reexport.add_aria_attributes"><code>pub use accessibility::<a class="fn" href="accessibility/fn.add_aria_attributes.html" title="fn html_generator::accessibility::add_aria_attributes">add_aria_attributes</a>;</code></div></li><li><div class="item-name" id="reexport.validate_wcag"><code>pub use accessibility::<a class="fn" href="accessibility/fn.validate_wcag.html" title="fn html_generator::accessibility::validate_wcag">validate_wcag</a>;</code></div></li><li><div class="item-name" id="reexport.generate_html"><code>pub use generator::<a class="fn" href="generator/fn.generate_html.html" title="fn html_generator::generator::generate_html">generate_html</a>;</code></div></li><li><div class="item-name" id="reexport.async_generate_html"><code>pub use performance::<a class="fn" href="performance/fn.async_generate_html.html" title="fn html_generator::performance::async_generate_html">async_generate_html</a>;</code></div></li><li><div class="item-name" id="reexport.minify_html"><code>pub use performance::<a class="fn" href="performance/fn.minify_html.html" title="fn html_generator::performance::minify_html">minify_html</a>;</code></div></li><li><div class="item-name" id="reexport.generate_meta_tags"><code>pub use seo::<a class="fn" href="seo/fn.generate_meta_tags.html" title="fn html_generator::seo::generate_meta_tags">generate_meta_tags</a>;</code></div></li><li><div class="item-name" id="reexport.generate_structured_data"><code>pub use seo::<a class="fn" href="seo/fn.generate_structured_data.html" title="fn html_generator::seo::generate_structured_data">generate_structured_data</a>;</code></div></li><li><div class="item-name" id="reexport.extract_front_matter"><code>pub use utils::<a class="fn" href="utils/fn.extract_front_matter.html" title="fn html_generator::utils::extract_front_matter">extract_front_matter</a>;</code></div></li><li><div class="item-name" id="reexport.format_header_with_id_class"><code>pub use utils::<a class="fn" href="utils/fn.format_header_with_id_class.html" title="fn html_generator::utils::format_header_with_id_class">format_header_with_id_class</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="accessibility/index.html" title="mod html_generator::accessibility">accessibility</a></div><div class="desc docblock-short">Accessibility-related functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="constants/index.html" title="mod html_generator::constants">constants</a></div><div class="desc docblock-short">Common constants used throughout the library.</div></li><li><div class="item-name"><a class="mod" href="error/index.html" title="mod html_generator::error">error</a></div><div class="desc docblock-short">Error types for HTML generation and processing.</div></li><li><div class="item-name"><a class="mod" href="generator/index.html" title="mod html_generator::generator">generator</a></div><div class="desc docblock-short">HTML generation module for converting Markdown to HTML.</div></li><li><div class="item-name"><a class="mod" href="performance/index.html" title="mod html_generator::performance">performance</a></div><div class="desc docblock-short">Performance optimization functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="seo/index.html" title="mod html_generator::seo">seo</a></div><div class="desc docblock-short">Search Engine Optimization (SEO) functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="utils/index.html" title="mod html_generator::utils">utils</a></div><div class="desc docblock-short">Utility functions for HTML and Markdown processing.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.HtmlConfig.html" title="struct html_generator::HtmlConfig">Html<wbr>Config</a></div><div class="desc docblock-short">Configuration options for HTML generation.</div></li><li><div class="item-name"><a class="struct" href="struct.HtmlConfigBuilder.html" title="struct html_generator::HtmlConfigBuilder">Html<wbr>Config<wbr>Builder</a></div><div class="desc docblock-short">Builder for constructing <code>HtmlConfig</code> instances.</div></li><li><div class="item-name"><a class="struct" href="struct.MarkdownConfig.html" title="struct html_generator::MarkdownConfig">Markdown<wbr>Config</a></div><div class="desc docblock-short">Configuration options for Markdown to HTML conversion.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ConfigError.html" title="enum html_generator::ConfigError">Config<wbr>Error</a></div><div class="desc docblock-short">Errors that can occur during configuration.</div></li><li><div class="item-name"><a class="enum" href="enum.OutputDestination.html" title="enum html_generator::OutputDestination">Output<wbr>Destination</a></div><div class="desc docblock-short">Output destination for HTML generation.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.markdown_file_to_html.html" title="fn html_generator::markdown_file_to_html">markdown_<wbr>file_<wbr>to_<wbr>html</a></div><div class="desc docblock-short">Converts a Markdown file to HTML.</div></li><li><div class="item-name"><a class="fn" href="fn.markdown_to_html.html" title="fn html_generator::markdown_to_html">markdown_<wbr>to_<wbr>html</a></div><div class="desc docblock-short">Converts Markdown content to HTML.</div></li><li><div class="item-name"><a class="fn" href="fn.validate_language_code.html" title="fn html_generator::validate_language_code">validate_<wbr>language_<wbr>code</a></div><div class="desc docblock-short">Validates that a language code matches the BCP 47 format (e.g., “en-GB”).</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type html_generator::Result">Result</a></div><div class="desc docblock-short">Result type alias for library operations</div></li></ul></section></div></main></body></html>
+<p><a href="https://github.com/sebastienrousseau/html-generator/actions">View CI Workflow</a></p>
+<h3 id="conversion-error-handling"><a class="doc-anchor" href="#conversion-error-handling">§</a>Conversion Error Handling</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>handle_conversion_error(markdown: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), HtmlError&gt; {
+    <span class="comment">// We'll define a config for this snippet:
+    </span><span class="kw">let </span>config = HtmlConfig::default();
+    <span class="kw">match </span>generate_html(markdown, <span class="kw-2">&amp;</span>config) {
+        <span class="prelude-val">Ok</span>(html) =&gt; <span class="macro">println!</span>(<span class="string">"Conversion successful"</span>),
+        <span class="prelude-val">Err</span>(HtmlError::InvalidInput(msg)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Invalid input: {}"</span>, msg);
+        },
+        <span class="prelude-val">Err</span>(HtmlError::InputTooLarge(size)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Input too large: {} bytes"</span>, size);
+        },
+        <span class="prelude-val">Err</span>(HtmlError::Io(io_error)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"I/O error occurred: {}"</span>, io_error);
+        },
+        <span class="comment">// If your crate doesn't actually have a `Markdown` variant, remove this block
+        // Err(HtmlError::Markdown(markdown_error)) =&gt; {
+        //     eprintln!("Markdown processing error: {}", markdown_error);
+        // },
+        </span><span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">"Unexpected error: {}"</span>, e),
+    }
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h3 id="running-examples"><a class="doc-anchor" href="#running-examples">§</a>Running Examples</h3><div class="example-wrap"><pre class="language-bash"><code># Basic example
+cargo run --example basic
+
+# Accessibility demo
+cargo run --example aria
+
+# Performance benchmark
+cargo run --example performance</code></pre></div><h3 id="contributing"><a class="doc-anchor" href="#contributing">§</a>Contributing</h3>
+<p>We welcome contributions! See <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> for details on:</p>
+<ul>
+<li>Reporting issues</li>
+<li>Suggesting features</li>
+<li>Submitting pull requests</li>
+</ul>
+<h3 id="licensing"><a class="doc-anchor" href="#licensing">§</a>Licensing</h3>
+<p>Dual-licensed: Apache 2.0 &amp; MIT</p>
+<h3 id="acknowledgements"><a class="doc-anchor" href="#acknowledgements">§</a>Acknowledgements</h3>
+<p>Special thanks to the Rust community and open-source contributors.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.HtmlError"><code>pub use crate::error::<a class="enum" href="error/enum.HtmlError.html" title="enum html_generator::error::HtmlError">HtmlError</a>;</code></div></li><li><div class="item-name" id="reexport.add_aria_attributes"><code>pub use accessibility::<a class="fn" href="accessibility/fn.add_aria_attributes.html" title="fn html_generator::accessibility::add_aria_attributes">add_aria_attributes</a>;</code></div></li><li><div class="item-name" id="reexport.validate_wcag"><code>pub use accessibility::<a class="fn" href="accessibility/fn.validate_wcag.html" title="fn html_generator::accessibility::validate_wcag">validate_wcag</a>;</code></div></li><li><div class="item-name" id="reexport.load_emoji_sequences"><code>pub use emojis::<a class="fn" href="emojis/fn.load_emoji_sequences.html" title="fn html_generator::emojis::load_emoji_sequences">load_emoji_sequences</a>;</code></div></li><li><div class="item-name" id="reexport.generate_html"><code>pub use generator::<a class="fn" href="generator/fn.generate_html.html" title="fn html_generator::generator::generate_html">generate_html</a>;</code></div></li><li><div class="item-name" id="reexport.async_generate_html"><code>pub use performance::<a class="fn" href="performance/fn.async_generate_html.html" title="fn html_generator::performance::async_generate_html">async_generate_html</a>;</code></div></li><li><div class="item-name" id="reexport.minify_html"><code>pub use performance::<a class="fn" href="performance/fn.minify_html.html" title="fn html_generator::performance::minify_html">minify_html</a>;</code></div></li><li><div class="item-name" id="reexport.generate_meta_tags"><code>pub use seo::<a class="fn" href="seo/fn.generate_meta_tags.html" title="fn html_generator::seo::generate_meta_tags">generate_meta_tags</a>;</code></div></li><li><div class="item-name" id="reexport.generate_structured_data"><code>pub use seo::<a class="fn" href="seo/fn.generate_structured_data.html" title="fn html_generator::seo::generate_structured_data">generate_structured_data</a>;</code></div></li><li><div class="item-name" id="reexport.extract_front_matter"><code>pub use utils::<a class="fn" href="utils/fn.extract_front_matter.html" title="fn html_generator::utils::extract_front_matter">extract_front_matter</a>;</code></div></li><li><div class="item-name" id="reexport.format_header_with_id_class"><code>pub use utils::<a class="fn" href="utils/fn.format_header_with_id_class.html" title="fn html_generator::utils::format_header_with_id_class">format_header_with_id_class</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="accessibility/index.html" title="mod html_generator::accessibility">accessibility</a></div><div class="desc docblock-short">Accessibility-related functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="constants/index.html" title="mod html_generator::constants">constants</a></div><div class="desc docblock-short">Common constants used throughout the library.</div></li><li><div class="item-name"><a class="mod" href="emojis/index.html" title="mod html_generator::emojis">emojis</a></div><div class="desc docblock-short">Emoji Sequences Loader</div></li><li><div class="item-name"><a class="mod" href="error/index.html" title="mod html_generator::error">error</a></div><div class="desc docblock-short">Error types for HTML generation and processing.</div></li><li><div class="item-name"><a class="mod" href="generator/index.html" title="mod html_generator::generator">generator</a></div><div class="desc docblock-short">HTML generation module for converting Markdown to HTML.</div></li><li><div class="item-name"><a class="mod" href="performance/index.html" title="mod html_generator::performance">performance</a></div><div class="desc docblock-short">Performance optimization functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="seo/index.html" title="mod html_generator::seo">seo</a></div><div class="desc docblock-short">Search Engine Optimization (SEO) functionality for HTML processing.</div></li><li><div class="item-name"><a class="mod" href="utils/index.html" title="mod html_generator::utils">utils</a></div><div class="desc docblock-short">Utility functions for HTML and Markdown processing.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.HtmlConfig.html" title="struct html_generator::HtmlConfig">Html<wbr>Config</a></div><div class="desc docblock-short">Configuration options for HTML generation.</div></li><li><div class="item-name"><a class="struct" href="struct.HtmlConfigBuilder.html" title="struct html_generator::HtmlConfigBuilder">Html<wbr>Config<wbr>Builder</a></div><div class="desc docblock-short">Builder for constructing <code>HtmlConfig</code> instances.</div></li><li><div class="item-name"><a class="struct" href="struct.MarkdownConfig.html" title="struct html_generator::MarkdownConfig">Markdown<wbr>Config</a></div><div class="desc docblock-short">Configuration options for Markdown to HTML conversion.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.ConfigError.html" title="enum html_generator::ConfigError">Config<wbr>Error</a></div><div class="desc docblock-short">Errors that can occur during configuration.</div></li><li><div class="item-name"><a class="enum" href="enum.OutputDestination.html" title="enum html_generator::OutputDestination">Output<wbr>Destination</a></div><div class="desc docblock-short">Output destination for HTML generation.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.markdown_file_to_html.html" title="fn html_generator::markdown_file_to_html">markdown_<wbr>file_<wbr>to_<wbr>html</a></div><div class="desc docblock-short">Converts a Markdown file to HTML.</div></li><li><div class="item-name"><a class="fn" href="fn.markdown_to_html.html" title="fn html_generator::markdown_to_html">markdown_<wbr>to_<wbr>html</a></div><div class="desc docblock-short">Converts Markdown content to HTML.</div></li><li><div class="item-name"><a class="fn" href="fn.validate_language_code.html" title="fn html_generator::validate_language_code">validate_<wbr>language_<wbr>code</a></div><div class="desc docblock-short">Validates that a language code matches the BCP 47 format (e.g., “en-GB”).</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type html_generator::Result">Result</a></div><div class="desc docblock-short">Result type alias for library operations</div></li></ul></section></div></main></body></html>
