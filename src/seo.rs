@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Search Engine Optimization (SEO) functionality for HTML processing.
 //!
 //! This module provides tools for improving the SEO of web pages through automated

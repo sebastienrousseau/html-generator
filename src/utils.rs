@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Utility functions for HTML and Markdown processing.
 //!
 //! This module provides various utility functions for tasks such as

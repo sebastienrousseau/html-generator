@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! HTML generation module for converting Markdown to HTML.
 //!
 //! This module provides functions to generate HTML from Markdown content

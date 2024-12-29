@@ -1,3 +1,6 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! Accessibility-related functionality for HTML processing.
 //!
 //! This module provides comprehensive tools for improving HTML accessibility through:

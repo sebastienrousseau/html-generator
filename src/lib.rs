@@ -1,64 +1,14 @@
-//! HTML Generator: A modern HTML generation and optimization library
-//!
-//! `html-generator` is a comprehensive suite of tools for generating, optimizing,
-//! and managing HTML content with a focus on accessibility, SEO, and performance.
-//!
-//! # Features
-//!
-//! - **Markdown to HTML**: Converts Markdown content and files to HTML with support for:
-//!   - CommonMark syntax
-//!   - GitHub Flavored Markdown
-//!   - Custom extensions and plugins
-//!
-//! - **Accessibility**:
-//!   - Automated ARIA attribute generation
-//!   - WCAG compliance checking
-//!   - Semantic HTML optimization
-//!
-//! - **SEO Optimization**:
-//!   - Meta tag generation
-//!   - Structured data (JSON-LD) support
-//!   - OpenGraph and Twitter card generation
-//!
-//! - **Performance**:
-//!   - HTML minification
-//!   - Async generation capabilities
-//!   - Memory-efficient processing
-//!
-//! # Examples
-//!
-//! ```rust
-//! use html_generator::{markdown_to_html, MarkdownConfig};
-//!
-//! fn main() -> Result<(), html_generator::error::HtmlError> {
-//!     let markdown = "# Hello World\n\nWelcome to HTML Generator.";
-//!     let config = MarkdownConfig::default();
-//!     let html = markdown_to_html(markdown, Some(config))?;
-//!     println!("Generated HTML: {html}");
-//!     Ok(())
-//! }
-//! ```
-//!
-//! # Security Features
-//!
-//! The library implements several security measures to protect against common vulnerabilities:
-//!
-//! - **Path Validation**: Prevents directory traversal attacks through strict path checking
-//! - **Input Limits**: Implements size restrictions to prevent denial of service attacks
-//! - **Unicode Safety**: Provides proper handling of Unicode text to prevent encoding attacks
-//! - **Memory Safety**: Leverages Rust's memory safety guarantees
-//! - **Error Handling**: Uses comprehensive error types to prevent undefined behavior
-//!
-//! # Architecture
-//!
-//! The library is organized into several key modules:
-//!
-//! - `accessibility`: ARIA attributes and WCAG compliance
-//! - `error`: Error types and handling
-//! - `generator`: Core HTML generation functionality
-//! - `performance`: Optimization and minification
-//! - `seo`: Search engine optimization features
-//! - `utils`: Utility functions and helpers
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+#![doc = include_str!("../README.md")]
+#![doc(
+    html_favicon_url = "https://kura.pro/html-generator/images/favicon.ico",
+    html_logo_url = "https://kura.pro/html-generator/images/logos/html-generator.svg",
+    html_root_url = "https://docs.rs/html-generator"
+)]
+#![crate_name = "html_generator"]
+#![crate_type = "lib"]
 
 use std::{
     fmt,

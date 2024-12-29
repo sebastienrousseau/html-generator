@@ -1,8 +1,11 @@
+// Copyright © 2025 HTML Generator. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 //! # Emoji Sequences Loader
 //!
 //! Emoji data copyright (c) 2024 Unicode, Inc.
-//! License: http://www.unicode.org/copyright.html
-//! For terms of use, see http://www.unicode.org/terms_of_use.html
+//! License: <http://www.unicode.org/copyright.html>
+//! For terms of use, see <http://www.unicode.org/terms_of_use.html>
 //!
 //! This module provides functions to load and parse emoji sequences
 //! from a simple text file. Each line in the file typically consists

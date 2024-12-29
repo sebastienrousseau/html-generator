@@ -19,7 +19,8 @@ env:
 
 jobs:
   build:
-    name: Build 🛠
+    name: Build & Test 🛠
+    # We build and test only when pushing to `main`; adjust if needed
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     strategy:
       fail-fast: false
@@ -35,14 +36,21 @@ jobs:
             target: aarch64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          # Example: add WebAssembly if desired
+          # - os: ubuntu-latest
+          #   target: wasm32-unknown-unknown
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # Install Rust stable with required target
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
+
+      # Cache cargo artifacts
       - uses: actions/cache@v4
         with:
           path: |
@@ -50,17 +58,25 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Test on the specified OS & target
+      - name: Test
+        run: cargo test --verbose --target ${{ matrix.target }}
+
+      # Build for the specified OS & target
       - name: Build
         run: cargo build --verbose --release --target ${{ matrix.target }}
-      - name: Package
+
+      # Package artifacts (Linux/macOS)
+      - name: Package (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
-          if [ ! -d "target/package" ]; then
-            mkdir -p target/package
-          fi
+          mkdir -p target/package
           cd target/${{ matrix.target }}/release
           tar czf ../../package/${{ matrix.target }}.tar.gz *
         shell: bash
 
+      # Package artifacts (Windows)
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -71,6 +87,7 @@ jobs:
           tar -czf ../../package/${{ matrix.target }}.tar.gz *
         shell: pwsh
 
+      # Upload artifacts for each target
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
@@ -79,21 +96,26 @@ jobs:
   release:
     name: Release 🚀
     needs: build
+    # Only release if we're pushing to `main` (adjust as you see fit)
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set version
         run: echo "VERSION=$(grep -m 1 '^version =' Cargo.toml | cut -d '"' -f 2)" >> $GITHUB_ENV
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
       - name: Generate Changelog
         run: |
           echo "## Release v${VERSION} - $(date +'%Y-%m-%d')" > CHANGELOG.md
           cat TEMPLATE.md >> CHANGELOG.md
           git log --pretty=format:'%s' --reverse HEAD >> CHANGELOG.md
           echo "" >> CHANGELOG.md
+
       - uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,6 +125,7 @@ jobs:
           body_path: CHANGELOG.md
           draft: true
           prerelease: false
+
       - name: Upload Release Assets
         run: |
           for asset in artifacts/*/*; do
@@ -117,10 +140,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+
       - name: Publish
         run: cargo publish --token ${CARGO_REGISTRY_TOKEN}
         env:
