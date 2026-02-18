@@ -81,6 +81,7 @@ tempfile = "3.14.0"
 thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["full"] }
 uuid = { version = "1.11.0", features = ["v4"] }
+commons = { git = "https://github.com/sebastienrousseau/commons", tag = "v0.0.1", default-features = false, features = ["error", "config", "logging"] }
 
 # -----------------------------------------------------------------------------
 # Build Dependencies
