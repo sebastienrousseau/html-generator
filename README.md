@@ -59,7 +59,7 @@ HTML Generator is a high-performance Rust library for transforming Markdown into
 
 - **Core Processing**:
   - Standard Markdown to HTML transformation
-  - Configurable parsing with `ComrakOptions`
+  - Configurable parsing with `Options`
   - Front matter extraction support
   - Basic syntax highlighting via `syntect`
   - Inline HTML preservation

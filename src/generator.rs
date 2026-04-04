@@ -8,7 +8,7 @@
 //! and custom configuration options.
 
 use crate::{error::HtmlError, extract_front_matter, Result};
-use mdx_gen::{process_markdown, ComrakOptions, MarkdownOptions};
+use mdx_gen::{process_markdown, Options, MarkdownOptions};
 use regex::Regex;
 use std::error::Error;
 
@@ -40,14 +40,14 @@ pub fn markdown_to_html_with_extensions(
         process_images_with_classes(&markdown_with_classes);
 
     // 4) Configure Comrak/Markdown Options
-    let mut comrak_options = ComrakOptions::default();
+    let mut comrak_options = Options::default();
     comrak_options.extension.strikethrough = true;
     comrak_options.extension.table = true;
     comrak_options.extension.autolink = true;
     comrak_options.extension.tasklist = true;
     comrak_options.extension.superscript = true;
 
-    comrak_options.render.unsafe_ = true; // raw HTML allowed
+    comrak_options.render.r#unsafe = true; // raw HTML allowed
     comrak_options.render.escape = false;
 
     let options =
@@ -108,7 +108,7 @@ fn add_custom_classes(markdown: &str) -> String {
 pub fn process_markdown_inline(
     content: &str,
 ) -> std::result::Result<String, Box<dyn Error>> {
-    let mut comrak_opts = ComrakOptions::default();
+    let mut comrak_opts = Options::default();
 
     comrak_opts.extension.strikethrough = true;
     comrak_opts.extension.table = true;
@@ -116,7 +116,7 @@ pub fn process_markdown_inline(
     comrak_opts.extension.tasklist = true;
     comrak_opts.extension.superscript = true;
 
-    comrak_opts.render.unsafe_ = true; // raw HTML allowed
+    comrak_opts.render.r#unsafe = true; // raw HTML allowed
     comrak_opts.render.escape = false;
 
     // mdx_gen::process_markdown_inline(...) only parses inline syntax, not block-level
@@ -393,17 +393,17 @@ author: Jane Doe
         );
     }
 
-    /// Test customization of ComrakOptions.
+    /// Test customization of Options.
     #[test]
     fn test_markdown_to_html_with_custom_comrak_options() {
         let markdown = "^^Superscript^^\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Row 1    | Row 2    |";
 
-        // Configure ComrakOptions with necessary extensions
-        let mut comrak_options = ComrakOptions::default();
+        // Configure Options with necessary extensions
+        let mut comrak_options = Options::default();
         comrak_options.extension.superscript = true;
         comrak_options.extension.table = true; // Enable table to match MarkdownOptions
 
-        // Synchronize MarkdownOptions with ComrakOptions
+        // Synchronize MarkdownOptions with Options
         let options = MarkdownOptions::default()
             .with_comrak_options(comrak_options.clone());
         let content_without_front_matter =
@@ -431,7 +431,7 @@ author: Jane Doe
             }
             Err(err) => {
                 eprintln!("Markdown processing error: {:?}", err);
-                panic!("Failed to process Markdown with custom ComrakOptions");
+                panic!("Failed to process Markdown with custom Options");
             }
         }
     }

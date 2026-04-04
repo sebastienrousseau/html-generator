@@ -32,7 +32,7 @@
 //! ```
 
 use crate::{HtmlError, Result};
-use comrak::{markdown_to_html, ComrakOptions};
+use comrak::{markdown_to_html, Options};
 use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
 use tokio::task;
@@ -58,11 +58,11 @@ impl Default for MinifyConfig {
     fn default() -> Self {
         let mut cfg = Cfg::new();
         // Preserve HTML semantics and compatibility
-        cfg.do_not_minify_doctype = true;
-        cfg.ensure_spec_compliant_unquoted_attribute_values = true;
+        cfg.minify_doctype = false;
+        cfg.allow_noncompliant_unquoted_attribute_values = false;
         cfg.keep_closing_tags = true;
         cfg.keep_html_and_head_opening_tags = true;
-        cfg.keep_spaces_between_attributes = true;
+        cfg.allow_removing_spaces_between_attributes = false;
         // Enable safe minification for non-structural elements
         cfg.keep_comments = false;
         cfg.minify_css = true;
@@ -77,10 +77,7 @@ impl Default for MinifyConfig {
 impl std::fmt::Debug for MinifyConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MinifyConfig")
-            .field(
-                "do_not_minify_doctype",
-                &self.cfg.do_not_minify_doctype,
-            )
+            .field("minify_doctype", &self.cfg.minify_doctype)
             .field("minify_css", &self.cfg.minify_css)
             .field("minify_js", &self.cfg.minify_js)
             .field("keep_comments", &self.cfg.keep_comments)
@@ -205,7 +202,7 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
     };
 
     task::spawn_blocking(move || {
-        let options = ComrakOptions::default();
+        let options = Options::default();
         Ok(markdown_to_html(&markdown, &options))
     })
     .await
@@ -244,7 +241,7 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
 /// ```
 #[inline]
 pub fn generate_html(markdown: &str) -> Result<String> {
-    Ok(markdown_to_html(markdown, &ComrakOptions::default()))
+    Ok(markdown_to_html(markdown, &Options::default()))
 }
 
 #[cfg(test)]
@@ -438,7 +435,7 @@ mod tests {
         #[test]
         fn test_minify_config_default() {
             let config = MinifyConfig::default();
-            assert!(config.cfg.do_not_minify_doctype);
+            assert!(!config.cfg.minify_doctype);
             assert!(config.cfg.minify_css);
             assert!(config.cfg.minify_js);
             assert!(!config.cfg.keep_comments);
@@ -604,7 +601,7 @@ mod tests {
             assert!(result.is_ok());
             assert_eq!(
         result.unwrap(),
-        "<div>&LTSpecial> & Characters</div>",
+        "<div>&lt;Special> & Characters</div>",
         "Special characters were unexpectedly modified during minification"
     );
             drop(dir);
