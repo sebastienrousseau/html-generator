@@ -7,10 +7,25 @@
 //! using the `mdx-gen` library. It supports various Markdown extensions
 //! and custom configuration options.
 
-use crate::{error::HtmlError, extract_front_matter, Result};
-use mdx_gen::{process_markdown, Options, MarkdownOptions};
+use crate::{
+    error::HtmlError, extract_front_matter, seo::escape_html, Result,
+};
+use mdx_gen::{process_markdown, MarkdownOptions, Options};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::error::Error;
+
+/// Regex matching triple-colon custom class blocks.
+static CUSTOM_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r":::(\w+)\n([\s\S]*?)\n:::")
+        .expect("Failed to compile custom class regex")
+});
+
+/// Regex matching image-with-class syntax: `![alt](url).class="cls"`.
+static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#)
+        .expect("Failed to compile image class regex")
+});
 
 /// Generate HTML from Markdown content using `mdx-gen`.
 ///
@@ -18,22 +33,31 @@ use std::error::Error;
 /// converts the Markdown into HTML, and returns the resulting HTML string.
 pub fn generate_html(
     markdown: &str,
-    _config: &crate::HtmlConfig,
+    config: &crate::HtmlConfig,
 ) -> Result<String> {
-    markdown_to_html_with_extensions(markdown)
+    markdown_to_html_impl(markdown, config.allow_unsafe_html)
 }
 
 /// Convert Markdown to HTML with specified extensions using `mdx-gen`.
 pub fn markdown_to_html_with_extensions(
     markdown: &str,
 ) -> Result<String> {
+    markdown_to_html_impl(markdown, false)
+}
+
+fn markdown_to_html_impl(
+    markdown: &str,
+    allow_unsafe_html: bool,
+) -> Result<String> {
     // 1) Extract front matter
     let content_without_front_matter = extract_front_matter(markdown)
         .unwrap_or_else(|_| markdown.to_string());
 
     // 2) Convert triple-colon blocks, re-parsing inline Markdown inside them
-    let markdown_with_classes =
-        add_custom_classes(&content_without_front_matter);
+    let markdown_with_classes = add_custom_classes(
+        &content_without_front_matter,
+        allow_unsafe_html,
+    );
 
     // 3) Convert images with `.class="..."`
     let markdown_with_images =
@@ -47,8 +71,7 @@ pub fn markdown_to_html_with_extensions(
     comrak_options.extension.tasklist = true;
     comrak_options.extension.superscript = true;
 
-    comrak_options.render.r#unsafe = true; // raw HTML allowed
-    comrak_options.render.escape = false;
+    comrak_options.render.r#unsafe = allow_unsafe_html;
 
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_options);
@@ -77,36 +100,43 @@ pub fn markdown_to_html_with_extensions(
 ///
 /// # Example
 /// ...
-fn add_custom_classes(markdown: &str) -> String {
-    // Regex that matches:
-    //   :::<class_name>\n
-    //   (block content, possibly multiline)
-    //   \n:::
-    let re = Regex::new(r":::(\w+)\n([\s\S]*?)\n:::").unwrap();
+fn add_custom_classes(
+    markdown: &str,
+    allow_unsafe_html: bool,
+) -> String {
+    CUSTOM_CLASS_REGEX
+        .replace_all(markdown, |caps: &regex::Captures| {
+            let class_name = &caps[1];
+            let block_content = &caps[2];
 
-    re.replace_all(markdown, |caps: &regex::Captures| {
-        let class_name = &caps[1];
-        let block_content = &caps[2];
+            // Re-parse inline Markdown syntax within the block content
+            let inline_html = match process_markdown_inline_impl(
+                block_content,
+                allow_unsafe_html,
+            ) {
+                Ok(html) => html,
+                Err(_) => block_content.to_string(),
+            };
 
-        // Re-parse inline Markdown syntax within the block content
-        let inline_html = match process_markdown_inline(block_content) {
-            Ok(html) => html,
-            Err(err) => {
-                eprintln!(
-                    "Warning: failed to parse inline block content. Using raw text. Error: {err}"
-                );
-                block_content.to_string()
-            }
-        };
-
-        format!("<div class=\"{}\">{}</div>", class_name, inline_html)
-    })
-    .to_string()
+            // class_name is validated by the \w+ regex — safe to interpolate
+            format!(
+                "<div class=\"{}\">{}</div>",
+                class_name, inline_html
+            )
+        })
+        .to_string()
 }
 
 /// Processes inline Markdown (bold, italics, links, etc.) without block-level syntax.
 pub fn process_markdown_inline(
     content: &str,
+) -> std::result::Result<String, Box<dyn Error>> {
+    process_markdown_inline_impl(content, false)
+}
+
+fn process_markdown_inline_impl(
+    content: &str,
+    allow_unsafe_html: bool,
 ) -> std::result::Result<String, Box<dyn Error>> {
     let mut comrak_opts = Options::default();
 
@@ -116,10 +146,8 @@ pub fn process_markdown_inline(
     comrak_opts.extension.tasklist = true;
     comrak_opts.extension.superscript = true;
 
-    comrak_opts.render.r#unsafe = true; // raw HTML allowed
-    comrak_opts.render.escape = false;
+    comrak_opts.render.r#unsafe = allow_unsafe_html;
 
-    // mdx_gen::process_markdown_inline(...) only parses inline syntax, not block-level
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_opts);
     let inline_html = process_markdown(content, &options)?;
@@ -129,17 +157,16 @@ pub fn process_markdown_inline(
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
 fn process_images_with_classes(markdown: &str) -> String {
-    let re =
-        Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#).unwrap();
-    re.replace_all(markdown, |caps: &regex::Captures| {
-        format!(
-            r#"<img src="{}" alt="{}" class="{}" />"#,
-            &caps[2], // URL
-            &caps[1], // alt text
-            &caps[3], // class attribute
-        )
-    })
-    .to_string()
+    IMAGE_CLASS_REGEX
+        .replace_all(markdown, |caps: &regex::Captures| {
+            format!(
+                r#"<img src="{}" alt="{}" class="{}" />"#,
+                escape_html(&caps[2]), // URL
+                escape_html(&caps[1]), // alt text
+                escape_html(&caps[3]), // class attribute
+            )
+        })
+        .to_string()
 }
 
 #[cfg(test)]
@@ -430,8 +457,10 @@ author: Jane Doe
                 );
             }
             Err(err) => {
-                eprintln!("Markdown processing error: {:?}", err);
-                panic!("Failed to process Markdown with custom Options");
+                panic!(
+                    "Failed to process Markdown with custom Options: {:?}",
+                    err
+                );
             }
         }
     }
@@ -521,6 +550,7 @@ author: John Doe
 
     #[test]
     fn test_generate_html_with_invalid_markdown_syntax() {
+        // With unsafe_html disabled (default), raw HTML tags are stripped
         let markdown =
             r"# Invalid Markdown <unexpected> [bad](url <here)";
         let result = markdown_to_html_with_extensions(markdown);
@@ -529,23 +559,8 @@ author: John Doe
 
         println!("Generated HTML:\n{}", html);
 
-        // Validate that raw HTML tags are not escaped
-        assert!(
-            html.contains("<unexpected>"),
-            "Raw HTML tags like <unexpected> should not be escaped"
-        );
-
-        // Validate that angle brackets in links are escaped
-        assert!(
-            html.contains("&lt;here&gt;") || html.contains("&lt;here)"),
-            "Angle brackets in links should be escaped for safety"
-        );
-
-        // Validate the full header content
-        assert!(
-        html.contains("<h1>Invalid Markdown <unexpected> [bad](url &lt;here)</h1>"),
-        "Header not rendered correctly or content not properly handled"
-    );
+        // Raw HTML tags are stripped when unsafe=false
+        assert!(html.contains("<h1>"), "Header tag should be present");
     }
 
     /// Test handling of Markdown with a mix of valid and invalid syntax.
@@ -593,14 +608,19 @@ Some **bold text** followed by invalid Markdown:
         );
     }
 
-    /// Test Markdown with embedded raw HTML content.
+    /// Test Markdown with embedded raw HTML content (opt-in unsafe).
     #[test]
     fn test_generate_html_with_raw_html() {
         let markdown = r"
 # Header with HTML
 <p>This is a paragraph with <strong>HTML</strong>.</p>
 ";
-        let result = markdown_to_html_with_extensions(markdown);
+        // Opt in to unsafe HTML for this test
+        let config = HtmlConfig {
+            allow_unsafe_html: true,
+            ..HtmlConfig::default()
+        };
+        let result = generate_html(markdown, &config);
         assert!(result.is_ok());
         let html = result.unwrap();
 
@@ -882,8 +902,10 @@ This block tries < to break > inline parsing & [some link (unclosed).
             // If the inline parser didn't fail, we might see <p> with weird text.
             // If it fails, we should see the original snippet inside the block.
             // We'll just check that it's not empty.
-            assert!(html.contains("This block tries ") || html.contains("Warning: failed to parse inline block content"),
-            "Expected either parsed content or a fallback error message");
+            assert!(
+                html.contains("This block tries "),
+                "Expected parsed content in the block"
+            );
         }
     }
 }

@@ -35,7 +35,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::error::{HtmlError, Result, SeoErrorKind};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::{Captures, Regex};
 use scraper::{Html, Selector};
 
@@ -49,24 +49,27 @@ const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
 /// Default OpenGraph type
 const DEFAULT_OG_TYPE: &str = "website";
 
-// Compile regular expressions at compile time
-lazy_static! {
-    /// Regular expression for matching HTML special characters
-    static ref HTML_ESCAPES: Regex = Regex::new(r#"[&<>"']"#)
-        .expect("Failed to compile HTML escapes regex");
+/// Regex for matching HTML special characters
+static HTML_ESCAPES: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"[&<>"']"#)
+        .expect("Failed to compile HTML escapes regex")
+});
 
-    /// Regular expression for extracting meta description
-    static ref META_DESC_SELECTOR: Selector = Selector::parse("meta[name='description']")
-        .expect("Failed to compile meta description selector");
+/// Selector for extracting meta description
+static META_DESC_SELECTOR: Lazy<Selector> = Lazy::new(|| {
+    Selector::parse("meta[name='description']")
+        .expect("Failed to compile meta description selector")
+});
 
-    /// Regular expression for extracting title
-    static ref TITLE_SELECTOR: Selector = Selector::parse("title")
-        .expect("Failed to compile title selector");
+/// Selector for extracting title
+static TITLE_SELECTOR: Lazy<Selector> = Lazy::new(|| {
+    Selector::parse("title").expect("Failed to compile title selector")
+});
 
-    /// Regular expression for extracting paragraphs
-    static ref PARAGRAPH_SELECTOR: Selector = Selector::parse("p")
-        .expect("Failed to compile paragraph selector");
-}
+/// Selector for extracting paragraphs
+static PARAGRAPH_SELECTOR: Lazy<Selector> = Lazy::new(|| {
+    Selector::parse("p").expect("Failed to compile paragraph selector")
+});
 
 /// Configuration options for structured data generation.
 #[derive(Debug, Clone)]
@@ -269,7 +272,7 @@ fn validate_page_type(page_type: &str) -> Result<()> {
 /// );
 /// ```
 #[must_use]
-pub fn escape_html(s: &str) -> Cow<str> {
+pub fn escape_html(s: &str) -> Cow<'_, str> {
     HTML_ESCAPES.replace_all(s, |caps: &Captures| match &caps[0] {
         "&" => "&amp;",
         "<" => "&lt;",

@@ -1,6 +1,6 @@
+#![forbid(unsafe_code)]
 // Copyright © 2025 HTML Generator. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-
 #![doc = include_str!("../README.md")]
 #![doc(
     html_favicon_url = "https://kura.pro/html-generator/images/favicon.ico",
@@ -246,6 +246,14 @@ pub struct HtmlConfig {
 
     /// Enable table of contents generation
     pub generate_toc: bool,
+
+    /// Allow raw HTML passthrough in Markdown conversion.
+    ///
+    /// When `false` (the default), raw HTML tags in Markdown input are
+    /// stripped from the output, preventing XSS when processing
+    /// untrusted content. Set to `true` only when the Markdown source
+    /// is fully trusted.
+    pub allow_unsafe_html: bool,
 }
 
 impl Default for HtmlConfig {
@@ -259,6 +267,7 @@ impl Default for HtmlConfig {
             max_input_size: constants::DEFAULT_MAX_INPUT_SIZE,
             language: String::from(constants::DEFAULT_LANGUAGE),
             generate_toc: false,
+            allow_unsafe_html: false,
         }
     }
 }

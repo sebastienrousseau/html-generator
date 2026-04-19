@@ -190,27 +190,12 @@ pub struct Issue {
 
 /// Helper function to create a `Selector`, returning an `Option` on failure.
 fn try_create_selector(selector: &str) -> Option<Selector> {
-    match Selector::parse(selector) {
-        Ok(s) => Some(s),
-        Err(e) => {
-            eprintln!(
-                "Failed to create selector '{}': {}",
-                selector, e
-            );
-            None
-        }
-    }
+    Selector::parse(selector).ok()
 }
 
 /// Helper function to create a `Regex`, returning an `Option` on failure.
 fn try_create_regex(pattern: &str) -> Option<Regex> {
-    match Regex::new(pattern) {
-        Ok(r) => Some(r),
-        Err(e) => {
-            eprintln!("Failed to create regex '{}': {}", pattern, e);
-            None
-        }
-    }
+    Regex::new(pattern).ok()
 }
 
 /// Static selectors for HTML elements and ARIA attributes
@@ -276,6 +261,23 @@ static VALID_ARIA_ATTRIBUTES: Lazy<HashSet<&'static str>> =
         .copied()
         .collect()
     });
+
+/// Compiled regex for normalizing shorthand boolean attributes
+static SHORTHAND_ATTR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b(disabled|checked|readonly|multiple|selected|autofocus|required)([\s>])")
+        .expect("Failed to compile shorthand attribute regex")
+});
+
+/// Universal CSS selector for counting all elements
+static UNIVERSAL_SELECTOR: Lazy<Selector> = Lazy::new(|| {
+    Selector::parse("*").expect("Failed to compile universal selector")
+});
+
+/// Regex for extracting id="..." attribute values
+static ID_ATTR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"id="([^"]+)""#)
+        .expect("Failed to compile id attribute regex")
+});
 
 /// Color contrast requirements for different WCAG levels
 // static COLOR_CONTRAST_RATIOS: Lazy<HashMap<WcagLevel, f64>> = Lazy::new(|| {
@@ -372,7 +374,7 @@ pub fn add_aria_attributes(
     html: &str,
     config: Option<AccessibilityConfig>,
 ) -> Result<String> {
-    let config = config.unwrap_or_default();
+    let _config = config.unwrap_or_default();
 
     if html.len() > MAX_HTML_SIZE {
         return Err(Error::HtmlTooLarge {
@@ -393,16 +395,6 @@ pub fn add_aria_attributes(
     html_builder = add_aria_to_tabs(html_builder)?;
     html_builder = add_aria_to_toggle(html_builder)?;
     html_builder = add_aria_to_tooltips(html_builder)?;
-
-    // Additional transformations for stricter WCAG levels
-    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
-        html_builder = enhance_landmarks(html_builder)?;
-        html_builder = add_live_regions(html_builder)?;
-    }
-
-    if matches!(config.wcag_level, WcagLevel::AAA) {
-        html_builder = enhance_descriptions(html_builder)?;
-    }
 
     // Validate and clean up
     let new_html =
@@ -440,31 +432,7 @@ impl HtmlBuilder {
 
 /// Helper function to count total elements checked during validation
 fn count_checked_elements(document: &Html) -> usize {
-    document.select(&Selector::parse("*").unwrap()).count()
-}
-
-/// Add landmark regions to improve navigation
-const fn enhance_landmarks(
-    html_builder: HtmlBuilder,
-) -> Result<HtmlBuilder> {
-    // Implementation for adding landmarks
-    Ok(html_builder)
-}
-
-/// Add live regions for dynamic content
-const fn add_live_regions(
-    html_builder: HtmlBuilder,
-) -> Result<HtmlBuilder> {
-    // Implementation for adding live regions
-    Ok(html_builder)
-}
-
-/// Enhance element descriptions for better accessibility
-const fn enhance_descriptions(
-    html_builder: HtmlBuilder,
-) -> Result<HtmlBuilder> {
-    // Implementation for enhancing descriptions
-    Ok(html_builder)
+    document.select(&UNIVERSAL_SELECTOR).count()
 }
 
 /// Check heading structure
@@ -473,8 +441,7 @@ fn check_heading_structure(document: &Html, issues: &mut Vec<Issue>) {
 
     let selector = match Selector::parse("h1, h2, h3, h4, h5, h6") {
         Ok(selector) => selector,
-        Err(e) => {
-            eprintln!("Failed to parse selector: {}", e);
+        Err(_) => {
             return; // Skip checking if the selector is invalid
         }
     };
@@ -672,9 +639,8 @@ fn normalize_aria_label(content: &str) -> String {
                 }
             }
         }
-        Err(e) => {
-            // Handle the error (e.g., log it)
-            eprintln!("Error loading emoji sequences: {}", e);
+        Err(_) => {
+            // Emoji map unavailable; fall through to normalization
         }
     }
 
@@ -882,10 +848,6 @@ fn add_aria_to_buttons(
 
             // If disabled => aria-disabled="true"
             if button.value().attr("disabled").is_some() {
-                eprintln!(
-                    "Processing disabled button: {}",
-                    original_button_html
-                );
                 attributes.push(r#"aria-disabled="true""#.to_string());
             } else {
                 // If the button has aria-pressed => it's a toggle button
@@ -974,20 +936,17 @@ fn replace_html_element_resilient(
 }
 
 fn normalize_shorthand_attributes(html: &str) -> String {
-    let re = Regex::new(
-    r"\b(disabled|checked|readonly|multiple|selected|autofocus|required)([\s>])"
-).unwrap();
+    SHORTHAND_ATTR_REGEX
+        .replace_all(html, |caps: &regex::Captures| {
+            let attr = &caps[1]; // e.g. "disabled"
+            let delim = &caps[2]; // e.g. ">" or " "
 
-    re.replace_all(html, |caps: &regex::Captures| {
-        let attr = &caps[1]; // e.g. "disabled"
-        let delim = &caps[2]; // e.g. ">" or " "
-
-        // Insert ="" right before the delimiter
-        // So <button disabled> becomes <button disabled="">
-        // but <button disabled=""> won't match, so remains as-is
-        format!(r#"{}=""{}"#, attr, delim)
-    })
-    .to_string()
+            // Insert ="" right before the delimiter
+            // So <button disabled> becomes <button disabled="">
+            // but <button disabled=""> won't match, so remains as-is
+            format!(r#"{}=""{}"#, attr, delim)
+        })
+        .to_string()
 }
 
 /// Add ARIA attributes to navigation elements.
@@ -1145,8 +1104,7 @@ fn add_aria_to_modals(
     // 2) Create a selector to find `.modal` elements
     let modal_selector = match Selector::parse(".modal") {
         Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to parse .modal selector: {}", e);
+        Err(_) => {
             return Ok(html_builder); // If selector fails, just return original
         }
     };
@@ -1284,11 +1242,6 @@ fn add_aria_to_modals(
             children_html
         );
 
-        eprintln!(
-            "Replacing modal: {}\nwith: {}\n",
-            old_modal_html, new_modal_html
-        );
-
         // 8) Replace the old snippet in the top-level HTML with the new snippet
         html_builder.content = replace_html_element_resilient(
             &html_builder.content,
@@ -1389,15 +1342,16 @@ fn add_aria_to_inputs(
                     let attributes = preserve_attributes(input_tag);
 
                     // 1) Check if there's already an id="..." in the attributes
-                    let re_id = Regex::new(r#"id="([^"]+)""#).unwrap();
-                    if let Some(id_match) = re_id.captures(&attributes)
+                    if let Some(id_match) =
+                        ID_ATTR_REGEX.captures(&attributes)
                     {
                         // Already has an ID, so just use it—no duplicates
                         let existing_id = &id_match[1];
                         // Also remove the old id= from the attribute string
                         // so we only insert it once in the final <input ...>
-                        let attributes_no_id =
-                            re_id.replace(&attributes, "").to_string();
+                        let attributes_no_id = ID_ATTR_REGEX
+                            .replace(&attributes, "")
+                            .to_string();
 
                         // Decide the label text
                         let label_text = if input_type == "checkbox" {
@@ -1522,7 +1476,6 @@ fn validate_aria(html: &str) -> bool {
             .filter(|(name, _)| name.starts_with("aria-"))
             .all(|(name, value)| is_valid_aria_attribute(name, value))
     } else {
-        eprintln!("ARIA_SELECTOR failed to initialize.");
         false
     }
 }
@@ -1838,7 +1791,7 @@ pub mod utils {
             {
                 for prop in required_props {
                     if element.value().attr(prop).is_none() {
-                        missing.push(prop.to_string());
+                        missing.push((*prop).to_string());
                     }
                 }
             }
@@ -2585,18 +2538,6 @@ mod tests {
         }
 
         #[test]
-        fn test_enhance_landmarks_noop() {
-            let html = "<div>Simple Content</div>";
-            let builder = HtmlBuilder::new(html);
-            let result = enhance_landmarks(builder);
-            assert!(
-                result.is_ok(),
-                "Failed to handle simple HTML content"
-            );
-            assert_eq!(result.unwrap().build(), html, "Landmark enhancement altered simple content unexpectedly");
-        }
-
-        #[test]
         fn test_html_with_non_standard_elements() {
             let html =
                 "<custom-element aria-label=\"test\"></custom-element>";
@@ -2698,15 +2639,6 @@ mod tests {
             let pattern = r"\d+(";
             let result = try_create_regex(pattern);
             assert!(result.is_none());
-        }
-
-        /// Test the `enhance_descriptions` function
-        #[test]
-        fn test_enhance_descriptions() {
-            let builder =
-                HtmlBuilder::new("<html><body></body></html>");
-            let result = enhance_descriptions(builder);
-            assert!(result.is_ok(), "Enhance descriptions failed");
         }
 
         /// Test `From<TryFromIntError>` for `Error`

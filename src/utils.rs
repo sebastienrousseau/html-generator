@@ -7,6 +7,7 @@
 //! extracting front matter from Markdown content and formatting HTML headers.
 
 use crate::error::{HtmlError, Result};
+use crate::seo::escape_html;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::ElementRef;
@@ -75,7 +76,12 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
                 .as_str();
 
             for line in front_matter.lines() {
-                if !line.trim().contains(':') {
+                let trimmed = line.trim();
+                // Skip blank lines and YAML comments
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
+                }
+                if !trimmed.contains(':') {
                     return Err(HtmlError::InvalidFrontMatterFormat(
                         format!(
                             "Invalid line in front matter: {}",
@@ -201,7 +207,7 @@ pub fn generate_table_of_contents(html: &str) -> Result<String> {
                 r#"<li class="toc-{}"><a href="\#{}">{}</a></li>"#,
                 tag.as_str(),
                 id,
-                content
+                escape_html(content)
             ));
         }
     }
