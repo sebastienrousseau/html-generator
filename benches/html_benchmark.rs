@@ -1,13 +1,12 @@
 #![allow(missing_docs)]
 
-use criterion::{
-    black_box, criterion_group, criterion_main, Criterion,
-};
+use criterion::{criterion_group, criterion_main, Criterion};
 use html_generator::{
     accessibility::add_aria_attributes, generate_html,
     performance::minify_html, seo::generate_meta_tags,
     utils::extract_front_matter,
 };
+use std::hint::black_box;
 
 fn benchmark_generate_html(c: &mut Criterion) {
     let markdown_input = r#"# Benchmark Heading

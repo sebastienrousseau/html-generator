@@ -208,10 +208,7 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
     .await
     .map_err(|e| HtmlError::MarkdownConversion {
         message: format!("Asynchronous HTML generation failed: {e}"),
-        source: Some(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            e.to_string(),
-        )),
+        source: Some(std::io::Error::other(e.to_string())),
     })?
 }
 
@@ -533,10 +530,7 @@ mod tests {
                     message: format!(
                         "Asynchronous HTML generation failed: {e}"
                     ),
-                    source: Some(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        e.to_string(),
-                    )),
+                    source: Some(std::io::Error::other(e.to_string())),
                 }),
                 Ok(_) => panic!("Expected a simulated failure"),
             };

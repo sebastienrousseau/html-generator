@@ -379,8 +379,7 @@ mod tests {
 
         #[test]
         fn test_markdown_conversion_with_source() {
-            let source =
-                io::Error::new(io::ErrorKind::Other, "source error");
+            let source = io::Error::other("source error");
             let error = HtmlError::markdown_conversion(
                 "Conversion failed",
                 Some(source),
@@ -404,10 +403,7 @@ mod tests {
             let error = HtmlError::Minification {
                 message: "Too large".to_string(),
                 size: Some(1024),
-                source: Some(io::Error::new(
-                    io::ErrorKind::Other,
-                    "IO error",
-                )),
+                source: Some(io::Error::other("IO error")),
             };
             assert!(error
                 .to_string()
@@ -558,10 +554,8 @@ mod tests {
 
         #[test]
         fn test_template_rendering_error() {
-            let source_error = Box::new(io::Error::new(
-                io::ErrorKind::Other,
-                "render failed",
-            ));
+            let source_error =
+                Box::new(io::Error::other("render failed"));
             let error = HtmlError::TemplateRendering {
                 message: "Template error".to_string(),
                 source: source_error,

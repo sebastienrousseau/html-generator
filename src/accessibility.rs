@@ -678,8 +678,7 @@ fn add_aria_to_tooltips(
         // 1) Extract old button snippet
         let old_button_html = button
             .html()
-            .replace('\n', "")
-            .replace('\r', "")
+            .replace(['\n', '\r'], "")
             .trim()
             .to_string();
 
@@ -1992,10 +1991,8 @@ mod tests {
 
         #[test]
         fn test_html_processing_error_with_source() {
-            let source_error = std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "test source error",
-            );
+            let source_error =
+                std::io::Error::other("test source error");
             let error = Error::HtmlProcessingError {
                 message: "Processing failed".to_string(),
                 source: Some(Box::new(source_error)),
