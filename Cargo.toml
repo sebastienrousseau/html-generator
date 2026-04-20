@@ -96,7 +96,7 @@ version_check = "0.9.5"
 
 [dev-dependencies]
 # Dependencies required for testing and development.
-criterion = "0.5.1"
+criterion = "0.8.2"
 test-case = "3.3.1"
 
 
