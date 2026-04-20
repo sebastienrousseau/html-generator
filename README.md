@@ -1,51 +1,102 @@
+<!-- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+
 <p align="center">
   <img src="https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg" alt="HTML Generator logo" width="128" />
 </p>
 
-<h1 align="center">HTML Generator</h1>
+<h1 align="center">html-generator</h1>
 
 <p align="center">
-  <strong>A Rust library for transforming Markdown into SEO-optimized, accessible HTML.</strong>
+  <strong>Pure Rust library for transforming Markdown into SEO-optimized, accessible HTML. Zero unsafe code.</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/sebastienrousseau/html-generator/actions"><img src="https://img.shields.io/github/actions/workflow/status/sebastienrousseau/html-generator/ci.yml?style=for-the-badge&logo=github" alt="Build" /></a>
   <a href="https://crates.io/crates/html-generator"><img src="https://img.shields.io/crates/v/html-generator.svg?style=for-the-badge&color=fc8d62&logo=rust" alt="Crates.io" /></a>
-  <a href="https://docs.rs/html-generator"><img src="https://img.shields.io/badge/docs.rs-html-generator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" alt="Docs.rs" /></a>
+  <a href="https://docs.rs/html-generator"><img src="https://img.shields.io/badge/docs.rs-html--generator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" alt="Docs.rs" /></a>
   <a href="https://codecov.io/gh/sebastienrousseau/html-generator"><img src="https://img.shields.io/codecov/c/github/sebastienrousseau/html-generator?style=for-the-badge&logo=codecov" alt="Coverage" /></a>
   <a href="https://lib.rs/crates/html-generator"><img src="https://img.shields.io/badge/lib.rs-v0.0.4-orange.svg?style=for-the-badge" alt="lib.rs" /></a>
 </p>
 
 ---
 
+## Contents
+
+- [Install](#install) -- Cargo, source
+- [Quick Start](#quick-start) -- convert Markdown to HTML in 5 lines
+- [Overview](#overview) -- what html-generator does
+- [Features](#features) -- capability matrix
+- [Library Usage](#library-usage) -- pipeline, front matter, TOC, SEO, accessibility
+- [Configuration](#configuration) -- HtmlConfig options
+- [Examples](#examples) -- 12 branded examples
+- [Development](#development) -- make targets, CI
+- [Security](#security) -- safety guarantees
+- [License](#license)
+
+---
+
 ## Install
-
-```bash
-cargo add html-generator
-```
-
-Or add to `Cargo.toml`:
 
 ```toml
 [dependencies]
 html-generator = "0.0.4"
 ```
 
-You need [Rust](https://rustup.rs/) 1.80.0 or later. Works on macOS, Linux, and Windows.
+### Optional async support
+
+```toml
+[dependencies]
+html-generator = { version = "0.0.4", features = ["async"] }
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/sebastienrousseau/html-generator.git
+cd html-generator
+make          # check + clippy + test
+```
+
+Requires **Rust 1.80.0+**. Tested on Linux, macOS, and Windows.
+
+---
+
+## Quick Start
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+fn main() -> Result<(), html_generator::error::HtmlError> {
+    let markdown = "# Hello\n\nThis is **bold** text.";
+    let config = HtmlConfig::default();
+    let html = generate_html(markdown, &config)?;
+    println!("{html}");
+    Ok(())
+}
+```
 
 ---
 
 ## Overview
 
-HTML Generator transforms Markdown into production-ready, SEO-optimized HTML with accessibility compliance built in.
+html-generator converts Markdown into production-ready HTML with a configurable pipeline that applies accessibility, SEO, table of contents, and minification in a single pass. No raw HTML passthrough by default — safe for untrusted input.
 
-- **Markdown to HTML** with full CommonMark support and extensions
+- **Full CommonMark** with extensions (tables, strikethrough, task lists, superscript)
 - **Front matter extraction** from YAML (`---`), TOML (`+++`), and JSON (`{...}`)
-- **Automatic table of contents** injected at `[[TOC]]` placeholder
-- **WCAG-compliant output** with automatic ARIA attributes
-- **SEO** with JSON-LD structured data generation
-- **Minification** via in-memory HTML compression
-- **Async support** (optional, behind `async` feature flag)
+- **WCAG-compliant output** with automatic ARIA attribute injection
+- **JSON-LD structured data** appended for rich search results
+- **Table of contents** injected at `[[TOC]]` placeholder
+- **In-memory minification** without disk I/O
+- **Optional async** via tokio `spawn_blocking` (behind `async` feature)
+- **Zero unsafe code** via `#![forbid(unsafe_code)]` at crate root
+
+| Metric | Value |
+| :--- | :--- |
+| **Source** | 10,023 lines across 8 modules |
+| **Test suite** | 349 tests + 28 doc-tests |
+| **Examples** | 12 branded examples |
+| **Dependencies** | 8 runtime (no tokio unless `async`) |
+| **MSRV** | Rust 1.80.0 |
 
 ---
 
@@ -53,60 +104,22 @@ HTML Generator transforms Markdown into production-ready, SEO-optimized HTML wit
 
 | | |
 | :--- | :--- |
-| **Markdown to HTML** | Convert Markdown to SEO-optimized HTML |
-| **Accessibility** | WCAG-compliant output with ARIA attributes |
-| **Front matter** | Extract and parse YAML/TOML/JSON metadata |
-| **Table of contents** | Inject TOC at `[[TOC]]` placeholder |
-| **Structured data** | Append JSON-LD `<script>` for rich results |
-| **Minification** | In-memory HTML minification |
-| **Performance** | Optimized for large-scale web projects |
+| **Markdown to HTML** | Full CommonMark via mdx-gen with extensions: tables, strikethrough, task lists, autolinks, superscript. Custom class blocks via `:::class` syntax. Image class attributes via `![alt](url).class="cls"`. |
+| **Accessibility** | Automatic ARIA attribute injection for buttons, navs, forms, inputs, tabs, modals, accordions, tooltips. WCAG 2.1 validation (Levels A, AA, AAA). Heading structure checks. Language attribute validation. |
+| **Front matter** | YAML (`---`), TOML (`+++`), JSON (`{...}`) delimiters. `extract_front_matter` strips metadata and returns body. `extract_front_matter_data` parses metadata into `serde_json::Value`. |
+| **Table of contents** | `generate_table_of_contents` builds `<ul>` from headings. Pipeline injects at `[[TOC]]` placeholder when `generate_toc` is enabled. |
+| **SEO** | `MetaTagsBuilder` for meta tag generation. `generate_structured_data` for JSON-LD `<script>` output with configurable `@type` and additional properties. HTML entity escaping via `escape_html`. |
+| **Minification** | File-based `minify_html(path)` and in-memory `minify_html_string(html)`. Preserves HTML semantics, strips comments, minifies CSS/JS. Configurable via `MinifyConfig`. |
+| **Performance** | Regexes and CSS selectors compiled once into `static Lazy`. DOM-aware element replacement handles attribute reordering and whitespace. Configurable buffer sizes. |
+| **Async** | Optional `async` feature enables `async_generate_html` via tokio `spawn_blocking`. Synchronous users pay zero cost — tokio not compiled without the feature. |
+| **Security** | `#![forbid(unsafe_code)]`. Raw HTML stripped by default (`allow_unsafe_html: false`). All user-controlled attributes escaped. Directory traversal blocked. Input size limits enforced. |
 
 ---
 
-## Usage
+## Library Usage
 
-### Basic conversion
-
-```rust
-use html_generator::{generate_html, HtmlConfig};
-
-fn main() {
-    let markdown = "# Hello\n\nThis is **bold** text.";
-    let config = HtmlConfig::default();
-    let html = generate_html(markdown, &config).unwrap();
-    println!("{}", html);
-}
-```
-
-### Table of contents
-
-Insert `[[TOC]]` in your Markdown where you want the table of contents:
-
-```rust
-use html_generator::{generate_html, HtmlConfig};
-
-let markdown = "[[TOC]]\n\n# Introduction\n\n## Getting Started\n\nContent here.";
-let config = HtmlConfig {
-    generate_toc: true,
-    ..HtmlConfig::default()
-};
-let html = generate_html(markdown, &config).unwrap();
-// [[TOC]] is replaced with a <ul> of heading links
-```
-
-### Front matter
-
-Supports YAML (`---`), TOML (`+++`), and JSON (`{...}`) delimiters:
-
-```rust
-use html_generator::utils::extract_front_matter_data;
-
-let content = "---\ntitle: My Page\nauthor: Jane\n---\n# Hello";
-let (metadata, body) = extract_front_matter_data(content).unwrap();
-assert_eq!(metadata["title"], "My Page");
-```
-
-### Full pipeline
+<details>
+<summary><b>Full pipeline</b></summary>
 
 ```rust
 use html_generator::{generate_html, HtmlConfig};
@@ -118,17 +131,206 @@ let config = HtmlConfig {
     minify_output: true,
     ..HtmlConfig::default()
 };
-let html = generate_html("# Title\n\nContent", &config).unwrap();
+
+let markdown = "[[TOC]]\n\n# Introduction\n\nWelcome to the guide.\n\n## Getting Started\n\nFollow these steps.";
+let html = generate_html(markdown, &config)?;
+// Output includes: ARIA attributes, TOC at [[TOC]], JSON-LD, minified
+# Ok::<(), html_generator::error::HtmlError>(())
 ```
 
-### Async (optional)
+The pipeline applies steps in order:
+1. Markdown → HTML (with extensions)
+2. Accessibility (ARIA attributes)
+3. Table of contents (inject at `[[TOC]]`)
+4. Structured data (append JSON-LD)
+5. Minification (compress)
 
-Enable with `cargo add html-generator --features async`:
+</details>
+
+<details>
+<summary><b>Front matter</b></summary>
+
+```rust
+use html_generator::utils::extract_front_matter_data;
+
+// YAML front matter
+let content = "---\ntitle: My Page\nauthor: Jane Doe\n---\n# Hello";
+let (metadata, body) = extract_front_matter_data(content)?;
+assert_eq!(metadata["title"], "My Page");
+assert_eq!(body, "# Hello");
+
+// TOML front matter
+let content = "+++\ntitle = My Page\nauthor = Jane Doe\n+++\n# Hello";
+let (metadata, body) = extract_front_matter_data(content)?;
+assert_eq!(metadata["title"], "My Page");
+
+// JSON front matter
+let content = "{\"title\": \"My Page\"}\n# Hello";
+let (metadata, body) = extract_front_matter_data(content)?;
+assert_eq!(metadata["title"], "My Page");
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+</details>
+
+<details>
+<summary><b>Table of contents</b></summary>
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+let markdown = "[[TOC]]\n\n# Chapter 1\n\n## Section 1.1\n\n# Chapter 2";
+let config = HtmlConfig {
+    generate_toc: true,
+    ..HtmlConfig::default()
+};
+let html = generate_html(markdown, &config)?;
+assert!(html.contains(r#"<ul>"#));
+assert!(html.contains(r#"<a href="\#chapter-1">"#));
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+</details>
+
+<details>
+<summary><b>SEO and structured data</b></summary>
+
+```rust
+use html_generator::seo::{MetaTagsBuilder, generate_structured_data, StructuredDataConfig};
+use std::collections::HashMap;
+
+// Meta tags
+let meta = MetaTagsBuilder::new()
+    .with_title("My Page")
+    .with_description("A great page")
+    .add_meta_tag("author", "Jane Doe")
+    .build()?;
+
+// JSON-LD structured data
+let html = r#"<html><head><title>My Page</title></head><body><p>Content</p></body></html>"#;
+let config = StructuredDataConfig {
+    page_type: "Article".to_string(),
+    additional_data: Some(HashMap::from([("author".to_string(), "Jane".to_string())])),
+    ..Default::default()
+};
+let json_ld = generate_structured_data(html, Some(config))?;
+assert!(json_ld.contains("application/ld+json"));
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+</details>
+
+<details>
+<summary><b>Accessibility</b></summary>
+
+```rust
+use html_generator::accessibility::{add_aria_attributes, validate_wcag, AccessibilityConfig};
+
+let html = r#"<button>Submit</button><nav><ul><li>Home</li></ul></nav>"#;
+
+// Enhance with ARIA attributes
+let enhanced = add_aria_attributes(html, None)?;
+assert!(enhanced.contains("aria-label"));
+
+// Validate WCAG compliance
+let config = AccessibilityConfig::default();
+let report = validate_wcag(&enhanced, &config, None)?;
+println!("Issues found: {}", report.issue_count);
+# Ok::<(), html_generator::accessibility::Error>(())
+```
+
+</details>
+
+<details>
+<summary><b>Minification</b></summary>
+
+```rust
+use html_generator::performance::minify_html_string;
+
+let html = "<html>  <body>  <p>Hello</p>  </body>  </html>";
+let minified = minify_html_string(html)?;
+assert_eq!(minified, "<html><body><p>Hello</p></body></html>");
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+</details>
+
+<details>
+<summary><b>Async (optional)</b></summary>
+
+Enable with `features = ["async"]`:
 
 ```rust,ignore
 use html_generator::performance::async_generate_html;
 
-let html = async_generate_html("# Hello").await?;
+#[tokio::main]
+async fn main() -> Result<(), html_generator::error::HtmlError> {
+    let html = async_generate_html("# Hello\n\nWorld").await?;
+    println!("{html}");
+    Ok(())
+}
+```
+
+</details>
+
+---
+
+## Configuration
+
+```rust
+use html_generator::HtmlConfig;
+
+let config = HtmlConfig {
+    enable_syntax_highlighting: true,       // Syntax-highlighted code blocks
+    syntax_theme: Some("github".into()),    // Highlighting theme
+    minify_output: false,                   // Compress output HTML
+    add_aria_attributes: true,              // Inject ARIA attributes
+    generate_structured_data: false,        // Append JSON-LD
+    generate_toc: false,                    // Inject TOC at [[TOC]]
+    allow_unsafe_html: false,               // Strip raw HTML (XSS-safe default)
+    max_input_size: 5 * 1024 * 1024,        // 5MB input limit
+    max_buffer_size: 16 * 1024 * 1024,      // 16MB I/O buffer
+    language: "en-GB".into(),               // Content language
+};
+```
+
+Use the builder for validated configuration:
+
+```rust
+use html_generator::HtmlConfig;
+
+let config = HtmlConfig::builder()
+    .with_syntax_highlighting(true, Some("monokai".into()))
+    .with_language("en-US")
+    .build()?;
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+---
+
+## Examples
+
+| Example | Description |
+| :--- | :--- |
+| `basic` | Simple Markdown to HTML conversion |
+| `comprehensive` | Batch processing 60+ test cases |
+| `accessibility` | WCAG/ARIA enhancement scenarios |
+| `aria` | ARIA attributes on interactive elements |
+| `seo` | Meta tags and structured data generation |
+| `performance` | Async generation and minification |
+| `generator` | HTML generation configuration |
+| `custom` | Custom configuration options |
+| `error` | Error handling patterns |
+| `lib` | Full library integration |
+| `style` | CSS styling with custom classes |
+| `utils` | Utility function demonstrations |
+
+Run any example:
+
+```bash
+cargo run --example basic
+cargo run --example accessibility
+cargo run --example seo
 ```
 
 ---
@@ -136,18 +338,39 @@ let html = async_generate_html("# Hello").await?;
 ## Development
 
 ```bash
-cargo build        # Build the project
-cargo test         # Run all tests
-cargo clippy       # Lint with Clippy
-cargo fmt          # Format with rustfmt
+make              # check + clippy + test
+make build        # cargo build
+make test         # run all tests
+make lint         # clippy with strict flags
+make format       # rustfmt
+make deny         # supply-chain audit
+make outdated     # dependency freshness check
+make help         # list all targets
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, signed commits, and PR guidelines.
+### CI
+
+| Workflow | Trigger | Purpose |
+| :--- | :--- | :--- |
+| `ci.yml` | push, PR | Clippy, fmt, test (all features), coverage, audit |
+| `docs.yml` | push to main | Build and deploy API docs to GitHub Pages |
+| `security.yml` | push, PR | Dependency review, CodeQL, cargo-audit, cargo-deny |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for signed commits and PR guidelines.
 
 ---
 
-**THE ARCHITECT** \u1d2b [Sebastien Rousseau](https://sebastienrousseau.com)
-**THE ENGINE** \u1d5e [EUXIS](https://euxis.co) \u1d2b Enterprise Unified Execution Intelligence System
+## Security
+
+- `#![forbid(unsafe_code)]` at crate root and in `Cargo.toml` lints
+- Raw HTML stripped by default — opt-in via `allow_unsafe_html: true`
+- All user-controlled attributes escaped via `escape_html`
+- Directory traversal (`..`) blocked in file path validation
+- Input size limits enforced at all boundaries
+- `cargo audit` clean (transitive advisory ignores documented in `.cargo/audit.toml`)
+- `cargo deny` -- license, advisory, and ban checks
+- SPDX license headers on all source files
+- Signed commits enforced via CI
 
 ---
 
@@ -155,4 +378,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, signed commits, and PR guideli
 
 Dual-licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) or [MIT](https://opensource.org/licenses/MIT), at your option.
 
-<p align="right"><a href="#html-generator">Back to Top</a></p>
+<p align="right"><a href="#contents">Back to Top</a></p>
