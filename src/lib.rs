@@ -22,6 +22,7 @@ const MAX_BUFFER_SIZE: usize = 16 * 1024 * 1024;
 
 // Re-export public modules
 pub mod accessibility;
+pub mod elements;
 pub mod emojis;
 pub mod error;
 pub mod generator;
