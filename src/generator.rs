@@ -54,7 +54,11 @@ pub fn generate_html(
 
     // Step 2: Accessibility — add ARIA attributes
     if config.add_aria_attributes {
-        html = add_aria_attributes(&html, None).unwrap_or(html.clone());
+        if let Ok(enhanced) = add_aria_attributes(&html, None) {
+            html = enhanced;
+        }
+        // Non-fatal: if ARIA enhancement fails (e.g., malformed input),
+        // continue with the original HTML rather than aborting.
     }
 
     // Step 3: Table of contents — replace [[TOC]] placeholder

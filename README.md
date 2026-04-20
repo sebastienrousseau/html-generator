@@ -31,7 +31,7 @@ Or add to `Cargo.toml`:
 html-generator = "0.0.4"
 ```
 
-You need [Rust](https://rustup.rs/) 1.56.0 or later. Works on macOS, Linux, and Windows.
+You need [Rust](https://rustup.rs/) 1.80.0 or later. Works on macOS, Linux, and Windows.
 
 ---
 
@@ -39,10 +39,13 @@ You need [Rust](https://rustup.rs/) 1.56.0 or later. Works on macOS, Linux, and 
 
 HTML Generator transforms Markdown into production-ready, SEO-optimized HTML with accessibility compliance built in.
 
-- **Markdown to HTML** with full CommonMark support
-- **Front matter extraction** from YAML, TOML, and JSON
-- **Automatic table of contents** from document headings
-- **WCAG-compliant output** with ARIA attributes
+- **Markdown to HTML** with full CommonMark support and extensions
+- **Front matter extraction** from YAML (`---`), TOML (`+++`), and JSON (`{...}`)
+- **Automatic table of contents** injected at `[[TOC]]` placeholder
+- **WCAG-compliant output** with automatic ARIA attributes
+- **SEO** with JSON-LD structured data generation
+- **Minification** via in-memory HTML compression
+- **Async support** (optional, behind `async` feature flag)
 
 ---
 
@@ -52,14 +55,17 @@ HTML Generator transforms Markdown into production-ready, SEO-optimized HTML wit
 | :--- | :--- |
 | **Markdown to HTML** | Convert Markdown to SEO-optimized HTML |
 | **Accessibility** | WCAG-compliant output with ARIA attributes |
-| **Front matter** | Extract and process YAML/TOML/JSON front matter |
-| **Table of contents** | Automatic TOC generation from headings |
-| **Custom headers** | Configurable header ID generation and processing |
+| **Front matter** | Extract and parse YAML/TOML/JSON metadata |
+| **Table of contents** | Inject TOC at `[[TOC]]` placeholder |
+| **Structured data** | Append JSON-LD `<script>` for rich results |
+| **Minification** | In-memory HTML minification |
 | **Performance** | Optimized for large-scale web projects |
 
 ---
 
 ## Usage
+
+### Basic conversion
 
 ```rust
 use html_generator::{generate_html, HtmlConfig};
@@ -70,6 +76,59 @@ fn main() {
     let html = generate_html(markdown, &config).unwrap();
     println!("{}", html);
 }
+```
+
+### Table of contents
+
+Insert `[[TOC]]` in your Markdown where you want the table of contents:
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+let markdown = "[[TOC]]\n\n# Introduction\n\n## Getting Started\n\nContent here.";
+let config = HtmlConfig {
+    generate_toc: true,
+    ..HtmlConfig::default()
+};
+let html = generate_html(markdown, &config).unwrap();
+// [[TOC]] is replaced with a <ul> of heading links
+```
+
+### Front matter
+
+Supports YAML (`---`), TOML (`+++`), and JSON (`{...}`) delimiters:
+
+```rust
+use html_generator::utils::extract_front_matter_data;
+
+let content = "---\ntitle: My Page\nauthor: Jane\n---\n# Hello";
+let (metadata, body) = extract_front_matter_data(content).unwrap();
+assert_eq!(metadata["title"], "My Page");
+```
+
+### Full pipeline
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+let config = HtmlConfig {
+    add_aria_attributes: true,
+    generate_toc: true,
+    generate_structured_data: true,
+    minify_output: true,
+    ..HtmlConfig::default()
+};
+let html = generate_html("# Title\n\nContent", &config).unwrap();
+```
+
+### Async (optional)
+
+Enable with `cargo add html-generator --features async`:
+
+```rust,ignore
+use html_generator::performance::async_generate_html;
+
+let html = async_generate_html("# Hello").await?;
 ```
 
 ---
