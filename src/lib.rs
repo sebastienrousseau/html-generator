@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 #![doc = include_str!("../README.md")]
 #![doc(
-    html_favicon_url = "https://kura.pro/html-generator/images/favicon.ico",
-    html_logo_url = "https://kura.pro/html-generator/images/logos/html-generator.svg",
+    html_favicon_url = "https://cloudcdn.pro/html-generator/v1/favicon.ico",
+    html_logo_url = "https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg",
     html_root_url = "https://docs.rs/html-generator"
 )]
 #![crate_name = "html_generator"]

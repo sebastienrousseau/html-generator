@@ -1,5 +1,5 @@
 <!-- markdownlint-disable MD033 MD041 -->
-<img src="https://kura.pro/html-generator/images/logos/html-generator.svg"
+<img src="https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg"
 alt="HTML Generator logo" height="66" align="right" />
 <!-- markdownlint-enable MD033 MD041 -->
 

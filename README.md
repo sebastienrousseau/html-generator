@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://kura.pro/html-generator/images/logos/html-generator.svg" alt="HTML Generator logo" width="128" />
+  <img src="https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg" alt="HTML Generator logo" width="128" />
 </p>
 
 <h1 align="center">HTML Generator</h1>
