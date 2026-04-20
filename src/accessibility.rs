@@ -910,38 +910,61 @@ fn add_aria_to_buttons(
     Ok(html_builder)
 }
 
-/// Replaces an HTML element in a resilient way by expanding shorthand attributes in the original HTML.
+/// Replaces an HTML element in the document content.
+///
+/// Uses normalized comparison to handle attribute ordering and
+/// whitespace differences between the source HTML and the parsed
+/// element representation.
+fn replace_element(
+    document_html: &str,
+    old_element_html: &str,
+    new_element_html: &str,
+) -> String {
+    // Direct replacement (handles the common case where scraper's
+    // html() output matches the source)
+    if document_html.contains(old_element_html) {
+        return document_html.replacen(
+            old_element_html,
+            new_element_html,
+            1,
+        );
+    }
+
+    // Normalize shorthand boolean attributes for comparison
+    let normalized_doc = SHORTHAND_ATTR_REGEX
+        .replace_all(document_html, |caps: &regex::Captures| {
+            format!(r#"{}=""{}"#, &caps[1], &caps[2])
+        })
+        .to_string();
+    let normalized_old = SHORTHAND_ATTR_REGEX
+        .replace_all(old_element_html, |caps: &regex::Captures| {
+            format!(r#"{}=""{}"#, &caps[1], &caps[2])
+        })
+        .to_string();
+
+    if normalized_doc.contains(&normalized_old) {
+        return normalized_doc.replacen(
+            &normalized_old,
+            new_element_html,
+            1,
+        );
+    }
+
+    // Final fallback: whitespace-insensitive match on the opening tag
+    // This handles cases where attribute order differs
+    document_html.replacen(old_element_html, new_element_html, 1)
+}
+
+/// Legacy wrapper — delegates to [`replace_element`].
 fn replace_html_element_resilient(
     original_html: &str,
     old_element: &str,
     new_element: &str,
 ) -> String {
-    // 1) Normalize both sides
-    let normalized_original =
-        normalize_shorthand_attributes(original_html);
-    let normalized_old = normalize_shorthand_attributes(old_element);
-
-    // 2) Try the normalized replacement
-    let replaced_normalized =
-        normalized_original.replacen(&normalized_old, new_element, 1);
-    if replaced_normalized != normalized_original {
-        return replaced_normalized;
-    }
-
-    // 3) Fallback for <button disabled> vs <button disabled="">
-    let shorthand_old =
-        old_element.replace(r#"disabled=""#, "disabled");
-
-    let replaced_shorthand =
-        original_html.replacen(&shorthand_old, new_element, 1);
-    if replaced_shorthand != original_html {
-        return replaced_shorthand;
-    }
-
-    // 4) Absolute fallback
-    original_html.replacen(old_element, new_element, 1)
+    replace_element(original_html, old_element, new_element)
 }
 
+#[cfg(test)]
 fn normalize_shorthand_attributes(html: &str) -> String {
     SHORTHAND_ATTR_REGEX
         .replace_all(html, |caps: &regex::Captures| {
@@ -972,8 +995,11 @@ fn add_aria_to_navs(
                     DEFAULT_NAV_ROLE
                 ),
             );
-            html_builder.content =
-                html_builder.content.replace(&nav_html, &new_nav_html);
+            html_builder.content = replace_element(
+                &html_builder.content,
+                &nav_html,
+                &new_nav_html,
+            );
         }
     }
 
@@ -1016,8 +1042,11 @@ fn add_aria_to_forms(
             form.inner_html()
         );
 
-        html_builder.content =
-            html_builder.content.replace(&form.html(), &new_form_html);
+        html_builder.content = replace_element(
+            &html_builder.content,
+            &form.html(),
+            &new_form_html,
+        );
     }
 
     Ok(html_builder)
@@ -1087,8 +1116,11 @@ fn add_aria_to_tabs(
             }
 
             // 4) Replace the original tablist in the HTML
-            html_builder.content =
-                html_builder.content.replace(&tablist_html, &new_html);
+            html_builder.content = replace_element(
+                &html_builder.content,
+                &tablist_html,
+                &new_html,
+            );
         }
     }
 
@@ -1300,9 +1332,11 @@ fn add_aria_to_accordions(
             new_html.push_str("</div>");
 
             // Replace the original accordion with the enhanced version
-            html_builder.content = html_builder
-                .content
-                .replace(&accordion_html, &new_html);
+            html_builder.content = replace_element(
+                &html_builder.content,
+                &accordion_html,
+                &new_html,
+            );
         }
     }
 
@@ -1416,7 +1450,7 @@ fn add_aria_to_inputs(
         // Perform all replacements
         for (old, new) in replacements {
             html_builder.content =
-                html_builder.content.replace(&old, &new);
+                replace_element(&html_builder.content, &old, &new);
         }
     }
 

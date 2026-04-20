@@ -259,6 +259,13 @@ pub struct HtmlConfig {
     /// untrusted content. Set to `true` only when the Markdown source
     /// is fully trusted.
     pub allow_unsafe_html: bool,
+
+    /// Maximum buffer size for file I/O operations (default: 16MB).
+    ///
+    /// Controls the upper bound on buffer allocation when reading
+    /// input files. Adjust this if you need to process unusually
+    /// large documents or want to constrain memory usage.
+    pub max_buffer_size: usize,
 }
 
 impl Default for HtmlConfig {
@@ -273,6 +280,7 @@ impl Default for HtmlConfig {
             language: String::from(constants::DEFAULT_LANGUAGE),
             generate_toc: false,
             allow_unsafe_html: false,
+            max_buffer_size: 16 * 1024 * 1024,
         }
     }
 }
