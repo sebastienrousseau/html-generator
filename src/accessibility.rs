@@ -604,10 +604,21 @@ static HTML_TAG_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"<[^>]*>").expect("Failed to compile HTML tag regex")
 });
 
-// We'll assume you call `load_emoji_sequences("data/emoji-sequences.txt")` once, and store it here in a static for simplicity.
+// Load emoji data from a configurable path, falling back to "data/emoji-data.txt".
+// Returns an empty map if the file does not exist.
 static EMOJI_MAP: Lazy<
     std::result::Result<HashMap<String, String>, std::io::Error>,
-> = Lazy::new(|| load_emoji_sequences("data/emoji-data.txt"));
+> = Lazy::new(|| {
+    let path = std::env::var("HTML_GENERATOR_EMOJI_DATA")
+        .unwrap_or_else(|_| "data/emoji-data.txt".to_string());
+    match load_emoji_sequences(&path) {
+        Ok(map) => Ok(map),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HashMap::new())
+        }
+        Err(e) => Err(e),
+    }
+});
 
 /// Normalizes content for ARIA labels by removing HTML tags and converting to a standardized format.
 ///

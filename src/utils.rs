@@ -11,11 +11,17 @@ use crate::seo::escape_html;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::ElementRef;
+use serde_json::Value;
 use std::collections::HashMap;
 
 static FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n")
         .expect("Failed to compile FRONT_MATTER_REGEX")
+});
+
+static TOML_FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?ms)^\+\+\+\s*\n(.*?)\n\+\+\+\s*\n")
+        .expect("Failed to compile TOML_FRONT_MATTER_REGEX")
 });
 
 static HEADER_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -102,6 +108,207 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
     } else {
         Ok(content.to_string())
     }
+}
+
+/// Extracts and parses front matter from content, supporting YAML (`---`),
+/// TOML (`+++`), and JSON (`{`...`}`) delimiters.
+///
+/// Returns a tuple of (parsed front matter as JSON Value, remaining content).
+/// If no front matter is found, returns (`Value::Null`, original content).
+///
+/// # Arguments
+///
+/// * `content` - A string slice that holds the content to process.
+///
+/// # Returns
+///
+/// * `Result<(Value, String)>` - Parsed front matter and remaining content, or an error.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// * The input is empty or exceeds the maximum allowed size.
+/// * The front matter is invalidly formatted or cannot be parsed.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::utils::extract_front_matter_data;
+/// use serde_json::json;
+///
+/// let content = "---\ntitle: My Page\n---\n# Hello, world!";
+/// let (data, rest) = extract_front_matter_data(content).unwrap();
+/// assert_eq!(data["title"], "My Page");
+/// assert_eq!(rest, "# Hello, world!");
+/// ```
+pub fn extract_front_matter_data(
+    content: &str,
+) -> Result<(Value, String)> {
+    if content.is_empty() {
+        return Err(HtmlError::InvalidInput("Empty input".to_string()));
+    }
+    if content.len() > MAX_INPUT_SIZE {
+        return Err(HtmlError::InputTooLarge(content.len()));
+    }
+
+    // YAML front matter (---)
+    if content.starts_with("---") {
+        if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
+            let raw = captures
+                .get(1)
+                .ok_or_else(|| {
+                    HtmlError::InvalidFrontMatterFormat(
+                        "Missing front matter match".to_string(),
+                    )
+                })?
+                .as_str();
+
+            let map = parse_yaml_like_to_map(raw)?;
+            let remaining = &content[captures.get(0).unwrap().end()..];
+            return Ok((
+                Value::Object(map),
+                remaining.trim().to_string(),
+            ));
+        }
+        return Err(HtmlError::InvalidFrontMatterFormat(
+            "Invalid YAML front matter format".to_string(),
+        ));
+    }
+
+    // TOML front matter (+++)
+    if content.starts_with("+++") {
+        if let Some(captures) =
+            TOML_FRONT_MATTER_REGEX.captures(content)
+        {
+            let raw = captures
+                .get(1)
+                .ok_or_else(|| {
+                    HtmlError::InvalidFrontMatterFormat(
+                        "Missing front matter match".to_string(),
+                    )
+                })?
+                .as_str();
+
+            let map = parse_toml_like_to_map(raw)?;
+            let remaining = &content[captures.get(0).unwrap().end()..];
+            return Ok((
+                Value::Object(map),
+                remaining.trim().to_string(),
+            ));
+        }
+        return Err(HtmlError::InvalidFrontMatterFormat(
+            "Invalid TOML front matter format".to_string(),
+        ));
+    }
+
+    // JSON front matter ({...})
+    if content.starts_with('{') {
+        if let Some(end) = find_matching_brace(content) {
+            let json_str = &content[..=end];
+            let value: Value =
+                serde_json::from_str(json_str).map_err(|e| {
+                    HtmlError::InvalidFrontMatterFormat(format!(
+                        "Invalid JSON front matter: {e}"
+                    ))
+                })?;
+            let remaining = content[end + 1..].trim_start();
+            return Ok((value, remaining.to_string()));
+        }
+        return Err(HtmlError::InvalidFrontMatterFormat(
+            "Unmatched opening brace in JSON front matter".to_string(),
+        ));
+    }
+
+    // No front matter found
+    Ok((Value::Null, content.to_string()))
+}
+
+/// Parses YAML-like `key: value` lines into a serde_json Map.
+fn parse_yaml_like_to_map(
+    raw: &str,
+) -> Result<serde_json::Map<String, Value>> {
+    let mut map = serde_json::Map::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(pos) = trimmed.find(':') {
+            let key = trimmed[..pos].trim().to_string();
+            let val = trimmed[pos + 1..].trim();
+            let _ = map.insert(key, Value::String(val.to_string()));
+        } else {
+            return Err(HtmlError::InvalidFrontMatterFormat(format!(
+                "Invalid line in front matter: {line}"
+            )));
+        }
+    }
+    Ok(map)
+}
+
+/// Parses TOML-like `key = value` lines into a serde_json Map.
+fn parse_toml_like_to_map(
+    raw: &str,
+) -> Result<serde_json::Map<String, Value>> {
+    let mut map = serde_json::Map::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(pos) = trimmed.find('=') {
+            let key = trimmed[..pos].trim().to_string();
+            let val = trimmed[pos + 1..].trim();
+            // Strip surrounding quotes if present
+            let val = if (val.starts_with('"') && val.ends_with('"'))
+                || (val.starts_with('\'') && val.ends_with('\''))
+            {
+                &val[1..val.len() - 1]
+            } else {
+                val
+            };
+            let _ = map.insert(key, Value::String(val.to_string()));
+        } else {
+            return Err(HtmlError::InvalidFrontMatterFormat(format!(
+                "Invalid line in TOML front matter: {line}"
+            )));
+        }
+    }
+    Ok(map)
+}
+
+/// Finds the index of the closing `}` that matches the opening `{` at index 0.
+fn find_matching_brace(content: &str) -> Option<usize> {
+    let mut depth: usize = 0;
+    let mut in_string = false;
+    let mut prev_backslash = false;
+
+    for (i, ch) in content.char_indices() {
+        if in_string {
+            if ch == '\\' && !prev_backslash {
+                prev_backslash = true;
+                continue;
+            }
+            if ch == '"' && !prev_backslash {
+                in_string = false;
+            }
+            prev_backslash = false;
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        prev_backslash = false;
+    }
+    None
 }
 
 /// Formats a header with an ID and class.

@@ -38,7 +38,10 @@ pub use generator::generate_html;
 pub use performance::async_generate_html;
 pub use performance::{minify_html, minify_html_string};
 pub use seo::{generate_meta_tags, generate_structured_data};
-pub use utils::{extract_front_matter, format_header_with_id_class};
+pub use utils::{
+    extract_front_matter, extract_front_matter_data,
+    format_header_with_id_class,
+};
 
 /// Common constants used throughout the library.
 ///
@@ -350,13 +353,6 @@ impl HtmlConfig {
             return Err(HtmlError::InvalidInput(
                 "Directory traversal is not allowed in file paths"
                     .to_string(),
-            ));
-        }
-
-        #[cfg(not(test))]
-        if path.is_absolute() {
-            return Err(HtmlError::InvalidInput(
-                "Only relative file paths are allowed".to_string(),
             ));
         }
 

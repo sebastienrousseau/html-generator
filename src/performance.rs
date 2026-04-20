@@ -32,7 +32,6 @@
 //! ```
 
 use crate::{HtmlError, Result};
-use comrak::{markdown_to_html, Options};
 use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
 
@@ -41,10 +40,6 @@ use tokio::task;
 
 /// Maximum allowed file size for minification (10 MB).
 pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
-
-/// Initial capacity for string buffers (1 KB).
-#[cfg(feature = "async")]
-const INITIAL_HTML_CAPACITY: usize = 1024;
 
 /// Configuration for HTML minification with optimized defaults.
 ///
@@ -243,19 +238,9 @@ pub fn minify_html_string(html: &str) -> Result<String> {
 /// ```
 #[cfg(feature = "async")]
 pub async fn async_generate_html(markdown: &str) -> Result<String> {
-    // Optimize string allocation based on content size
-    let markdown = if markdown.len() < INITIAL_HTML_CAPACITY {
-        markdown.to_string()
-    } else {
-        // Pre-allocate for larger content
-        let mut string = String::with_capacity(markdown.len());
-        string.push_str(markdown);
-        string
-    };
-
+    let markdown = markdown.to_string();
     task::spawn_blocking(move || {
-        let options = Options::default();
-        Ok(markdown_to_html(&markdown, &options))
+        crate::generator::markdown_to_html_with_extensions(&markdown)
     })
     .await
     .map_err(|e| HtmlError::MarkdownConversion {
@@ -290,7 +275,7 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
 /// ```
 #[inline]
 pub fn generate_html(markdown: &str) -> Result<String> {
-    Ok(markdown_to_html(markdown, &Options::default()))
+    crate::generator::markdown_to_html_with_extensions(markdown)
 }
 
 #[cfg(test)]

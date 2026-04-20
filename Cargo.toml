@@ -67,7 +67,6 @@ path = "src/lib.rs"
 
 [dependencies]
 # Dependencies required for building and running the project.
-comrak = { version = "0.52", features = ["syntect"] }
 mdx-gen = "0.0.2"
 minify-html = "0.18"
 once_cell = "1.21.4"

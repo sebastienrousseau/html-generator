@@ -406,30 +406,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "comrak"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aac0b255932a9cd52fbfd664b67957f9f2e095ae4711cb0e41b4e291edef94c2"
-dependencies = [
- "bon",
- "caseless",
- "clap",
- "emojis",
- "entities",
- "finl_unicode",
- "fmt2io",
- "jetscii",
- "phf 0.13.1",
- "phf_codegen 0.13.1",
- "rustc-hash",
- "shell-words",
- "smallvec",
- "syntect",
- "typed-arena",
- "xdg",
-]
-
-[[package]]
 name = "const-str"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -797,12 +773,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
-name = "finl_unicode"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9844ddc3a6e533d62bba727eb6c28b5d360921d5175e9ff0f1e621a5c590a4d5"
-
-[[package]]
 name = "flate2"
 version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -950,7 +920,6 @@ dependencies = [
 name = "html-generator"
 version = "0.0.4"
 dependencies = [
- "comrak 0.52.0",
  "criterion",
  "mdx-gen",
  "minify-html",
@@ -1194,7 +1163,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03c4c8dc74c2c82e042d3aa231598122d8def5d1a09b96ae2c3e3075b342d838"
 dependencies = [
  "anyhow",
- "comrak 0.50.0",
+ "comrak",
  "env_logger",
  "html-escape",
  "lazy_static",
