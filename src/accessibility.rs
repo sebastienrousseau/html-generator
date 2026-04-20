@@ -676,11 +676,8 @@ fn add_aria_to_tooltips(
 
     for button in buttons {
         // 1) Extract old button snippet
-        let old_button_html = button
-            .html()
-            .replace(['\n', '\r'], "")
-            .trim()
-            .to_string();
+        let old_button_html =
+            button.html().replace(['\n', '\r'], "").trim().to_string();
 
         // 2) If there's no `title="..."`, skip
         let title_attr =
