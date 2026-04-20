@@ -16,6 +16,7 @@ documentation = "https://doc.html-generator.co/html_generator/"
 repository = "https://github.com/sebastienrousseau/html-generator"
 readme = "README.md"
 build = "build.rs"
+autoexamples = false
 
 # -----------------------------------------------------------------------------
 # Crate Configuration
@@ -110,54 +111,44 @@ async = ["dep:tokio"]
 # -----------------------------------------------------------------------------
 
 [[example]]
+name = "hello"
+path = "examples/hello.rs"
+
+[[example]]
+name = "pipeline"
+path = "examples/pipeline.rs"
+
+[[example]]
+name = "frontmatter"
+path = "examples/frontmatter.rs"
+
+[[example]]
 name = "accessibility"
-path = "examples/accessibility_example.rs"
-
-[[example]]
-name = "aria"
-path = "examples/aria_elements_example.rs"
-
-[[example]]
-name = "basic"
-path = "examples/basic_example.rs"
-
-[[example]]
-name = "comprehensive"
-path = "examples/comprehensive_example.rs"
-
-[[example]]
-name = "custom"
-path = "examples/custom_config_example.rs"
-
-[[example]]
-name = "error"
-path = "examples/error_example.rs"
-
-[[example]]
-name = "generator"
-path = "examples/generator_example.rs"
-
-[[example]]
-name = "lib"
-path = "examples/lib_example.rs"
-required-features = ["async"]
-
-[[example]]
-name = "performance"
-path = "examples/performance_example.rs"
-required-features = ["async"]
+path = "examples/accessibility.rs"
 
 [[example]]
 name = "seo"
-path = "examples/seo_example.rs"
+path = "examples/seo.rs"
 
 [[example]]
-name = "style"
-path = "examples/style_example.rs"
+name = "toc"
+path = "examples/toc.rs"
 
 [[example]]
-name = "utils"
-path = "examples/utils_example.rs"
+name = "minify"
+path = "examples/minify.rs"
+
+[[example]]
+name = "errors"
+path = "examples/errors.rs"
+
+[[example]]
+name = "config"
+path = "examples/config.rs"
+
+[[example]]
+name = "headers"
+path = "examples/headers.rs"
 
 # -----------------------------------------------------------------------------
 # Criterion Benchmark
