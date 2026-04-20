@@ -34,7 +34,9 @@ pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
 pub use emojis::load_emoji_sequences;
 pub use generator::generate_html;
-pub use performance::{async_generate_html, minify_html};
+#[cfg(feature = "async")]
+pub use performance::async_generate_html;
+pub use performance::{minify_html, minify_html_string};
 pub use seo::{generate_meta_tags, generate_structured_data};
 pub use utils::{extract_front_matter, format_header_with_id_class};
 

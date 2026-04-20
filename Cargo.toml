@@ -76,7 +76,7 @@ scraper = "0.26.0"
 serde_json = "1.0.149"
 tempfile = "3.27.0"
 thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"], optional = true }
 uuid = { version = "1.22.0", features = ["v4"] }
 
 # -----------------------------------------------------------------------------
@@ -104,7 +104,7 @@ test-case = "3.3.1"
 [features]
 # Features that can be enabled or disabled.
 default = []
-async = []
+async = ["dep:tokio"]
 
 # -----------------------------------------------------------------------------
 # Examples -  cargo run --example <name>
@@ -141,10 +141,12 @@ path = "examples/generator_example.rs"
 [[example]]
 name = "lib"
 path = "examples/lib_example.rs"
+required-features = ["async"]
 
 [[example]]
 name = "performance"
 path = "examples/performance_example.rs"
+required-features = ["async"]
 
 [[example]]
 name = "seo"

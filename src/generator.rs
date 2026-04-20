@@ -8,7 +8,13 @@
 //! and custom configuration options.
 
 use crate::{
-    error::HtmlError, extract_front_matter, seo::escape_html, Result,
+    accessibility::add_aria_attributes,
+    error::HtmlError,
+    extract_front_matter,
+    performance::minify_html_string,
+    seo::{escape_html, generate_structured_data},
+    utils::generate_table_of_contents,
+    Result,
 };
 use mdx_gen::{process_markdown, MarkdownOptions, Options};
 use once_cell::sync::Lazy;
@@ -30,12 +36,47 @@ static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
 /// Generate HTML from Markdown content using `mdx-gen`.
 ///
 /// This function takes Markdown content and a configuration object,
-/// converts the Markdown into HTML, and returns the resulting HTML string.
+/// converts the Markdown into HTML, and applies the full processing
+/// pipeline based on configuration:
+///
+/// 1. Markdown → HTML conversion (with extensions)
+/// 2. Accessibility: adds ARIA attributes if enabled
+/// 3. Table of contents: injects TOC at `[[TOC]]` placeholder
+/// 4. Structured data: appends JSON-LD script tag
+/// 5. Minification: compresses output if enabled
 pub fn generate_html(
     markdown: &str,
     config: &crate::HtmlConfig,
 ) -> Result<String> {
-    markdown_to_html_impl(markdown, config.allow_unsafe_html)
+    // Step 1: Core Markdown → HTML
+    let mut html =
+        markdown_to_html_impl(markdown, config.allow_unsafe_html)?;
+
+    // Step 2: Accessibility — add ARIA attributes
+    if config.add_aria_attributes {
+        html = add_aria_attributes(&html, None).unwrap_or(html.clone());
+    }
+
+    // Step 3: Table of contents — replace [[TOC]] placeholder
+    if config.generate_toc {
+        if let Ok(toc) = generate_table_of_contents(&html) {
+            html = html.replace("[[TOC]]", &toc);
+        }
+    }
+
+    // Step 4: Structured data — append JSON-LD
+    if config.generate_structured_data {
+        if let Ok(json_ld) = generate_structured_data(&html, None) {
+            html.push_str(&json_ld);
+        }
+    }
+
+    // Step 5: Minification
+    if config.minify_output {
+        html = minify_html_string(&html).unwrap_or(html);
+    }
+
+    Ok(html)
 }
 
 /// Convert Markdown to HTML with specified extensions using `mdx-gen`.

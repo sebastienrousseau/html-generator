@@ -35,12 +35,15 @@ use crate::{HtmlError, Result};
 use comrak::{markdown_to_html, Options};
 use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
+
+#[cfg(feature = "async")]
 use tokio::task;
 
 /// Maximum allowed file size for minification (10 MB).
 pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
 
 /// Initial capacity for string buffers (1 KB).
+#[cfg(feature = "async")]
 const INITIAL_HTML_CAPACITY: usize = 1024;
 
 /// Configuration for HTML minification with optimized defaults.
@@ -158,6 +161,54 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
     })
 }
 
+/// Minifies an HTML string in memory.
+///
+/// Applies the same minification rules as [`minify_html`] but
+/// operates on an in-memory string instead of a file path.
+///
+/// # Arguments
+///
+/// * `html` - The HTML content to minify
+///
+/// # Returns
+///
+/// Returns the minified HTML content as a string if successful.
+///
+/// # Errors
+///
+/// Returns [`HtmlError`] if:
+/// - The input exceeds [`MAX_FILE_SIZE`]
+/// - The minified output is not valid UTF-8
+///
+/// # Examples
+///
+/// ```
+/// # use html_generator::performance::minify_html_string;
+/// # fn example() -> Result<(), html_generator::error::HtmlError> {
+/// let html = "<html>  <body>  <p>Hello</p>  </body>  </html>";
+/// let minified = minify_html_string(html)?;
+/// assert_eq!(minified, "<html><body><p>Hello</p></body></html>");
+/// # Ok(())
+/// # }
+/// ```
+pub fn minify_html_string(html: &str) -> Result<String> {
+    if html.len() > MAX_FILE_SIZE {
+        return Err(HtmlError::MinificationError(format!(
+            "Input size {} bytes exceeds maximum of {MAX_FILE_SIZE} bytes",
+            html.len()
+        )));
+    }
+
+    let config = MinifyConfig::default();
+    let minified = minify(html.as_bytes(), &config.cfg);
+
+    String::from_utf8(minified).map_err(|e| {
+        HtmlError::MinificationError(format!(
+            "Invalid UTF-8 in minified content: {e}"
+        ))
+    })
+}
+
 /// Asynchronously generates HTML from Markdown content.
 ///
 /// Processes Markdown in a separate thread to avoid blocking the async runtime,
@@ -179,17 +230,18 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
 ///
 /// # Examples
 ///
+/// ```ignore
+/// use html_generator::performance::async_generate_html;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), html_generator::error::HtmlError> {
+///     let markdown = "# Hello\n\nThis is a test.";
+///     let html = async_generate_html(markdown).await?;
+///     println!("Generated HTML length: {}", html.len());
+///     Ok(())
+/// }
 /// ```
-/// # use html_generator::performance::async_generate_html;
-/// #
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), html_generator::error::HtmlError> {
-/// let markdown = "# Hello\n\nThis is a test.";
-/// let html = async_generate_html(markdown).await?;
-/// println!("Generated HTML length: {}", html.len());
-/// # Ok(())
-/// # }
-/// ```
+#[cfg(feature = "async")]
 pub async fn async_generate_html(markdown: &str) -> Result<String> {
     // Optimize string allocation based on content size
     let markdown = if markdown.len() < INITIAL_HTML_CAPACITY {
@@ -360,6 +412,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "async")]
     mod async_generate_html_tests {
         use super::*;
 
@@ -481,6 +534,7 @@ mod tests {
         }
 
         /// Test for extremely large Markdown content in async_generate_html.
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_extremely_large() {
             let large_markdown = "# Large Content
@@ -508,6 +562,7 @@ mod tests {
             );
         }
 
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_spawn_blocking_failure() {
             use tokio::task;
@@ -601,6 +656,7 @@ mod tests {
             drop(dir);
         }
 
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_with_special_characters() {
             let markdown =
