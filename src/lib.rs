@@ -34,7 +34,10 @@ pub mod utils;
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
 pub use emojis::load_emoji_sequences;
-pub use generator::generate_html;
+pub use generator::{
+    generate_html, generate_html_with_diagnostics, Diagnostic,
+    DiagnosticLevel, HtmlOutput,
+};
 #[cfg(feature = "async")]
 pub use performance::async_generate_html;
 pub use performance::{minify_html, minify_html_string};
@@ -75,10 +78,14 @@ pub mod constants {
 /// Result type alias for library operations
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
-/// Configuration options for Markdown to HTML conversion.
+/// Legacy configuration type — use [`HtmlConfig`] directly instead.
 ///
-/// This struct holds settings that control how Markdown content is processed
-/// and converted to HTML.
+/// This type is kept for backward compatibility. The `encoding` field
+/// has been moved into `HtmlConfig` itself.
+#[deprecated(
+    since = "0.0.4",
+    note = "use HtmlConfig directly — encoding is now a field on HtmlConfig"
+)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MarkdownConfig {
     /// The encoding to use for input/output (defaults to "utf-8")
@@ -88,12 +95,22 @@ pub struct MarkdownConfig {
     pub html_config: HtmlConfig,
 }
 
+#[allow(deprecated)]
 impl Default for MarkdownConfig {
     fn default() -> Self {
         Self {
             encoding: String::from("utf-8"),
             html_config: HtmlConfig::default(),
         }
+    }
+}
+
+#[allow(deprecated)]
+impl From<MarkdownConfig> for HtmlConfig {
+    fn from(mc: MarkdownConfig) -> Self {
+        let mut c = mc.html_config;
+        c.encoding = mc.encoding;
+        c
     }
 }
 
@@ -261,12 +278,46 @@ pub struct HtmlConfig {
     /// is fully trusted.
     pub allow_unsafe_html: bool,
 
+    /// Sanitize raw HTML using ammonia instead of stripping it.
+    ///
+    /// When `true` and `allow_unsafe_html` is also `true`, the library
+    /// runs ammonia over the final output to strip dangerous elements
+    /// (`<script>`, `onclick`, etc.) while preserving safe tags like
+    /// `<div>`, `<span>`, and `<img>`. This provides a secure
+    /// middle-ground for user-authored HTML.
+    ///
+    /// Has no effect when `allow_unsafe_html` is `false` (HTML is
+    /// already stripped by the Markdown renderer).
+    pub sanitize_html: bool,
+
+    /// Wrap output in a full HTML5 document.
+    ///
+    /// When `true`, the pipeline wraps the generated body in:
+    /// ```html
+    /// <!DOCTYPE html>
+    /// <html lang="{language}">
+    /// <head><meta charset="utf-8"><title>…</title>{meta}{json-ld}</head>
+    /// <body>{content}</body>
+    /// </html>
+    /// ```
+    ///
+    /// SEO meta tags and JSON-LD are placed in `<head>`, and the
+    /// `language` field is injected as the `lang` attribute. When
+    /// `false` (the default), only an HTML fragment is returned.
+    pub generate_full_document: bool,
+
     /// Maximum buffer size for file I/O operations (default: 16MB).
     ///
     /// Controls the upper bound on buffer allocation when reading
     /// input files. Adjust this if you need to process unusually
     /// large documents or want to constrain memory usage.
     pub max_buffer_size: usize,
+
+    /// The encoding for file I/O (defaults to "utf-8").
+    ///
+    /// This field is used by [`markdown_file_to_html`] when reading
+    /// or writing files. In-memory functions ignore it.
+    pub encoding: String,
 }
 
 impl Default for HtmlConfig {
@@ -281,7 +332,10 @@ impl Default for HtmlConfig {
             language: String::from(constants::DEFAULT_LANGUAGE),
             generate_toc: false,
             allow_unsafe_html: false,
+            sanitize_html: false,
+            generate_full_document: false,
             max_buffer_size: 16 * 1024 * 1024,
+            encoding: String::from("utf-8"),
         }
     }
 }
@@ -415,10 +469,6 @@ impl HtmlConfigBuilder {
     }
 
     /// Sets the language for generated content.
-    ///
-    /// # Arguments
-    ///
-    /// * `language` - The language code (e.g., "en-GB")
     #[must_use]
     pub fn with_language(
         mut self,
@@ -428,11 +478,34 @@ impl HtmlConfigBuilder {
         self
     }
 
+    /// Enables or disables HTML sanitization via ammonia.
+    ///
+    /// When enabled alongside `allow_unsafe_html`, dangerous elements
+    /// are stripped while safe tags are preserved.
+    #[must_use]
+    pub fn with_sanitization(mut self, enable: bool) -> Self {
+        self.config.sanitize_html = enable;
+        self
+    }
+
+    /// Enables or disables full HTML5 document wrapping.
+    ///
+    /// When enabled, the output is wrapped in `<!DOCTYPE html>` with
+    /// `<head>` (containing meta/JSON-LD) and `<body>`.
+    #[must_use]
+    pub fn with_full_document(mut self, enable: bool) -> Self {
+        self.config.generate_full_document = enable;
+        self
+    }
+
+    /// Sets the maximum buffer size for file I/O operations.
+    #[must_use]
+    pub fn with_max_buffer_size(mut self, size: usize) -> Self {
+        self.config.max_buffer_size = size;
+        self
+    }
+
     /// Builds the configuration, validating all settings.
-    ///
-    /// # Returns
-    ///
-    /// Returns the validated configuration or an error if validation fails.
     pub fn build(self) -> Result<HtmlConfig> {
         self.config.validate()?;
         Ok(self.config)
@@ -471,11 +544,13 @@ impl HtmlConfigBuilder {
 /// assert!(html.contains("<h1>Hello</h1>"));
 /// # Ok::<(), html_generator::error::HtmlError>(())
 /// ```
+#[allow(deprecated)]
 pub fn markdown_to_html(
     content: &str,
     config: Option<MarkdownConfig>,
 ) -> Result<String> {
-    let config = config.unwrap_or_default();
+    let html_config: HtmlConfig =
+        config.map_or_else(HtmlConfig::default, HtmlConfig::from);
 
     if content.is_empty() {
         return Err(HtmlError::InvalidInput(
@@ -483,11 +558,11 @@ pub fn markdown_to_html(
         ));
     }
 
-    if content.len() > config.html_config.max_input_size {
+    if content.len() > html_config.max_input_size {
         return Err(HtmlError::InputTooLarge(content.len()));
     }
 
-    generate_html(content, &config.html_config)
+    generate_html(content, &html_config)
 }
 
 /// Converts a Markdown file to HTML.
@@ -535,6 +610,7 @@ pub fn markdown_to_html(
 /// # Ok::<(), html_generator::error::HtmlError>(())
 /// ```
 #[inline]
+#[allow(deprecated)]
 pub fn markdown_file_to_html(
     input: Option<impl AsRef<Path>>,
     output: Option<OutputDestination>,
@@ -699,17 +775,14 @@ pub fn validate_language_code(lang: &str) -> bool {
     use once_cell::sync::Lazy;
     use regex::Regex;
 
-    // Pre-compiled regex using Lazy<Regex>
-    static LANG_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$")
-            .expect("Failed to compile language code regex")
-    });
+    static LANG_REGEX: Lazy<Option<Regex>> =
+        Lazy::new(|| Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$").ok());
 
-    // Match the input against the pre-compiled regex
-    LANG_REGEX.is_match(lang)
+    LANG_REGEX.as_ref().is_some_and(|r| r.is_match(lang))
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use regex::Regex;

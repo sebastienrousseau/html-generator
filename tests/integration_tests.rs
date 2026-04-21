@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! # Markdown to HTML Conversion Tests
 //!
 //! This module contains integration tests for converting Markdown content and files into HTML

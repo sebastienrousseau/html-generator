@@ -12,25 +12,63 @@ use crate::{
     error::HtmlError,
     extract_front_matter,
     performance::minify_html_string,
-    seo::{escape_html, generate_structured_data},
+    seo::{escape_html, generate_structured_data_from_doc},
     utils::generate_table_of_contents,
     Result,
 };
+use log::warn;
 use mdx_gen::{process_markdown, MarkdownOptions, Options};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::error::Error;
+use std::fmt;
+
+/// Severity level for a processing diagnostic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticLevel {
+    /// Informational — a step succeeded with notable metrics.
+    Info,
+    /// A non-fatal issue — the pipeline continued with a fallback.
+    Warning,
+    /// A step failed entirely and was skipped.
+    Error,
+}
+
+/// A diagnostic emitted when a post-processing step fails non-fatally.
+#[derive(Debug, Clone)]
+pub struct Diagnostic {
+    /// Which pipeline step produced this diagnostic.
+    pub step: &'static str,
+    /// Severity.
+    pub level: DiagnosticLevel,
+    /// Human-readable description of what went wrong.
+    pub message: String,
+}
+
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{:?}] {}: {}", self.level, self.step, self.message)
+    }
+}
+
+/// The result of [`generate_html_with_diagnostics`]: final HTML plus any
+/// warnings from post-processing steps that failed non-fatally.
+#[derive(Debug, Clone)]
+pub struct HtmlOutput {
+    /// The generated HTML content.
+    pub html: String,
+    /// Diagnostics from pipeline steps that were skipped or degraded.
+    /// Empty when every step succeeded.
+    pub diagnostics: Vec<Diagnostic>,
+}
 
 /// Regex matching triple-colon custom class blocks.
-static CUSTOM_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r":::(\w+)\n([\s\S]*?)\n:::")
-        .expect("Failed to compile custom class regex")
-});
+static CUSTOM_CLASS_REGEX: Lazy<Option<Regex>> =
+    Lazy::new(|| Regex::new(r":::(\w+)\n([\s\S]*?)\n:::").ok());
 
 /// Regex matching image-with-class syntax: `![alt](url).class="cls"`.
-static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#)
-        .expect("Failed to compile image class regex")
+static IMAGE_CLASS_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
+    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#).ok()
 });
 
 /// Generate HTML from Markdown content using `mdx-gen`.
@@ -44,55 +82,220 @@ static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
 /// 3. Table of contents: injects TOC at `[[TOC]]` placeholder
 /// 4. Structured data: appends JSON-LD script tag
 /// 5. Minification: compresses output if enabled
+///
+/// Non-fatal failures in steps 2–5 are silently skipped. Use
+/// [`generate_html_with_diagnostics`] to inspect which steps failed.
 pub fn generate_html(
     markdown: &str,
     config: &crate::HtmlConfig,
 ) -> Result<String> {
-    // Step 1: Core Markdown → HTML
-    let mut html =
-        markdown_to_html_impl(markdown, config.allow_unsafe_html)?;
+    generate_html_with_diagnostics(markdown, config).map(|o| o.html)
+}
 
-    // Step 2: Accessibility — add ARIA attributes
+/// Like [`generate_html`], but returns an [`HtmlOutput`] that includes
+/// diagnostics for any post-processing steps that failed non-fatally.
+pub fn generate_html_with_diagnostics(
+    markdown: &str,
+    config: &crate::HtmlConfig,
+) -> Result<HtmlOutput> {
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
+
+    // Step 1: Core Markdown → HTML (fatal on failure)
+    let mut html = markdown_to_html_impl(markdown, config)?;
+
+    // Step 2: HTML sanitization via ammonia (when raw HTML is allowed)
+    if config.allow_unsafe_html && config.sanitize_html {
+        html = ammonia::clean(&html);
+        diagnostics.push(Diagnostic {
+            step: "sanitization",
+            level: DiagnosticLevel::Info,
+            message: "HTML sanitized via ammonia".to_string(),
+        });
+    }
+
+    // Step 3: Accessibility — add ARIA attributes
     if config.add_aria_attributes {
-        if let Ok(enhanced) = add_aria_attributes(&html, None) {
-            html = enhanced;
+        match add_aria_attributes(&html, None) {
+            Ok(enhanced) => {
+                html = enhanced;
+                diagnostics.push(Diagnostic {
+                    step: "accessibility",
+                    level: DiagnosticLevel::Info,
+                    message: "ARIA attributes added".to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "accessibility",
+                    level: DiagnosticLevel::Error,
+                    message: format!("ARIA enhancement skipped: {e}"),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
         }
-        // Non-fatal: if ARIA enhancement fails (e.g., malformed input),
-        // continue with the original HTML rather than aborting.
     }
 
-    // Step 3: Table of contents — replace [[TOC]] placeholder
+    // Step 4: Table of contents — replace [[TOC]] placeholder
     if config.generate_toc {
-        if let Ok(toc) = generate_table_of_contents(&html) {
-            html = html.replace("[[TOC]]", &toc);
+        match generate_table_of_contents(&html) {
+            Ok(toc) => {
+                html = html.replace("[[TOC]]", &toc);
+                diagnostics.push(Diagnostic {
+                    step: "toc",
+                    level: DiagnosticLevel::Info,
+                    message: "Table of contents injected".to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "toc",
+                    level: DiagnosticLevel::Error,
+                    message: format!(
+                        "Table of contents generation failed: {e}"
+                    ),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
         }
     }
 
-    // Step 4: Structured data — append JSON-LD
+    // Step 5: Parse DOM once for read-only steps (SEO, heading extraction)
+    let document = scraper::Html::parse_document(&html);
+
+    // Step 5a: Structured data — generate JSON-LD
+    let mut json_ld_fragment = String::new();
     if config.generate_structured_data {
-        if let Ok(json_ld) = generate_structured_data(&html, None) {
-            html.push_str(&json_ld);
+        match generate_structured_data_from_doc(&document, None) {
+            Ok(json_ld) => {
+                json_ld_fragment = json_ld;
+                diagnostics.push(Diagnostic {
+                    step: "structured_data",
+                    level: DiagnosticLevel::Info,
+                    message: "JSON-LD structured data generated"
+                        .to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "structured_data",
+                    level: DiagnosticLevel::Error,
+                    message: format!(
+                        "Structured data generation failed: {e}"
+                    ),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
         }
     }
 
-    // Step 5: Minification
-    if config.minify_output {
-        html = minify_html_string(&html).unwrap_or(html);
+    // Step 6: Full document wrapping or fragment language injection
+    if config.generate_full_document {
+        // Extract title from already-parsed DOM (no extra parse)
+        let title = extract_first_heading_from_doc(&document);
+        html = wrap_full_document(
+            &html,
+            &json_ld_fragment,
+            title.as_deref(),
+            config,
+        );
+    } else {
+        // Fragment mode: append JSON-LD at the end (legacy behaviour)
+        if !json_ld_fragment.is_empty() {
+            html.push_str(&json_ld_fragment);
+        }
+        // Wrap in a lang div when the user set a non-default language
+        if config.language != crate::constants::DEFAULT_LANGUAGE {
+            html = format!(
+                "<div lang=\"{}\">{}</div>",
+                escape_html(&config.language),
+                html
+            );
+        }
     }
 
-    Ok(html)
+    // Step 7: Minification
+    if config.minify_output {
+        let before_len = html.len();
+        match minify_html_string(&html) {
+            Ok(minified) => {
+                let saved = before_len.saturating_sub(minified.len());
+                html = minified;
+                diagnostics.push(Diagnostic {
+                    step: "minification",
+                    level: DiagnosticLevel::Info,
+                    message: format!(
+                        "Minified: saved {} bytes ({:.0}%)",
+                        saved,
+                        if before_len > 0 {
+                            saved as f64 / before_len as f64 * 100.0
+                        } else {
+                            0.0
+                        }
+                    ),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "minification",
+                    level: DiagnosticLevel::Error,
+                    message: format!("Minification failed: {e}"),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
+        }
+    }
+
+    Ok(HtmlOutput { html, diagnostics })
+}
+
+/// Wraps HTML body content in a valid HTML5 document skeleton.
+fn wrap_full_document(
+    body: &str,
+    json_ld: &str,
+    title: Option<&str>,
+    config: &crate::HtmlConfig,
+) -> String {
+    let lang = escape_html(&config.language);
+    let mut head = String::from("<meta charset=\"utf-8\">");
+
+    if let Some(t) = title {
+        head.push_str(&format!("<title>{}</title>", escape_html(t)));
+    }
+
+    if !json_ld.is_empty() {
+        head.push_str(json_ld);
+    }
+
+    format!(
+        "<!DOCTYPE html>\n<html lang=\"{lang}\">\n<head>{head}</head>\n<body>\n{body}\n</body>\n</html>"
+    )
+}
+
+/// Extracts text content from the first `<h1>` in a pre-parsed DOM.
+fn extract_first_heading_from_doc(
+    document: &scraper::Html,
+) -> Option<String> {
+    let selector = scraper::Selector::parse("h1").ok()?;
+    document
+        .select(&selector)
+        .next()
+        .map(|el| el.text().collect::<String>())
 }
 
 /// Convert Markdown to HTML with specified extensions using `mdx-gen`.
 pub fn markdown_to_html_with_extensions(
     markdown: &str,
 ) -> Result<String> {
-    markdown_to_html_impl(markdown, false)
+    markdown_to_html_impl(markdown, &crate::HtmlConfig::default())
 }
 
 fn markdown_to_html_impl(
     markdown: &str,
-    allow_unsafe_html: bool,
+    config: &crate::HtmlConfig,
 ) -> Result<String> {
     // 1) Extract front matter
     let content_without_front_matter = extract_front_matter(markdown)
@@ -101,7 +304,7 @@ fn markdown_to_html_impl(
     // 2) Convert triple-colon blocks, re-parsing inline Markdown inside them
     let markdown_with_classes = add_custom_classes(
         &content_without_front_matter,
-        allow_unsafe_html,
+        config.allow_unsafe_html,
     );
 
     // 3) Convert images with `.class="..."`
@@ -115,14 +318,19 @@ fn markdown_to_html_impl(
     comrak_options.extension.autolink = true;
     comrak_options.extension.tasklist = true;
     comrak_options.extension.superscript = true;
+    comrak_options.render.r#unsafe = config.allow_unsafe_html;
 
-    comrak_options.render.r#unsafe = allow_unsafe_html;
+    // 5) Wire syntax highlighting settings into mdx-gen
+    let mut md_options = MarkdownOptions::default()
+        .with_comrak_options(comrak_options)
+        .with_syntax_highlighting(config.enable_syntax_highlighting);
 
-    let options =
-        MarkdownOptions::default().with_comrak_options(comrak_options);
+    if let Some(ref theme) = config.syntax_theme {
+        md_options = md_options.with_custom_theme(theme.clone());
+    }
 
-    // 5) Convert final Markdown to HTML
-    match process_markdown(&markdown_with_images, &options) {
+    // 6) Convert final Markdown to HTML
+    match process_markdown(&markdown_with_images, &md_options) {
         Ok(html_output) => Ok(html_output),
         Err(err) => {
             Err(HtmlError::markdown_conversion(err.to_string(), None))
@@ -149,12 +357,14 @@ fn add_custom_classes(
     markdown: &str,
     allow_unsafe_html: bool,
 ) -> String {
-    CUSTOM_CLASS_REGEX
+    let Some(regex) = CUSTOM_CLASS_REGEX.as_ref() else {
+        return markdown.to_string();
+    };
+    regex
         .replace_all(markdown, |caps: &regex::Captures| {
             let class_name = &caps[1];
             let block_content = &caps[2];
 
-            // Re-parse inline Markdown syntax within the block content
             let inline_html = match process_markdown_inline_impl(
                 block_content,
                 allow_unsafe_html,
@@ -202,7 +412,10 @@ fn process_markdown_inline_impl(
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
 fn process_images_with_classes(markdown: &str) -> String {
-    IMAGE_CLASS_REGEX
+    let Some(regex) = IMAGE_CLASS_REGEX.as_ref() else {
+        return markdown.to_string();
+    };
+    regex
         .replace_all(markdown, |caps: &regex::Captures| {
             format!(
                 r#"<img src="{}" alt="{}" class="{}" />"#,
