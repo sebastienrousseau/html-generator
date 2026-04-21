@@ -1,0 +1,113 @@
+---
+title: Building a Static Site Generator in Rust
+author: Jane Doe
+date: 2025-04-21
+---
+# Building a Static Site Generator in Rust
+
+[[TOC]]
+
+## Introduction
+
+Static site generators (SSGs) have become the **go-to solution** for building fast, secure websites. In this post, we'll walk through building one in [Rust](https://rust-lang.org).
+
+> "Simplicity is the ultimate sophistication." — Leonardo da Vinci
+
+## Prerequisites
+
+Before we begin, make sure you have:
+
+1. Rust 1.80+ installed (`rustup update stable`)
+2. A text editor (VS Code, Neovim, etc.)
+3. Basic familiarity with HTML and Markdown
+
+## Project Structure
+
+```
+my-ssg/
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   └── lib.rs
+├── content/
+│   └── posts/
+│       └── hello-world.md
+└── templates/
+    └── base.html
+```
+
+## The Core: Markdown to HTML
+
+The heart of any SSG is converting Markdown to HTML. Here's our core function:
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+fn convert(markdown: &str) -> String {
+    let config = HtmlConfig {
+        add_aria_attributes: true,
+        generate_toc: true,
+        minify_output: true,
+        ..HtmlConfig::default()
+    };
+    generate_html(markdown, &config).unwrap()
+}
+```
+
+### Front Matter Parsing
+
+Every blog post starts with metadata:
+
+```yaml
+---
+title: My First Post
+date: 2025-01-15
+tags: [rust, web]
+---
+```
+
+### Handling Code Blocks
+
+We support syntax highlighting for multiple languages:
+
+| Language | Extension | Highlighting |
+|----------|-----------|-------------|
+| Rust | `.rs` | ✅ |
+| Python | `.py` | ✅ |
+| JavaScript | `.js` | ✅ |
+| HTML | `.html` | ✅ |
+| CSS | `.css` | ✅ |
+
+## Accessibility Matters
+
+Our generator automatically adds ARIA attributes:
+
+- `<nav>` gets `role="navigation"` and `aria-label`
+- `<button>` gets `aria-label` derived from content
+- `<form>` gets `aria-labelledby` with generated IDs
+- `<input type="checkbox">` gets associated `<label>` elements
+
+:::warning
+Always test your site with a screen reader before deploying!
+:::
+
+## Performance Benchmarks
+
+We tested with a 500-page site:
+
+- **Build time**: 1.2 seconds ⚡
+- **Output size**: 2.3 MB (minified)
+- **Lighthouse score**: 💯
+
+## Conclusion
+
+Building an SSG in Rust gives you:
+
+- [x] Blazing fast builds
+- [x] Memory safety
+- [x] Great error messages
+- [ ] A social life (working on it 😄)
+
+---
+
+*Thanks for reading! Drop a 👍 if this was helpful.*

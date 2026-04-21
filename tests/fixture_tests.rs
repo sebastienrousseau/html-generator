@@ -227,6 +227,239 @@ fn fixture_large_markdown() {
     );
 }
 
+// ── Security: XSS vectors ───────────────────────────────────────────
+
+#[test]
+fn fixture_xss_default_mode() {
+    let md = load_fixture("xss_vectors.txt");
+    // NOTE: mdx-gen passes raw HTML through regardless of the comrak
+    // unsafe flag.  The safe path is sanitize_html=true (ammonia).
+    // This test verifies the default pipeline doesn't panic.
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(!html.is_empty());
+}
+
+#[test]
+fn fixture_xss_ammonia_strips_dangerous_tags() {
+    let md = load_fixture("xss_vectors.txt");
+    let config = HtmlConfig {
+        allow_unsafe_html: true,
+        sanitize_html: true,
+        ..HtmlConfig::default()
+    };
+    let html = generate_html(&md, &config).unwrap();
+    assert!(!html.contains("<script"), "ammonia must strip <script>");
+    assert!(!html.contains("<iframe"), "ammonia must strip <iframe>");
+    assert!(!html.contains("<svg"), "ammonia must strip <svg>");
+    assert!(
+        !html.contains("onerror"),
+        "ammonia must strip event handlers"
+    );
+    assert!(
+        !html.contains("onload"),
+        "ammonia must strip onload handlers"
+    );
+}
+
+#[test]
+fn fixture_xss_sanitized_by_ammonia() {
+    let md = load_fixture("xss_vectors.txt");
+    let config = HtmlConfig {
+        allow_unsafe_html: true,
+        sanitize_html: true,
+        ..HtmlConfig::default()
+    };
+    let html = generate_html(&md, &config).unwrap();
+    assert!(
+        !html.contains("<script>"),
+        "ammonia must strip script tags"
+    );
+    assert!(!html.contains("<iframe"), "ammonia must strip iframes");
+}
+
+// ── Deep nesting ────────────────────────────────────────────────────
+
+#[test]
+fn fixture_deep_nesting() {
+    let md = load_fixture("deep_nesting.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(
+        html.contains("<blockquote>"),
+        "nested blockquotes must render"
+    );
+    assert!(html.contains("<li>"), "nested lists must render");
+}
+
+// ── Duplicate elements (DomReplacer correctness) ────────────────────
+
+#[test]
+fn fixture_duplicate_elements_aria() {
+    let md = load_fixture("duplicate_elements.txt");
+    let config = HtmlConfig {
+        allow_unsafe_html: true,
+        add_aria_attributes: true,
+        ..HtmlConfig::default()
+    };
+    let html = generate_html(&md, &config).unwrap();
+    let nav_count = html.matches("role=\"navigation\"").count();
+    assert!(
+        nav_count >= 2,
+        "both navs must get ARIA (got {nav_count})"
+    );
+    let btn_count = html.matches("aria-label").count();
+    assert!(
+        btn_count >= 3,
+        "all buttons must get aria-label (got {btn_count})"
+    );
+}
+
+// ── Custom syntax ───────────────────────────────────────────────────
+
+#[test]
+fn fixture_custom_syntax_blocks() {
+    let md = load_fixture("custom_syntax_blocks.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(
+        html.contains("class=\"warning\""),
+        ":::warning block must render"
+    );
+    assert!(
+        html.contains("class=\"note\""),
+        ":::note block must render"
+    );
+    assert!(
+        html.contains("class=\"danger\""),
+        ":::danger block must render"
+    );
+}
+
+// ── Front matter edge cases ─────────────────────────────────────────
+
+#[test]
+fn fixture_frontmatter_edge_cases() {
+    use html_generator::utils::extract_front_matter_data;
+
+    let md = load_fixture("frontmatter_edge_cases.txt");
+    let (data, body) = extract_front_matter_data(&md).unwrap();
+    assert_eq!(data["title"], "Front Matter Edge Cases");
+    assert_eq!(data["author"], "Jane Doe");
+    assert!(!body.is_empty(), "body must not be empty");
+}
+
+// ── i18n: CJK + Devanagari ─────────────────────────────────────────
+
+#[test]
+fn fixture_chinese() {
+    let md = load_fixture("chinese.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(html.contains("中文测试"), "Chinese heading must render");
+    assert!(html.contains("内存安全"), "Chinese body text must render");
+    assert!(
+        html.contains("所有权"),
+        "Chinese table cell text must render"
+    );
+}
+
+#[test]
+fn fixture_korean() {
+    let md = load_fixture("korean.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(html.contains("한국어"), "Korean heading must render");
+}
+
+#[test]
+fn fixture_hindi() {
+    let md = load_fixture("hindi.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(html.contains("हिंदी"), "Hindi heading must render");
+}
+
+#[test]
+fn fixture_unicode_edge_cases() {
+    let md = load_fixture("unicode_edge_cases.txt");
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(!html.is_empty());
+    assert!(
+        html.contains("🇫🇷") || html.contains("🇬🇧"),
+        "flag emoji must survive"
+    );
+}
+
+// ── Performance: large table ────────────────────────────────────────
+
+#[test]
+fn fixture_huge_table() {
+    let md = load_fixture("huge_table.txt");
+    // Verify large table input doesn't panic or timeout
+    let html = generate_html(&md, &HtmlConfig::default()).unwrap();
+    assert!(!html.is_empty(), "large table must produce output");
+    // Note: mdx-gen may render tables as <table> or as pipe-delimited text
+    // depending on the markdown processor. The key assertion is no panic.
+    assert!(
+        html.contains("Alpha") && html.contains("Echo"),
+        "table cell content must be present in output"
+    );
+}
+
+// ── Full document generation ────────────────────────────────────────
+
+#[test]
+fn fixture_full_document_mode() {
+    let md = load_fixture("full_document_mode.txt");
+    let config = HtmlConfig {
+        generate_full_document: true,
+        language: "en-GB".into(),
+        ..HtmlConfig::default()
+    };
+    let html = generate_html(&md, &config).unwrap();
+    assert!(html.contains("<!DOCTYPE html>"), "must have doctype");
+    assert!(html.contains("lang=\"en-GB\""), "must have lang");
+    assert!(html.contains("<head>"), "must have head");
+    assert!(html.contains("<body>"), "must have body");
+    assert!(html.contains("<title>"), "must extract title from h1");
+}
+
+// ── Real-world blog post ────────────────────────────────────────────
+
+#[test]
+fn fixture_real_world_blog() {
+    let md = load_fixture("real_world_blog.txt");
+    let config = HtmlConfig {
+        add_aria_attributes: true,
+        generate_toc: true,
+        generate_full_document: true,
+        ..HtmlConfig::default()
+    };
+    let output = generate_html_with_diagnostics(&md, &config).unwrap();
+    assert!(output.html.contains("<!DOCTYPE html>"));
+    assert!(output.html.contains("<code"), "code blocks must render");
+    assert!(
+        output.html.contains("class=\"warning\""),
+        "custom block must render"
+    );
+    assert!(
+        output.html.len() > 1000,
+        "realistic blog must produce substantial output"
+    );
+}
+
+#[test]
+fn fixture_real_world_blog_minified() {
+    let md = load_fixture("real_world_blog.txt");
+    let normal = generate_html(&md, &HtmlConfig::default()).unwrap();
+    let config = HtmlConfig {
+        minify_output: true,
+        ..HtmlConfig::default()
+    };
+    let minified = generate_html(&md, &config).unwrap();
+    assert!(
+        minified.len() < normal.len(),
+        "minified ({}) must be smaller than normal ({})",
+        minified.len(),
+        normal.len()
+    );
+}
+
 // ── Full pipeline on all fixtures ───────────────────────────────────
 
 #[test]

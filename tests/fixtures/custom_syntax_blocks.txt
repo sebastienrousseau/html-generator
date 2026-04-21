@@ -1,0 +1,31 @@
+# Custom Syntax
+
+:::warning
+**Caution:** This action cannot be undone.
+:::
+
+:::note
+Remember to save your work regularly.
+:::
+
+:::danger
+**Critical:** Data loss may occur.
+:::
+
+:::info
+For more details, see the [documentation](https://example.com).
+:::
+
+Nested formatting inside a block:
+
+:::tip
+1. First step
+2. Second step with `code`
+3. Third step with **bold** and *italic*
+:::
+
+Image with custom class:
+
+![Hero image](hero.jpg).class="img-fluid rounded shadow"
+
+![Thumbnail](thumb.png).class="thumbnail"

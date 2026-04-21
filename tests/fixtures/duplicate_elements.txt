@@ -1,0 +1,23 @@
+# Duplicate Elements Test
+
+Two identical sidebars:
+
+<nav><ul><li>Home</li><li>About</li></ul></nav>
+
+Some content between them.
+
+<nav><ul><li>Home</li><li>About</li></ul></nav>
+
+Three identical buttons:
+
+<button>Submit</button>
+<button>Submit</button>
+<button>Submit</button>
+
+Two identical forms:
+
+<form><input type="text"><button>Send</button></form>
+
+Paragraph break.
+
+<form><input type="text"><button>Send</button></form>

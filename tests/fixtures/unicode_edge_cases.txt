@@ -1,0 +1,39 @@
+# Unicode Edge Cases
+
+## Zero-Width Characters
+
+Zero-width joiner: 👨‍👩‍👧‍👦 (family emoji using ZWJ sequences)
+
+Zero-width space between words: word​word (U+200B between)
+
+## Combining Characters
+
+Combining diacritics: à (a + combining grave) vs à (precomposed)
+
+Zalgo text: H̸̡̪̯ͨ͊̽̅̾̎ȩ̬̩̾͛ͪ̈́̚ ̨̻̱̪̠͙c̝̘̝̞̙̍ȏ̷̙̝̝̞̩m̴̘̝̞̩̗̍ẹ̴̘̝̞̩̗̍s̴̘̝̞̩̗̍
+
+## Emoji Sequences
+
+Skin tones: 👍🏻 👍🏼 👍🏽 👍🏾 👍🏿
+
+Flag sequences: 🇫🇷 🇬🇧 🇺🇸 🇯🇵 🇨🇳 🇰🇷 🇮🇳
+
+Compound emoji: 👨‍💻 👩‍🔬 🏳️‍🌈
+
+## Special Characters
+
+Null-like: ␀ (U+2400 SYMBOL FOR NULL)
+
+Replacement character: � (U+FFFD)
+
+Interrobang: ‽
+
+Em dash: — En dash: – Ellipsis: …
+
+Math: ∑∏∫∂∇ ℝℂℕℤℚ
+
+## Right-to-Left Override
+
+Normal text followed by RTL: مرحبا
+
+Mixed: Hello مرحبا World سلام End
