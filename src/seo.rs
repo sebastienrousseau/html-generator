@@ -50,26 +50,20 @@ const SCHEMA_ORG_CONTEXT: &str = "https://schema.org";
 const DEFAULT_OG_TYPE: &str = "website";
 
 /// Regex for matching HTML special characters
-static HTML_ESCAPES: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"[&<>"']"#)
-        .expect("Failed to compile HTML escapes regex")
-});
+static HTML_ESCAPES: Lazy<Option<Regex>> =
+    Lazy::new(|| Regex::new(r#"[&<>"']"#).ok());
 
 /// Selector for extracting meta description
-static META_DESC_SELECTOR: Lazy<Selector> = Lazy::new(|| {
-    Selector::parse("meta[name='description']")
-        .expect("Failed to compile meta description selector")
-});
+static META_DESC_SELECTOR: Lazy<Option<Selector>> =
+    Lazy::new(|| Selector::parse("meta[name='description']").ok());
 
 /// Selector for extracting title
-static TITLE_SELECTOR: Lazy<Selector> = Lazy::new(|| {
-    Selector::parse("title").expect("Failed to compile title selector")
-});
+static TITLE_SELECTOR: Lazy<Option<Selector>> =
+    Lazy::new(|| Selector::parse("title").ok());
 
 /// Selector for extracting paragraphs
-static PARAGRAPH_SELECTOR: Lazy<Selector> = Lazy::new(|| {
-    Selector::parse("p").expect("Failed to compile paragraph selector")
-});
+static PARAGRAPH_SELECTOR: Lazy<Option<Selector>> =
+    Lazy::new(|| Selector::parse("p").ok());
 
 /// Configuration options for structured data generation.
 #[derive(Debug, Clone)]
@@ -273,7 +267,10 @@ fn validate_page_type(page_type: &str) -> Result<()> {
 /// ```
 #[must_use]
 pub fn escape_html(s: &str) -> Cow<'_, str> {
-    HTML_ESCAPES.replace_all(s, |caps: &Captures| match &caps[0] {
+    let Some(regex) = HTML_ESCAPES.as_ref() else {
+        return Cow::Borrowed(s);
+    };
+    regex.replace_all(s, |caps: &Captures| match &caps[0] {
         "&" => "&amp;",
         "<" => "&lt;",
         ">" => "&gt;",
@@ -360,11 +357,22 @@ pub fn generate_structured_data(
     }
 
     let document = Html::parse_document(html);
+    generate_structured_data_from_doc(&document, config)
+}
+
+/// Generates structured data from a pre-parsed DOM tree.
+///
+/// This avoids redundant parsing when the pipeline has already parsed
+/// the HTML for other steps.
+pub fn generate_structured_data_from_doc(
+    document: &Html,
+    config: Option<StructuredDataConfig>,
+) -> Result<String> {
     let config = config.unwrap_or_default();
     config.validate()?;
 
-    let title = extract_title(&document)?;
-    let description = extract_description(&document)?;
+    let title = extract_title(document)?;
+    let description = extract_description(document)?;
 
     let mut json = if config.additional_types.is_empty() {
         json!({
@@ -384,7 +392,6 @@ pub fn generate_structured_data(
         })
     };
 
-    // Add any additional data
     if let Some(additional_data) = config.additional_data {
         for (key, value) in additional_data {
             json[key] = json!(value);
@@ -403,8 +410,11 @@ pub fn generate_structured_data(
 
 // Private helper functions
 fn extract_title(document: &Html) -> Result<String> {
+    let selector = TITLE_SELECTOR.as_ref().ok_or_else(|| {
+        HtmlError::MissingHtmlElement("title".to_string())
+    })?;
     document
-        .select(&TITLE_SELECTOR)
+        .select(selector)
         .next()
         .map(|t| t.text().collect::<String>())
         .ok_or_else(|| {
@@ -414,15 +424,20 @@ fn extract_title(document: &Html) -> Result<String> {
 
 fn extract_description(document: &Html) -> Result<String> {
     // Try meta description first
-    if let Some(meta) = document.select(&META_DESC_SELECTOR).next() {
-        if let Some(content) = meta.value().attr("content") {
-            return Ok(content.to_string());
+    if let Some(selector) = META_DESC_SELECTOR.as_ref() {
+        if let Some(meta) = document.select(selector).next() {
+            if let Some(content) = meta.value().attr("content") {
+                return Ok(content.to_string());
+            }
         }
     }
 
     // Fall back to first paragraph
+    let selector = PARAGRAPH_SELECTOR.as_ref().ok_or_else(|| {
+        HtmlError::MissingHtmlElement("description".to_string())
+    })?;
     document
-        .select(&PARAGRAPH_SELECTOR)
+        .select(selector)
         .next()
         .map(|p| p.text().collect::<String>())
         .ok_or_else(|| {

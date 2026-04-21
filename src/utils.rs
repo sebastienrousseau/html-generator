@@ -14,25 +14,19 @@ use scraper::ElementRef;
 use serde_json::Value;
 use std::collections::HashMap;
 
-static FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n")
-        .expect("Failed to compile FRONT_MATTER_REGEX")
+static FRONT_MATTER_REGEX: Lazy<Option<Regex>> =
+    Lazy::new(|| Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n").ok());
+
+static TOML_FRONT_MATTER_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
+    Regex::new(r"(?ms)^\+\+\+\s*\n(.*?)\n\+\+\+\s*\n").ok()
 });
 
-static TOML_FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?ms)^\+\+\+\s*\n(.*?)\n\+\+\+\s*\n")
-        .expect("Failed to compile TOML_FRONT_MATTER_REGEX")
+static HEADER_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
+    Regex::new(r"<(h[1-6])(?:\s[^>]*)?>(.+?)</h[1-6]>").ok()
 });
 
-static HEADER_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"<(h[1-6])(?:\s[^>]*)?>(.+?)</h[1-6]>")
-        .expect("Failed to compile HEADER_REGEX")
-});
-
-static CONSECUTIVE_HYPHENS_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"-{2,}")
-        .expect("Failed to compile CONSECUTIVE_HYPHENS_REGEX")
-});
+static CONSECUTIVE_HYPHENS_REGEX: Lazy<Option<Regex>> =
+    Lazy::new(|| Regex::new(r"-{2,}").ok());
 
 /// Maximum allowed input size (in bytes) to prevent DOS attacks
 const MAX_INPUT_SIZE: usize = 1_000_000; // 1 MB
@@ -71,7 +65,10 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
     }
 
     if content.starts_with("---") {
-        if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
+        if let Some(captures) = FRONT_MATTER_REGEX
+            .as_ref()
+            .and_then(|r| r.captures(content))
+        {
             let front_matter = captures
                 .get(1)
                 .ok_or_else(|| {
@@ -98,7 +95,7 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
             }
 
             let remaining_content =
-                &content[captures.get(0).unwrap().end()..];
+                &content[captures.get(0).map_or(0, |m| m.end())..];
             Ok(remaining_content.trim().to_string())
         } else {
             Err(HtmlError::InvalidFrontMatterFormat(
@@ -153,7 +150,10 @@ pub fn extract_front_matter_data(
 
     // YAML front matter (---)
     if content.starts_with("---") {
-        if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
+        if let Some(captures) = FRONT_MATTER_REGEX
+            .as_ref()
+            .and_then(|r| r.captures(content))
+        {
             let raw = captures
                 .get(1)
                 .ok_or_else(|| {
@@ -163,8 +163,9 @@ pub fn extract_front_matter_data(
                 })?
                 .as_str();
 
-            let map = parse_yaml_like_to_map(raw)?;
-            let remaining = &content[captures.get(0).unwrap().end()..];
+            let map = parse_yaml_to_map(raw)?;
+            let remaining =
+                &content[captures.get(0).map_or(0, |m| m.end())..];
             return Ok((
                 Value::Object(map),
                 remaining.trim().to_string(),
@@ -177,8 +178,9 @@ pub fn extract_front_matter_data(
 
     // TOML front matter (+++)
     if content.starts_with("+++") {
-        if let Some(captures) =
-            TOML_FRONT_MATTER_REGEX.captures(content)
+        if let Some(captures) = TOML_FRONT_MATTER_REGEX
+            .as_ref()
+            .and_then(|r| r.captures(content))
         {
             let raw = captures
                 .get(1)
@@ -189,8 +191,9 @@ pub fn extract_front_matter_data(
                 })?
                 .as_str();
 
-            let map = parse_toml_like_to_map(raw)?;
-            let remaining = &content[captures.get(0).unwrap().end()..];
+            let map = parse_toml_to_map(raw)?;
+            let remaining =
+                &content[captures.get(0).map_or(0, |m| m.end())..];
             return Ok((
                 Value::Object(map),
                 remaining.trim().to_string(),
@@ -223,58 +226,45 @@ pub fn extract_front_matter_data(
     Ok((Value::Null, content.to_string()))
 }
 
-/// Parses YAML-like `key: value` lines into a serde_json Map.
-fn parse_yaml_like_to_map(
+/// Parses a YAML front matter block into a serde_json Map using `serde_yml`.
+fn parse_yaml_to_map(
     raw: &str,
 ) -> Result<serde_json::Map<String, Value>> {
-    let mut map = serde_json::Map::new();
-    for line in raw.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if let Some(pos) = trimmed.find(':') {
-            let key = trimmed[..pos].trim().to_string();
-            let val = trimmed[pos + 1..].trim();
-            let _ = map.insert(key, Value::String(val.to_string()));
-        } else {
-            return Err(HtmlError::InvalidFrontMatterFormat(format!(
-                "Invalid line in front matter: {line}"
-            )));
-        }
+    let value: Value = serde_yml::from_str(raw).map_err(|e| {
+        HtmlError::InvalidFrontMatterFormat(format!(
+            "Invalid YAML front matter: {e}"
+        ))
+    })?;
+    match value {
+        Value::Object(map) => Ok(map),
+        _ => Err(HtmlError::InvalidFrontMatterFormat(
+            "YAML front matter must be a mapping".to_string(),
+        )),
     }
-    Ok(map)
 }
 
-/// Parses TOML-like `key = value` lines into a serde_json Map.
-fn parse_toml_like_to_map(
+/// Parses a TOML front matter block into a serde_json Map using the `toml` crate.
+fn parse_toml_to_map(
     raw: &str,
 ) -> Result<serde_json::Map<String, Value>> {
-    let mut map = serde_json::Map::new();
-    for line in raw.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if let Some(pos) = trimmed.find('=') {
-            let key = trimmed[..pos].trim().to_string();
-            let val = trimmed[pos + 1..].trim();
-            // Strip surrounding quotes if present
-            let val = if (val.starts_with('"') && val.ends_with('"'))
-                || (val.starts_with('\'') && val.ends_with('\''))
-            {
-                &val[1..val.len() - 1]
-            } else {
-                val
-            };
-            let _ = map.insert(key, Value::String(val.to_string()));
-        } else {
-            return Err(HtmlError::InvalidFrontMatterFormat(format!(
-                "Invalid line in TOML front matter: {line}"
-            )));
-        }
+    let toml_value: toml::Value = toml::from_str(raw).map_err(|e| {
+        HtmlError::InvalidFrontMatterFormat(format!(
+            "Invalid TOML front matter: {e}"
+        ))
+    })?;
+    // Convert toml::Value -> serde_json::Value via serialization round-trip
+    let json_value: Value =
+        serde_json::to_value(toml_value).map_err(|e| {
+            HtmlError::InvalidFrontMatterFormat(format!(
+                "Failed to convert TOML to JSON: {e}"
+            ))
+        })?;
+    match json_value {
+        Value::Object(map) => Ok(map),
+        _ => Err(HtmlError::InvalidFrontMatterFormat(
+            "TOML front matter must be a table".to_string(),
+        )),
     }
-    Ok(map)
 }
 
 /// Finds the index of the closing `}` that matches the opening `{` at index 0.
@@ -337,11 +327,14 @@ pub fn format_header_with_id_class(
     id_generator: Option<fn(&str) -> String>,
     class_generator: Option<fn(&str) -> String>,
 ) -> Result<String> {
-    let captures = HEADER_REGEX.captures(header).ok_or_else(|| {
-        HtmlError::InvalidHeaderFormat(
-            "Invalid header format".to_string(),
-        )
-    })?;
+    let captures = HEADER_REGEX
+        .as_ref()
+        .and_then(|r| r.captures(header))
+        .ok_or_else(|| {
+            HtmlError::InvalidHeaderFormat(
+                "Invalid header format".to_string(),
+            )
+        })?;
 
     let tag = captures
         .get(1)
@@ -406,7 +399,9 @@ pub fn generate_table_of_contents(html: &str) -> Result<String> {
     let mut toc = String::new();
     toc.push_str("<ul>");
 
-    for captures in HEADER_REGEX.captures_iter(html) {
+    let header_regex_iter =
+        HEADER_REGEX.as_ref().map(|r| r.captures_iter(html));
+    for captures in header_regex_iter.into_iter().flatten() {
         if let Some(tag) = captures.get(1) {
             let content = captures.get(2).map_or("", |m| m.as_str());
             let id = generate_id(content);
@@ -483,15 +478,14 @@ pub fn is_valid_language_code(lang: &str) -> bool {
 ///
 /// * `String` - The generated ID.
 fn generate_id(content: &str) -> String {
-    CONSECUTIVE_HYPHENS_REGEX
-        .replace_all(
-            &content
-                .to_lowercase()
-                .replace(|c: char| !c.is_alphanumeric(), "-"),
-            "-",
-        )
-        .trim_matches('-')
-        .to_string()
+    let lowered = content
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric(), "-");
+    let collapsed = CONSECUTIVE_HYPHENS_REGEX.as_ref().map_or_else(
+        || lowered.clone(),
+        |r| r.replace_all(&lowered, "-").to_string(),
+    );
+    collapsed.trim_matches('-').to_string()
 }
 
 #[cfg(test)]

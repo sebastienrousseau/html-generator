@@ -34,39 +34,38 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-/// Loads emoji sequences and their descriptive labels from a file.
+/// Emoji data bundled at compile time, ensuring availability regardless
+/// of working directory or deployment environment.
+static BUNDLED_EMOJI_DATA: &str =
+    include_str!("../data/emoji-data.txt");
+
+/// Returns the bundled emoji sequence map.
 ///
-/// This function processes files formatted with semicolon-separated fields.
-/// For example, a line in the file might look like:
+/// This uses `include_str!` to embed `data/emoji-data.txt` at compile
+/// time, so the data is always available without relying on the
+/// filesystem at runtime.
+pub fn bundled_emoji_sequences() -> HashMap<String, String> {
+    parse_emoji_sequences(BUNDLED_EMOJI_DATA)
+}
+
+/// Parses emoji sequences and their descriptive labels from a string.
+///
+/// Each line in the input typically consists of three fields separated
+/// by semicolons, for example:
+///
 /// ```text
-/// 2B06 FE0F ; Basic_Emoji ; up
+/// 26A1 ; emoji ; L1 ; none ; a j # V4.0 (⚡) HIGH VOLTAGE SIGN
 /// ```
 ///
 /// The mapping constructed will use the UTF-8 emoji sequence as the key
 /// and a normalized, human-readable label as the value. For instance:
 /// - `"⚡"` → `"high-voltage-sign"`
 ///
-/// Lines starting with `#` or empty lines are ignored. Comments after a `#`
-/// are parsed to extract descriptive labels.
-///
-/// # Arguments
-///
-/// * `filepath` - A path-like reference to the input file, such as `"emoji-data.txt"`.
-///
-/// # Returns
-///
-/// A [`HashMap<String, String>`] where:
-/// - Keys are emoji strings (e.g., `"⚡"`).
-/// - Values are normalized, lowercase, dash-separated labels (e.g., `"high-voltage-sign"`).
-///
-/// # Errors
-///
-/// Returns a [`Result`] indicating success or failure to read the file.
-pub fn load_emoji_sequences<P: AsRef<Path>>(
-    filepath: P,
-) -> Result<HashMap<String, String>, std::io::Error> {
-    let contents = fs::read_to_string(filepath)?;
-
+/// Lines starting with `#` or empty lines are ignored. Comments after a
+/// `#` are parsed to extract descriptive labels.
+pub fn parse_emoji_sequences(
+    contents: &str,
+) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
     for raw_line in contents.lines() {
@@ -124,7 +123,30 @@ pub fn load_emoji_sequences<P: AsRef<Path>>(
         let _ = map.insert(emoji_string, short_label);
     }
 
-    Ok(map)
+    map
+}
+
+/// Loads emoji sequences and their descriptive labels from a file.
+///
+/// This is a convenience wrapper around [`parse_emoji_sequences`] for
+/// loading from a filesystem path.
+///
+/// # Arguments
+///
+/// * `filepath` - A path-like reference to the input file.
+///
+/// # Returns
+///
+/// A [`HashMap<String, String>`] mapping emoji strings to labels.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be read.
+pub fn load_emoji_sequences<P: AsRef<Path>>(
+    filepath: P,
+) -> Result<HashMap<String, String>, std::io::Error> {
+    let contents = fs::read_to_string(filepath)?;
+    Ok(parse_emoji_sequences(&contents))
 }
 
 #[cfg(test)]
