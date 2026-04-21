@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright (c) 2025 HTML Generator. All rights reserved.
 
-//! Basic markdown to HTML conversion.
+//! Basic usage: convert Markdown to HTML with default settings.
 //!
 //! Run: `cargo run --example hello`
 
@@ -13,57 +13,44 @@ use html_generator::{generate_html, HtmlConfig};
 fn main() {
     support::header("html-generator -- hello");
 
-    // ── Simple heading + paragraph ───────────────────────────────────
+    // ── Heading + paragraph ─────────────────────────────────────────
     support::task_with_output("Convert heading and paragraph", || {
-        let md = "# Hello, world!\n\nThis is a paragraph.";
-        let config = HtmlConfig::default();
-        match generate_html(md, &config) {
-            Ok(html) => {
-                vec![format!("Input:  {md}"), format!("Output: {html}")]
-            }
-            Err(e) => vec![format!("Error: {e}")],
-        }
+        let md = "# Hello, World!\n\nThis is a paragraph.";
+        let html = generate_html(md, &HtmlConfig::default()).unwrap();
+        html.lines().map(|l| l.to_string()).collect()
     });
 
-    // ── Emphasis and strong ──────────────────────────────────────────
-    support::task_with_output("Convert inline formatting", || {
-        let md = "Text with *emphasis* and **strong** words.";
-        let config = HtmlConfig::default();
-        match generate_html(md, &config) {
-            Ok(html) => vec![format!("Output: {html}")],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+    // ── Inline formatting ───────────────────────────────────────────
+    support::task_with_output(
+        "Inline formatting (bold, italic, code)",
+        || {
+            let md = "Use **bold**, *italic*, and `code` in prose.";
+            let html =
+                generate_html(md, &HtmlConfig::default()).unwrap();
+            html.lines().map(|l| l.to_string()).collect()
+        },
+    );
+
+    // ── Lists ───────────────────────────────────────────────────────
+    support::task_with_output("Unordered and ordered lists", || {
+        let md = "- Alpha\n- Bravo\n- Charlie\n\n1. First\n2. Second";
+        let html = generate_html(md, &HtmlConfig::default()).unwrap();
+        html.lines().map(|l| l.to_string()).collect()
     });
 
-    // ── Unordered list ───────────────────────────────────────────────
-    support::task_with_output("Convert unordered list", || {
-        let md = "- Alpha\n- Bravo\n- Charlie";
-        let config = HtmlConfig::default();
-        match generate_html(md, &config) {
-            Ok(html) => vec![format!("Output: {html}")],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+    // ── Fenced code block ───────────────────────────────────────────
+    support::task_with_output("Fenced code block", || {
+        let md = "```rust\nfn main() {\n    println!(\"hi\");\n}\n```";
+        let html = generate_html(md, &HtmlConfig::default()).unwrap();
+        vec![format!("output_length = {} bytes", html.len())]
     });
 
-    // ── Code block with syntax highlighting ──────────────────────────
-    support::task_with_output("Convert fenced code block", || {
-        let md =
-            "```rust\nfn main() {\n    println!(\"hello\");\n}\n```";
-        let config = HtmlConfig {
-            enable_syntax_highlighting: true,
-            ..HtmlConfig::default()
-        };
-        match generate_html(md, &config) {
-            Ok(html) => {
-                let has_lang = html.contains("language-rust");
-                vec![
-                    format!("Syntax highlighting detected: {has_lang}"),
-                    format!("Output length: {} bytes", html.len()),
-                ]
-            }
-            Err(e) => vec![format!("Error: {e}")],
-        }
+    // ── Links and images ────────────────────────────────────────────
+    support::task_with_output("Links and images", || {
+        let md = "[Rust](https://rust-lang.org) and ![logo](logo.png)";
+        let html = generate_html(md, &HtmlConfig::default()).unwrap();
+        html.lines().map(|l| l.to_string()).collect()
     });
 
-    support::summary(4);
+    support::summary(5);
 }

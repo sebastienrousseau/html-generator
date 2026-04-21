@@ -1,7 +1,10 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright (c) 2025 HTML Generator. All rights reserved.
 
 //! Accessibility: ARIA attribute injection and WCAG validation.
+//!
+//! Demonstrates automatic ARIA enhancement for buttons, navs,
+//! forms, and inputs, plus WCAG AA/AAA compliance checking.
 //!
 //! Run: `cargo run --example accessibility`
 
@@ -9,85 +12,99 @@
 mod support;
 
 use html_generator::accessibility::{
-    add_aria_attributes, validate_wcag, AccessibilityConfig,
+    add_aria_attributes, validate_wcag, AccessibilityConfig, WcagLevel,
 };
 
 fn main() {
     support::header("html-generator -- accessibility");
 
-    // ── Add ARIA attributes to a navigation element ──────────────────
-    support::task_with_output(
-        "Add ARIA attributes to nav element",
-        || {
-            let html = "<nav><a href=\"/\">Home</a><a href=\"/about\">About</a></nav>";
-            match add_aria_attributes(html, None) {
-                Ok(enhanced) => vec![
-                    format!("Input:  {html}"),
-                    format!("Output: {enhanced}"),
-                ],
-                Err(e) => vec![format!("Error: {e}")],
-            }
-        },
-    );
-
-    // ── Add ARIA attributes to a form ────────────────────────────────
-    support::task_with_output(
-        "Add ARIA attributes to form element",
-        || {
-            let html = "<form><input type=\"text\"><button>Submit</button></form>";
-            match add_aria_attributes(html, None) {
-                Ok(enhanced) => vec![
-                    format!("Input:  {html}"),
-                    format!("Output: {enhanced}"),
-                ],
-                Err(e) => vec![format!("Error: {e}")],
-            }
-        },
-    );
-
-    // ── WCAG validation with default config ──────────────────────────
-    support::task_with_output(
-        "Validate WCAG compliance (AA level)",
-        || {
-            let html = "<html lang=\"en-GB\"><head><title>Test</title></head>\
-                     <body><h1>Main heading</h1><p>Content</p></body></html>";
-            let config = AccessibilityConfig::default();
-            match validate_wcag(html, &config, None) {
-                Ok(report) => vec![
-                    format!(
-                        "Elements checked: {}",
-                        report.elements_checked
-                    ),
-                    format!("Issues found: {}", report.issue_count),
-                    format!(
-                        "Check duration: {}ms",
-                        report.check_duration_ms
-                    ),
-                ],
-                Err(e) => vec![format!("Validation error: {e}")],
-            }
-        },
-    );
-
-    // ── WCAG validation on problematic HTML ──────────────────────────
-    support::task_with_output("Detect accessibility issues", || {
-        let html =
-            "<html><body><h3>Skipped heading levels</h3></body></html>";
-        let config = AccessibilityConfig::default();
-        match validate_wcag(html, &config, None) {
-            Ok(report) => {
-                let mut lines = vec![format!(
-                    "Issues found: {}",
-                    report.issue_count
-                )];
-                for issue in report.issues.iter().take(3) {
-                    lines.push(format!("  - {}", issue.message));
-                }
-                lines
-            }
-            Err(e) => vec![format!("Validation error: {e}")],
-        }
+    // ── Button ARIA enhancement ─────────────────────────────────────
+    support::task_with_output("Add ARIA to buttons", || {
+        let html = r#"<button>Submit</button>"#;
+        let enhanced = add_aria_attributes(html, None).unwrap();
+        vec![
+            format!("input  = {html}"),
+            format!("output = {enhanced}"),
+            format!(
+                "has aria-label = {}",
+                enhanced.contains("aria-label")
+            ),
+        ]
     });
 
-    support::summary(4);
+    // ── Navigation ARIA enhancement ─────────────────────────────────
+    support::task_with_output("Add ARIA to navigation", || {
+        let html = r#"<nav><ul><li>Home</li><li>About</li></ul></nav>"#;
+        let enhanced = add_aria_attributes(html, None).unwrap();
+        vec![
+            format!(
+                "has role=navigation = {}",
+                enhanced.contains("role=\"navigation\"")
+            ),
+            format!(
+                "has aria-label     = {}",
+                enhanced.contains("aria-label")
+            ),
+        ]
+    });
+
+    // ── Form ARIA enhancement ───────────────────────────────────────
+    support::task_with_output("Add ARIA to forms", || {
+        let html = r#"<form><input type="checkbox"></form>"#;
+        let enhanced = add_aria_attributes(html, None).unwrap();
+        vec![
+            format!(
+                "has aria-labelledby = {}",
+                enhanced.contains("aria-labelledby")
+            ),
+            format!("output_length      = {} bytes", enhanced.len()),
+        ]
+    });
+
+    // ── WCAG AA validation ──────────────────────────────────────────
+    support::task_with_output("Validate WCAG AA compliance", || {
+        let html = r#"<html lang="en"><body><h1>Title</h1><h2>Sub</h2></body></html>"#;
+        let config = AccessibilityConfig::default();
+        let report = validate_wcag(html, &config, None).unwrap();
+        vec![
+            format!("issues = {}", report.issue_count),
+            format!("level  = {:?}", config.wcag_level),
+        ]
+    });
+
+    // ── WCAG AAA validation ─────────────────────────────────────────
+    support::task_with_output("Validate WCAG AAA (stricter)", || {
+        let html = r#"<html lang="en"><body><h1>Title</h1><h3>Skipped</h3></body></html>"#;
+        let config = AccessibilityConfig {
+            wcag_level: WcagLevel::AAA,
+            ..AccessibilityConfig::default()
+        };
+        let report = validate_wcag(html, &config, None).unwrap();
+        vec![
+            format!("issues = {}", report.issue_count),
+            format!(
+                "heading skip detected = {}",
+                report.issue_count > 0
+            ),
+        ]
+    });
+
+    // ── Multiple elements in one pass ───────────────────────────────
+    support::task_with_output("Enhance multiple element types", || {
+        let html = r#"<nav><ul><li>Home</li></ul></nav><button>Click</button><form><input type="text"></form>"#;
+        let enhanced = add_aria_attributes(html, None).unwrap();
+        vec![
+            format!(
+                "nav aria   = {}",
+                enhanced.contains("role=\"navigation\"")
+            ),
+            format!("btn label  = {}", enhanced.contains("aria-label")),
+            format!(
+                "form label = {}",
+                enhanced.contains("aria-labelledby")
+            ),
+        ]
+    });
+
+    support::summary(6);
 }

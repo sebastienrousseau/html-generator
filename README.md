@@ -28,7 +28,7 @@
 - [Features](#features) -- capability matrix
 - [Library Usage](#library-usage) -- pipeline, front matter, TOC, SEO, accessibility
 - [Configuration](#configuration) -- HtmlConfig options
-- [Examples](#examples) -- 12 branded examples
+- [Examples](#examples) -- 13 branded examples
 - [Development](#development) -- make targets, CI
 - [Security](#security) -- safety guarantees
 - [License](#license)
@@ -92,10 +92,10 @@ html-generator converts Markdown into production-ready HTML with a configurable 
 
 | Metric | Value |
 | :--- | :--- |
-| **Source** | 10,023 lines across 8 modules |
-| **Test suite** | 349 tests + 28 doc-tests |
-| **Examples** | 12 branded examples |
-| **Dependencies** | 8 runtime (no tokio unless `async`) |
+| **Source** | 10,873 lines across 9 modules |
+| **Test suite** | 342 unit/integration tests + 36 doc-tests |
+| **Examples** | 13 branded examples |
+| **Dependencies** | 13 runtime + 1 optional tokio |
 | **MSRV** | Rust 1.80.0 |
 
 ---
@@ -160,7 +160,7 @@ assert_eq!(metadata["title"], "My Page");
 assert_eq!(body, "# Hello");
 
 // TOML front matter
-let content = "+++\ntitle = My Page\nauthor = Jane Doe\n+++\n# Hello";
+let content = "+++\ntitle = \"My Page\"\nauthor = \"Jane Doe\"\n+++\n# Hello";
 let (metadata, body) = extract_front_matter_data(content)?;
 assert_eq!(metadata["title"], "My Page");
 
@@ -256,6 +256,33 @@ assert_eq!(minified, "<html><body><p>Hello</p></body></html>");
 </details>
 
 <details>
+<summary><b>Diagnostics</b></summary>
+
+The default `generate_html` silently degrades when optional steps fail.
+Use `generate_html_with_diagnostics` to inspect which steps succeeded:
+
+```rust
+use html_generator::{generate_html_with_diagnostics, HtmlConfig};
+
+let config = HtmlConfig {
+    add_aria_attributes: true,
+    generate_toc: true,
+    generate_structured_data: true,
+    minify_output: true,
+    ..HtmlConfig::default()
+};
+
+let output = generate_html_with_diagnostics("# Hello", &config)?;
+println!("HTML: {} bytes", output.html.len());
+for d in &output.diagnostics {
+    eprintln!("warning: {d}");
+}
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+</details>
+
+<details>
 <summary><b>Async (optional)</b></summary>
 
 Enable with `features = ["async"]`:
@@ -288,9 +315,12 @@ let config = HtmlConfig {
     generate_structured_data: false,        // Append JSON-LD
     generate_toc: false,                    // Inject TOC at [[TOC]]
     allow_unsafe_html: false,               // Strip raw HTML (XSS-safe default)
+    sanitize_html: false,                   // Sanitize via ammonia (when unsafe is on)
+    generate_full_document: false,          // Wrap in HTML5 boilerplate
     max_input_size: 5 * 1024 * 1024,        // 5MB input limit
     max_buffer_size: 16 * 1024 * 1024,      // 16MB I/O buffer
-    language: "en-GB".into(),               // Content language
+    language: "en-GB".into(),               // Content language (used in html lang attr)
+    encoding: "utf-8".into(),               // File I/O encoding
 };
 ```
 
@@ -312,25 +342,27 @@ let config = HtmlConfig::builder()
 
 | Example | Description |
 | :--- | :--- |
-| `basic` | Simple Markdown to HTML conversion |
-| `comprehensive` | Batch processing 60+ test cases |
-| `accessibility` | WCAG/ARIA enhancement scenarios |
-| `aria` | ARIA attributes on interactive elements |
-| `seo` | Meta tags and structured data generation |
-| `performance` | Async generation and minification |
-| `generator` | HTML generation configuration |
-| `custom` | Custom configuration options |
-| `error` | Error handling patterns |
-| `lib` | Full library integration |
-| `style` | CSS styling with custom classes |
-| `utils` | Utility function demonstrations |
+| `hello` | Heading, lists, code blocks, links — basic Markdown to HTML |
+| `pipeline` | Full pipeline: ARIA + TOC + JSON-LD + minification in one pass |
+| `frontmatter` | YAML, TOML, JSON front matter extraction and parsing |
+| `accessibility` | ARIA injection for buttons, navs, forms; WCAG validation |
+| `seo` | Meta tags, JSON-LD structured data, HTML entity escaping |
+| `toc` | Table of contents from headings, `[[TOC]]` placeholder |
+| `minify` | In-memory HTML minification with size savings |
+| `errors` | Error variants, type matching, graceful recovery patterns |
+| `config` | HtmlConfig builder, validation, field inspection |
+| `headers` | Custom ID and class generators for heading elements |
+| `custom_syntax` | Triple-colon blocks (`:::warning`) and image classes |
+| `emojis` | Bundled emoji data, emoji-to-ARIA-label mapping |
+| `async` | Asynchronous generation via tokio (requires `--features async`) |
 
 Run any example:
 
 ```bash
-cargo run --example basic
+cargo run --example hello
+cargo run --example pipeline
 cargo run --example accessibility
-cargo run --example seo
+cargo run --example async --features async
 ```
 
 ---

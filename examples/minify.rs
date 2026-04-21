@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright (c) 2025 HTML Generator. All rights reserved.
 
-//! In-memory HTML minification.
+//! HTML minification: compress output by stripping whitespace.
 //!
 //! Run: `cargo run --example minify`
 
@@ -9,71 +9,61 @@
 mod support;
 
 use html_generator::performance::minify_html_string;
+use html_generator::{generate_html, HtmlConfig};
 
 fn main() {
     support::header("html-generator -- minify");
 
-    // ── Minify a small HTML fragment ─────────────────────────────────
-    support::task_with_output("Minify simple HTML", || {
-        let html = "<div>  <p>  Hello,   world!  </p>  </div>";
-        match minify_html_string(html) {
-            Ok(minified) => vec![
-                format!("Input:    {} bytes", html.len()),
-                format!("Minified: {} bytes", minified.len()),
-                format!("Output:   {minified}"),
-            ],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+    // ── Minify a fragment ───────────────────────────────────────────
+    support::task_with_output("Minify HTML fragment", || {
+        let html = "<html>  <body>  <p>Hello</p>  </body>  </html>";
+        let minified = minify_html_string(html).unwrap();
+        vec![
+            format!("before = {} bytes", html.len()),
+            format!("after  = {} bytes", minified.len()),
+            format!("saved  = {} bytes", html.len() - minified.len()),
+            format!("output = {minified}"),
+        ]
     });
 
-    // ── Minify a full HTML document ──────────────────────────────────
-    support::task_with_output("Minify full document", || {
+    // ── Minify a full document ──────────────────────────────────────
+    support::task_with_output("Minify full HTML document", || {
         let html = r#"<!DOCTYPE html>
-<html lang="en-GB">
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <title>Test Page</title>
+    <title>Test</title>
   </head>
   <body>
-    <h1>Heading</h1>
-    <p>
-      Paragraph with   extra   whitespace.
-    </p>
+    <h1>Hello</h1>
+    <p>World</p>
   </body>
 </html>"#;
-        match minify_html_string(html) {
-            Ok(minified) => {
-                let savings = html.len() - minified.len();
-                let pct = (savings as f64 / html.len() as f64) * 100.0;
-                vec![
-                    format!("Input:   {} bytes", html.len()),
-                    format!("Output:  {} bytes", minified.len()),
-                    format!("Savings: {savings} bytes ({pct:.1}%)"),
-                ]
-            }
-            Err(e) => vec![format!("Error: {e}")],
-        }
+        let minified = minify_html_string(html).unwrap();
+        let pct =
+            100.0 - (minified.len() as f64 / html.len() as f64 * 100.0);
+        vec![
+            format!("before  = {} bytes", html.len()),
+            format!("after   = {} bytes", minified.len()),
+            format!("savings = {pct:.1}%"),
+        ]
     });
 
-    // ── Minify via pipeline config ───────────────────────────────────
+    // ── Minify via pipeline config ──────────────────────────────────
     support::task_with_output(
         "Minify via generate_html pipeline",
         || {
-            let md = "# Heading\n\nA paragraph with content.";
-            let config = html_generator::HtmlConfig {
+            let md = "# Title\n\nParagraph with **bold** text.";
+            let normal =
+                generate_html(md, &HtmlConfig::default()).unwrap();
+            let config = HtmlConfig {
                 minify_output: true,
-                ..html_generator::HtmlConfig::default()
+                ..HtmlConfig::default()
             };
-            match html_generator::generate_html(md, &config) {
-                Ok(html) => vec![
-                    format!(
-                        "Minified output length: {} bytes",
-                        html.len()
-                    ),
-                    format!("Output: {html}"),
-                ],
-                Err(e) => vec![format!("Error: {e}")],
-            }
+            let minified = generate_html(md, &config).unwrap();
+            vec![
+                format!("normal   = {} bytes", normal.len()),
+                format!("minified = {} bytes", minified.len()),
+            ]
         },
     );
 

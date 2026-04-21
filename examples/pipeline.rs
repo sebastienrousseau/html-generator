@@ -1,81 +1,139 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright (c) 2025 HTML Generator. All rights reserved.
 
-//! Full pipeline: markdown to optimised HTML with all features enabled.
+//! Full pipeline: every processing stage enabled in a single pass.
+//!
+//! Demonstrates ARIA injection, TOC generation, JSON-LD structured
+//! data, and HTML minification working together.
 //!
 //! Run: `cargo run --example pipeline`
 
 #[path = "support.rs"]
 mod support;
 
-use html_generator::{generate_html, HtmlConfig};
+use html_generator::{
+    generate_html, generate_html_with_diagnostics, HtmlConfig,
+};
 
 fn main() {
     support::header("html-generator -- pipeline");
 
-    let markdown = r#"---
-title: Pipeline Demo
-author: HTML Generator
----
+    let markdown = "\
+[[TOC]]\n\n\
+# Introduction\n\n\
+Welcome to the guide.\n\n\
+## Getting Started\n\n\
+Follow these steps.\n\n\
+## Advanced Usage\n\n\
+For power users.\n";
 
-# Pipeline Demo
-
-## Introduction
-
-This document exercises the **full conversion pipeline**.
-
-- Table of contents generation
-- Accessibility (ARIA attributes)
-- SEO structured data
-- HTML minification
-
-## Code Sample
-
-```rust
-fn greet(name: &str) {
-    println!("Hello, {name}!");
-}
-```
-
-## Conclusion
-
-All features enabled in a single pass.
-"#;
-
-    // ── Generate with all features ───────────────────────────────────
-    let config = HtmlConfig {
-        enable_syntax_highlighting: true,
-        syntax_theme: Some("github".to_string()),
-        minify_output: true,
-        add_aria_attributes: true,
-        generate_structured_data: true,
-        generate_toc: true,
-        ..HtmlConfig::default()
-    };
-
-    let html =
-        support::task("Generate HTML with full pipeline", || {
-            generate_html(markdown, &config)
-        });
-
-    // ── Inspect results ──────────────────────────────────────────────
+    // ── Full pipeline (all features) ────────────────────────────────
     support::task_with_output(
-        "Inspect generated HTML",
-        || match &html {
-            Ok(h) => {
-                let has_heading = h.contains("<h1");
-                let has_code = h.contains("language-rust");
-                let has_list = h.contains("<li>");
-                vec![
-                    format!("Output length: {} bytes", h.len()),
-                    format!("Contains heading: {has_heading}"),
-                    format!("Contains code block: {has_code}"),
-                    format!("Contains list items: {has_list}"),
-                ]
-            }
-            Err(e) => vec![format!("Error: {e}")],
+        "Generate with all features enabled",
+        || {
+            let config = HtmlConfig {
+                add_aria_attributes: true,
+                generate_toc: true,
+                generate_structured_data: true,
+                minify_output: true,
+                ..HtmlConfig::default()
+            };
+            let html = generate_html(markdown, &config).unwrap();
+            vec![
+                format!("length    = {} bytes", html.len()),
+                format!("has_toc   = {}", html.contains("<ul>")),
+                format!("has_aria  = {}", html.contains("aria-")),
+                format!("has_jsonld = {}", html.contains("ld+json")),
+            ]
         },
     );
 
-    support::summary(2);
+    // ── Pipeline with diagnostics ───────────────────────────────────
+    support::task_with_output(
+        "Pipeline with diagnostics inspection",
+        || {
+            let config = HtmlConfig {
+                add_aria_attributes: true,
+                generate_toc: true,
+                generate_structured_data: true,
+                minify_output: true,
+                ..HtmlConfig::default()
+            };
+            let output =
+                generate_html_with_diagnostics(markdown, &config)
+                    .unwrap();
+            let mut lines = vec![
+                format!("html_len    = {} bytes", output.html.len()),
+                format!("diagnostics = {}", output.diagnostics.len()),
+            ];
+            for d in &output.diagnostics {
+                lines.push(format!("  {d}"));
+            }
+            lines
+        },
+    );
+
+    // ── Full HTML5 document output ────────────────────────────────
+    support::task_with_output("Generate full HTML5 document", || {
+        let config = HtmlConfig {
+            generate_full_document: true,
+            generate_structured_data: true,
+            language: "en-US".into(),
+            ..HtmlConfig::default()
+        };
+        let html = generate_html(markdown, &config).unwrap();
+        vec![
+            format!(
+                "has <!DOCTYPE>  = {}",
+                html.contains("<!DOCTYPE html>")
+            ),
+            format!(
+                "has lang=en-US  = {}",
+                html.contains("lang=\"en-US\"")
+            ),
+            format!("has <head>      = {}", html.contains("<head>")),
+            format!("has <body>      = {}", html.contains("<body>")),
+            format!("has ld+json     = {}", html.contains("ld+json")),
+        ]
+    });
+
+    // ── Sanitized HTML mode ─────────────────────────────────────────
+    support::task_with_output(
+        "Sanitize unsafe HTML via ammonia",
+        || {
+            let unsafe_md = "# Title\n\n<script>alert('xss')</script>\n\n<div class=\"safe\">Allowed</div>";
+            let config = HtmlConfig {
+                allow_unsafe_html: true,
+                sanitize_html: true,
+                ..HtmlConfig::default()
+            };
+            let html = generate_html(unsafe_md, &config).unwrap();
+            vec![
+                format!(
+                    "has <script>    = {}",
+                    html.contains("<script>")
+                ),
+                format!("has <div>       = {}", html.contains("<div")),
+                format!(
+                    "script stripped = {}",
+                    !html.contains("<script>")
+                ),
+            ]
+        },
+    );
+
+    // ── Minimal pipeline (defaults) ─────────────────────────────────
+    support::task_with_output(
+        "Default config (syntax highlighting only)",
+        || {
+            let html = generate_html(markdown, &HtmlConfig::default())
+                .unwrap();
+            vec![
+                format!("length   = {} bytes", html.len()),
+                format!("minified = {}", !html.contains('\n')),
+            ]
+        },
+    );
+
+    support::summary(5);
 }

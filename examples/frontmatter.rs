@@ -1,7 +1,10 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright (c) 2025 HTML Generator. All rights reserved.
 
-//! Front matter extraction: YAML, TOML, and JSON formats.
+//! Front matter extraction: YAML, TOML, and JSON metadata parsing.
+//!
+//! Supports nested structures and arrays via industrial-strength
+//! parsers (serde_yml for YAML, toml crate for TOML).
 //!
 //! Run: `cargo run --example frontmatter`
 
@@ -15,72 +18,72 @@ use html_generator::utils::{
 fn main() {
     support::header("html-generator -- frontmatter");
 
-    // ── YAML front matter (raw string) ───────────────────────────────
-    support::task_with_output("Extract raw YAML front matter", || {
+    // ── YAML front matter (---) ─────────────────────────────────────
+    support::task_with_output("Extract YAML front matter", || {
         let content =
             "---\ntitle: My Page\nauthor: Jane Doe\n---\n# Hello";
-        match extract_front_matter(content) {
-            Ok(raw) => vec![format!("Raw front matter: {raw}")],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+        let (data, body) = extract_front_matter_data(content).unwrap();
+        vec![
+            format!("title  = {}", data["title"]),
+            format!("author = {}", data["author"]),
+            format!("body   = {body}"),
+        ]
     });
 
-    // ── YAML front matter (parsed data) ──────────────────────────────
-    support::task_with_output(
-        "Parse YAML front matter to JSON",
-        || {
-            let content =
-                "---\ntitle: My Page\nauthor: Jane Doe\n---\n# Hello";
-            match extract_front_matter_data(content) {
-                Ok((data, remaining)) => vec![
-                    format!("Data: {data}"),
-                    format!("Remaining content: {remaining}"),
-                ],
-                Err(e) => vec![format!("Error: {e}")],
-            }
-        },
-    );
-
-    // ── TOML front matter ────────────────────────────────────────────
-    support::task_with_output("Parse TOML front matter", || {
+    // ── TOML front matter (+++) ─────────────────────────────────────
+    support::task_with_output("Extract TOML front matter", || {
         let content =
             "+++\ntitle = \"TOML Page\"\ndraft = true\n+++\n# Content";
-        match extract_front_matter_data(content) {
-            Ok((data, remaining)) => vec![
-                format!("Data: {data}"),
-                format!("Remaining: {remaining}"),
-            ],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+        let (data, body) = extract_front_matter_data(content).unwrap();
+        vec![
+            format!("title = {}", data["title"]),
+            format!("draft = {}", data["draft"]),
+            format!("body  = {body}"),
+        ]
     });
 
-    // ── JSON front matter ────────────────────────────────────────────
-    support::task_with_output("Parse JSON front matter", || {
+    // ── JSON front matter ({...}) ───────────────────────────────────
+    support::task_with_output("Extract JSON front matter", || {
         let content =
-            "{\"title\": \"JSON Page\", \"version\": 2}\n# Content";
-        match extract_front_matter_data(content) {
-            Ok((data, remaining)) => vec![
-                format!("Data: {data}"),
-                format!("Remaining: {remaining}"),
-            ],
-            Err(e) => vec![format!("Error: {e}")],
-        }
+            "{\"title\": \"JSON Page\", \"lang\": \"en\"}\n# Content";
+        let (data, body) = extract_front_matter_data(content).unwrap();
+        vec![
+            format!("title = {}", data["title"]),
+            format!("lang  = {}", data["lang"]),
+            format!("body  = {body}"),
+        ]
     });
 
-    // ── No front matter ──────────────────────────────────────────────
+    // ── Raw extraction (strip only) ─────────────────────────────────
     support::task_with_output(
-        "Handle content without front matter",
+        "Strip front matter without parsing",
         || {
-            let content = "# Just a heading\n\nNo front matter here.";
-            match extract_front_matter_data(content) {
-                Ok((data, remaining)) => vec![
-                    format!("Data: {data}"),
-                    format!("Remaining: {remaining}"),
-                ],
-                Err(e) => vec![format!("Error: {e}")],
-            }
+            let content = "---\ntitle: Stripped\n---\n# Body only";
+            let body = extract_front_matter(content).unwrap();
+            vec![format!("body = {body}")]
         },
     );
 
-    support::summary(5);
+    // ── Content without front matter ────────────────────────────────
+    support::task_with_output("Content without front matter", || {
+        let content = "# Just a heading\n\nNo metadata here.";
+        let (data, body) = extract_front_matter_data(content).unwrap();
+        vec![format!("data = {data}"), format!("body = {body}")]
+    });
+
+    // ── Nested YAML structures ──────────────────────────────────────
+    support::task_with_output("YAML with many metadata fields", || {
+        let content = "---\ntitle: Blog Post\nauthor: Jane Doe\ndate: 2025-01-15\nlang: en-GB\ndraft: false\n---\n# Content";
+        let (data, body) = extract_front_matter_data(content).unwrap();
+        vec![
+            format!("title  = {}", data["title"]),
+            format!("author = {}", data["author"]),
+            format!("date   = {}", data["date"]),
+            format!("lang   = {}", data["lang"]),
+            format!("draft  = {}", data["draft"]),
+            format!("body   = {body}"),
+        ]
+    });
+
+    support::summary(6);
 }
