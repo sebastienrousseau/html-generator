@@ -1,0 +1,15 @@
+# Edge Cases
+
+<!-- This is an HTML comment and should not appear in the output -->
+
+#ThisIsNotAHeader
+Not separated by a space.
+
+##Multiple##Hashes##
+
+**No closing tag for bold
+*No closing tag for italic
+
+> Nested blockquote
+>> Another level
+>>> Yet another level
