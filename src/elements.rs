@@ -188,10 +188,8 @@ macro_rules! impl_element_builder {
                 let mut parts = Vec::new();
                 parts.push(format!("<{}", $tag));
 
-                if let Some(ref role) = Some($role) {
-                    if !role.is_empty() {
-                        parts.push(format!(" role=\"{}\"", role));
-                    }
+                if !$role.is_empty() {
+                    parts.push(format!(" role=\"{}\"", $role));
                 }
 
                 if let Some(ref id) = self.id {

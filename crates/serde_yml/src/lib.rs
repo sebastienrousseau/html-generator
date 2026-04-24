@@ -4,9 +4,24 @@
 //! A safe, local YAML serialization/deserialization library
 //! compatible with the `serde_yml` API.
 //!
-//! This crate provides a drop-in replacement for
-//! `serde_yml` using only safe Rust, eliminating the
-//! dependency on the unsafe `libyml` C library.
+//! # Why this crate is vendored
+//!
+//! `html-generator` needs YAML parsing for front-matter extraction but
+//! avoids the upstream `serde_yaml` (unmaintained) and `serde_yml`
+//! (depends on the unsafe `libyml` C library) crates. This vendored
+//! implementation:
+//!
+//! - Is `#![forbid(unsafe_code)]` — no `unsafe` blocks, no FFI.
+//! - Exposes a subset of the upstream `serde_yml` API sufficient for
+//!   our front-matter path: `from_str`, `to_string`, `Value`, etc.
+//! - Is `publish = false`: it is **not** a public library and has no
+//!   stability guarantees outside this workspace.
+//! - Is pinned at a single version and updated only when the parent
+//!   crate needs new behaviour.
+//!
+//! If a maintained, pure-Rust YAML crate with an equivalent API
+//! appears upstream (e.g. a successor to `yaml-rust2`), we intend to
+//! delete this directory and depend on it directly.
 
 #![forbid(unsafe_code)]
 

@@ -56,18 +56,6 @@ pub enum HtmlError {
         source: Option<io::Error>,
     },
 
-    /// Errors that occur during HTML minification.
-    #[error("HTML minification failed: {message}")]
-    Minification {
-        /// The error message
-        message: String,
-        /// The source error, if available
-        size: Option<usize>,
-        /// The source error, if available
-        #[source]
-        source: Option<io::Error>,
-    },
-
     /// SEO-related errors.
     #[error("SEO optimization failed: {kind}: {message}")]
     Seo {
@@ -396,18 +384,6 @@ mod tests {
                 None,
             );
             assert!(error.to_string().contains("Conversion failed"));
-        }
-
-        #[test]
-        fn test_minification_with_size_and_source() {
-            let error = HtmlError::Minification {
-                message: "Too large".to_string(),
-                size: Some(1024),
-                source: Some(io::Error::other("IO error")),
-            };
-            assert!(error
-                .to_string()
-                .contains("HTML minification failed"));
         }
     }
 

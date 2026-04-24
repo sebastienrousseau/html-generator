@@ -383,32 +383,45 @@ impl HtmlConfig {
         Ok(())
     }
 
-    /// Validates file path safety to prevent directory traversal attacks.
+    /// Validates a file path before it is opened by
+    /// [`markdown_file_to_html`].
     ///
-    /// # Arguments
+    /// Rejects paths that are empty, too long, contain a NUL byte, contain
+    /// any `..` component (directory traversal), or use an extension other
+    /// than `.md` or `.html`.
     ///
-    /// * `path` - The file path to validate
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the path is safe, or an appropriate error
-    /// if validation fails.
+    /// This validator is defensive only: it does **not** decide whether a
+    /// caller is authorised to read the target file. Callers that expose
+    /// this API to untrusted input must enforce their own authorisation
+    /// (e.g. chroot, a sandbox root directory, or an allow-list) on top
+    /// of this check. Absolute paths are accepted deliberately so that
+    /// CLI tools can be invoked with fully qualified filenames.
     pub(crate) fn validate_file_path(
         path: impl AsRef<Path>,
     ) -> Result<()> {
         let path = path.as_ref();
+        let path_str = path.to_string_lossy();
 
-        if path.to_string_lossy().is_empty() {
+        if path_str.is_empty() {
             return Err(HtmlError::InvalidInput(
                 "File path cannot be empty".to_string(),
             ));
         }
 
-        if path.to_string_lossy().len() > constants::MAX_PATH_LENGTH {
+        if path_str.len() > constants::MAX_PATH_LENGTH {
             return Err(HtmlError::InvalidInput(format!(
                 "File path exceeds maximum length of {} characters",
                 constants::MAX_PATH_LENGTH
             )));
+        }
+
+        // Reject NUL bytes: on Unix, C-string path handling silently
+        // truncates at the first NUL, which is a classic smuggling vector
+        // (e.g. "safe.md\0/etc/passwd").
+        if path_str.as_bytes().contains(&0) {
+            return Err(HtmlError::InvalidInput(
+                "File path must not contain NUL bytes".to_string(),
+            ));
         }
 
         if path.components().any(|c| matches!(c, Component::ParentDir))
@@ -646,41 +659,73 @@ fn validate_paths(
     Ok(())
 }
 
-/// Reads content from the input source
+/// Reads the full contents of `reader` into a UTF-8 string, wrapping
+/// any I/O error as `HtmlError::Io` with the given label for context
+/// (e.g. `"input"` or `"stdin"`).
+///
+/// Extracted so the stdin path of [`read_input`] is testable against
+/// an in-memory reader without needing a child process.
+fn read_all_from_reader<R: Read>(
+    mut reader: R,
+    label: &str,
+) -> Result<String> {
+    let mut content = String::with_capacity(MAX_BUFFER_SIZE);
+    // read_to_string returns the byte count; we only need the String.
+    let _ = reader.read_to_string(&mut content).map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to read from {label}: {e}"),
+        ))
+    })?;
+    Ok(content)
+}
+
+/// Reads content from the input source (a file path, or stdin when
+/// `None`).
 fn read_input(input: Option<impl AsRef<Path>>) -> Result<String> {
     match input {
         Some(path) => {
             let file = File::open(path).map_err(HtmlError::Io)?;
-            let mut reader =
+            let reader =
                 BufReader::with_capacity(MAX_BUFFER_SIZE, file);
-            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
-            let _ =
-                reader.read_to_string(&mut content).map_err(|e| {
-                    HtmlError::Io(io::Error::new(
-                        e.kind(),
-                        format!("Failed to read input: {}", e),
-                    ))
-                })?;
-            Ok(content)
+            read_all_from_reader(reader, "input")
         }
         None => {
             let stdin = io::stdin();
-            let mut reader =
+            let reader =
                 BufReader::with_capacity(MAX_BUFFER_SIZE, stdin.lock());
-            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
-            let _ =
-                reader.read_to_string(&mut content).map_err(|e| {
-                    HtmlError::Io(io::Error::new(
-                        e.kind(),
-                        format!("Failed to read from stdin: {}", e),
-                    ))
-                })?;
-            Ok(content)
+            read_all_from_reader(reader, "stdin")
         }
     }
 }
 
-/// Writes content to the output destination
+/// Writes `content` to `writer`, wrapping any I/O error as
+/// `HtmlError::Io` with a label like `"file '…'"` or `"stdout"`.
+///
+/// Extracted so every destination in [`write_output`] shares one
+/// tested implementation, and so the error paths can be exercised by
+/// a failing in-memory writer.
+fn write_all_to_writer<W: Write>(
+    mut writer: W,
+    content: &[u8],
+    label: &str,
+) -> Result<()> {
+    writer.write_all(content).map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to write to {label}: {e}"),
+        ))
+    })?;
+    writer.flush().map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to flush {label}: {e}"),
+        ))
+    })?;
+    Ok(())
+}
+
+/// Writes content to the output destination.
 fn write_output(
     output: OutputDestination,
     content: &[u8],
@@ -693,59 +738,26 @@ fn write_output(
                     format!("Failed to create file '{}': {}", path, e),
                 ))
             })?;
-            let mut writer = BufWriter::new(file);
-            writer.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!(
-                        "Failed to write to file '{}': {}",
-                        path, e
-                    ),
-                ))
-            })?;
-            writer.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!(
-                        "Failed to flush output to file '{}': {}",
-                        path, e
-                    ),
-                ))
-            })?;
+            write_all_to_writer(
+                BufWriter::new(file),
+                content,
+                &format!("file '{path}'"),
+            )
         }
-        OutputDestination::Writer(mut writer) => {
-            let mut buffered = BufWriter::new(&mut writer);
-            buffered.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to write to output: {}", e),
-                ))
-            })?;
-            buffered.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to flush output: {}", e),
-                ))
-            })?;
-        }
+        OutputDestination::Writer(mut writer) => write_all_to_writer(
+            BufWriter::new(&mut writer),
+            content,
+            "output",
+        ),
         OutputDestination::Stdout => {
             let stdout = io::stdout();
-            let mut writer = BufWriter::new(stdout.lock());
-            writer.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to write to stdout: {}", e),
-                ))
-            })?;
-            writer.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to flush stdout: {}", e),
-                ))
-            })?;
+            write_all_to_writer(
+                BufWriter::new(stdout.lock()),
+                content,
+                "stdout",
+            )
         }
     }
-    Ok(())
 }
 
 /// Validates that a language code matches the BCP 47 format (e.g., "en-GB").
@@ -775,10 +787,12 @@ pub fn validate_language_code(lang: &str) -> bool {
     use once_cell::sync::Lazy;
     use regex::Regex;
 
-    static LANG_REGEX: Lazy<Option<Regex>> =
-        Lazy::new(|| Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$").ok());
+    static LANG_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(constants::LANGUAGE_CODE_PATTERN)
+            .expect("static LANG_REGEX must compile")
+    });
 
-    LANG_REGEX.as_ref().is_some_and(|r| r.is_match(lang))
+    LANG_REGEX.is_match(lang)
 }
 
 #[cfg(test)]
@@ -788,6 +802,93 @@ mod tests {
     use regex::Regex;
     use std::io::Cursor;
     use tempfile::{tempdir, TempDir};
+
+    /// A reader whose `read` call always fails — used to cover the
+    /// stdin failure branch of [`read_all_from_reader`].
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::other("synthetic read failure"))
+        }
+    }
+
+    /// A writer whose `write` + `flush` both fail — used to cover the
+    /// write/flush error branches of [`write_all_to_writer`].
+    struct FailingWriter {
+        /// If `true`, fail on `flush` only (writes succeed), otherwise
+        /// fail immediately on `write`.
+        flush_only: bool,
+    }
+
+    impl Write for FailingWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if self.flush_only {
+                Ok(buf.len())
+            } else {
+                Err(io::Error::other("synthetic write failure"))
+            }
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("synthetic flush failure"))
+        }
+    }
+
+    #[test]
+    fn test_read_all_from_reader_success() {
+        let input = Cursor::new(b"hello world".to_vec());
+        let s = read_all_from_reader(input, "memory").unwrap();
+        assert_eq!(s, "hello world");
+    }
+
+    #[test]
+    fn test_read_all_from_reader_surfaces_io_error() {
+        let err =
+            read_all_from_reader(FailingReader, "stdin").unwrap_err();
+        match err {
+            HtmlError::Io(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains("Failed to read from stdin"),
+                    "unexpected error: {msg}"
+                );
+            }
+            other => panic!("expected Io, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_write_all_to_writer_success_covers_stdout_path() {
+        let mut buf: Vec<u8> = Vec::new();
+        write_all_to_writer(&mut buf, b"hi", "memory").unwrap();
+        assert_eq!(buf, b"hi");
+    }
+
+    #[test]
+    fn test_write_all_to_writer_surfaces_write_error() {
+        let err = write_all_to_writer(
+            FailingWriter { flush_only: false },
+            b"x",
+            "output",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, HtmlError::Io(ref e) if e.to_string().contains("Failed to write to output"))
+        );
+    }
+
+    #[test]
+    fn test_write_all_to_writer_surfaces_flush_error() {
+        let err = write_all_to_writer(
+            FailingWriter { flush_only: true },
+            b"x",
+            "output",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, HtmlError::Io(ref e) if e.to_string().contains("Failed to flush output"))
+        );
+    }
 
     /// Creates a temporary test directory for file operations.
     ///
@@ -1569,18 +1670,30 @@ fn main() {
             );
         }
 
-        // Test for relative file path validation
+        /// Absolute paths are deliberately accepted: CLI tools invoke the
+        /// library with fully qualified filenames. Authorisation is the
+        /// caller's responsibility; see [`HtmlConfig::validate_file_path`]
+        /// docs.
         #[test]
-        fn test_relative_file_path_validation() {
-            #[cfg(not(test))]
-            {
-                let absolute_path = "/absolute/path/to/file.md";
-                let result =
-                    HtmlConfig::validate_file_path(absolute_path);
-                assert!(
-                    matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("Only relative file paths are allowed"))
-                );
-            }
+        fn test_absolute_path_is_accepted() {
+            let result = HtmlConfig::validate_file_path(
+                "/absolute/path/to/file.md",
+            );
+            assert!(
+                result.is_ok(),
+                "absolute paths must be accepted, got {result:?}"
+            );
+        }
+
+        /// NUL byte smuggling must be rejected — on Unix, C-string path
+        /// handling silently truncates at the first NUL.
+        #[test]
+        fn test_nul_byte_path_is_rejected() {
+            let result = HtmlConfig::validate_file_path("safe.md\0bad");
+            assert!(
+                matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("NUL")),
+                "NUL byte in path must be rejected, got {result:?}"
+            );
         }
     }
 

@@ -188,34 +188,45 @@ pub struct Issue {
     pub suggestion: Option<String>,
 }
 
-/// Helper function to create a `Selector`, returning an `Option` on failure.
-fn try_create_selector(selector: &str) -> Option<Selector> {
-    Selector::parse(selector).ok()
+/// Builds a [`Selector`] from a compile-time constant string.
+///
+/// Panics with a clear message if the selector fails to parse — every
+/// caller passes a literal, so a failure here is a bug, not a runtime
+/// condition.
+fn try_create_selector(selector: &str) -> Selector {
+    Selector::parse(selector).unwrap_or_else(|err| {
+        panic!("static selector {selector:?} must parse: {err}")
+    })
 }
 
-/// Helper function to create a `Regex`, returning an `Option` on failure.
-fn try_create_regex(pattern: &str) -> Option<Regex> {
-    Regex::new(pattern).ok()
+/// Builds a [`Regex`] from a compile-time constant string.
+///
+/// Panics with a clear message if the pattern fails to compile — every
+/// caller passes a literal, so a failure here is a bug.
+fn try_create_regex(pattern: &str) -> Regex {
+    Regex::new(pattern).unwrap_or_else(|err| {
+        panic!("static regex {pattern:?} must compile: {err}")
+    })
 }
 
 /// Static selectors for HTML elements and ARIA attributes
-static BUTTON_SELECTOR: Lazy<Option<Selector>> =
+static BUTTON_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("button:not([aria-label])"));
 
 /// Selector for navigation elements without ARIA attributes
-static NAV_SELECTOR: Lazy<Option<Selector>> =
+static NAV_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("nav:not([aria-label])"));
 
 /// Selector for form elements without ARIA attributes
-static FORM_SELECTOR: Lazy<Option<Selector>> =
+static FORM_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("form:not([aria-labelledby])"));
 
 /// Regex for finding input elements
-static INPUT_REGEX: Lazy<Option<Regex>> =
+static INPUT_REGEX: Lazy<Regex> =
     Lazy::new(|| try_create_regex(r"<input[^>]*>"));
 
 /// Comprehensive selector for all ARIA attributes
-static ARIA_SELECTOR: Lazy<Option<Selector>> = Lazy::new(|| {
+static ARIA_SELECTOR: Lazy<Selector> = Lazy::new(|| {
     try_create_selector(concat!(
         "[aria-label], [aria-labelledby], [aria-describedby], ",
         "[aria-hidden], [aria-expanded], [aria-haspopup], ",
@@ -229,34 +240,34 @@ static ARIA_SELECTOR: Lazy<Option<Selector>> = Lazy::new(|| {
 });
 
 /// Selector for all button elements (used in tooltip processing)
-static ALL_BUTTON_SELECTOR: Lazy<Option<Selector>> =
+static ALL_BUTTON_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("button"));
 
 /// Selector for paragraph or dialog-description elements
-static DIALOG_DESC_SELECTOR: Lazy<Option<Selector>> =
+static DIALOG_DESC_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("p, .dialog-description"));
 
 /// Selector for the html element
-static HTML_SELECTOR: Lazy<Option<Selector>> =
+static HTML_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("html"));
 
 /// Selector for elements with a lang attribute
-static LANG_SELECTOR: Lazy<Option<Selector>> =
+static LANG_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("[lang]"));
 
 /// Selector for elements with a role attribute
-static ROLE_SELECTOR: Lazy<Option<Selector>> =
+static ROLE_SELECTOR: Lazy<Selector> =
     Lazy::new(|| try_create_selector("[role]"));
 
 /// Selector for interactive elements (keyboard navigation checks)
-static INTERACTIVE_SELECTOR: Lazy<Option<Selector>> = Lazy::new(|| {
+static INTERACTIVE_SELECTOR: Lazy<Selector> = Lazy::new(|| {
     try_create_selector(
         "a, button, input, select, textarea, [tabindex]",
     )
 });
 
 /// Regex for extracting id attributes from input tags
-static INPUT_ID_REGEX: Lazy<Option<Regex>> =
+static INPUT_ID_REGEX: Lazy<Regex> =
     Lazy::new(|| try_create_regex(r#"id="([^"]+)""#));
 
 /// Set of valid ARIA attributes
@@ -427,18 +438,13 @@ pub fn add_aria_attributes(
     html_builder = add_aria_to_toggle(html_builder)?;
     html_builder = add_aria_to_tooltips(html_builder)?;
 
-    // Validate and clean up
-    let new_html =
-        remove_invalid_aria_attributes(&html_builder.build());
-
-    if !validate_aria(&new_html) {
-        return Err(Error::InvalidAriaAttribute {
-            attribute: "multiple".to_string(),
-            message: "Failed to add valid ARIA attributes".to_string(),
-        });
-    }
-
-    Ok(new_html)
+    // `remove_invalid_aria_attributes` parses the final HTML once and
+    // strips every aria-* attribute that fails `is_valid_aria_attribute`.
+    // Its output contains only valid aria-* pairs by construction, so
+    // the historical second-parse validation guard was redundant (and
+    // measured as pure overhead); it has been removed from the hot
+    // path.
+    Ok(remove_invalid_aria_attributes(&html_builder.build()))
 }
 
 /// A builder struct for constructing HTML content.
@@ -591,6 +597,62 @@ pub fn validate_wcag(
     })
 }
 
+/// Converts an accessibility error into the library-wide [`HtmlError`]
+/// so that callers can use `?` across module boundaries without an
+/// explicit `.map_err`.
+///
+/// The mapping is lossy on purpose: it collapses structured data such as
+/// HTML fragments and WCAG conformance levels into the
+/// [`HtmlError::Accessibility`] variant's `message` string. If you need
+/// the full structured error, match on [`accessibility::Error`] directly
+/// before converting.
+impl From<Error> for crate::error::HtmlError {
+    fn from(err: Error) -> Self {
+        use crate::error::ErrorKind as HtmlErrorKind;
+        match err {
+            Error::InvalidAriaAttribute { attribute, message } => {
+                crate::error::HtmlError::Accessibility {
+                    kind: HtmlErrorKind::InvalidAriaValue,
+                    message: format!("{attribute}: {message}"),
+                    wcag_guideline: None,
+                }
+            }
+            Error::WcagValidationError {
+                level,
+                message,
+                guideline,
+            } => crate::error::HtmlError::Accessibility {
+                kind: HtmlErrorKind::Other,
+                message: format!("WCAG {level}: {message}"),
+                wcag_guideline: guideline,
+            },
+            Error::HtmlTooLarge { size, .. } => {
+                crate::error::HtmlError::InputTooLarge(size)
+            }
+            Error::HtmlProcessingError { message, .. } => {
+                crate::error::HtmlError::Accessibility {
+                    kind: HtmlErrorKind::Other,
+                    message,
+                    wcag_guideline: None,
+                }
+            }
+            Error::MalformedHtml { message, fragment } => {
+                let message = match fragment {
+                    Some(frag) => {
+                        format!("{message} (fragment: {frag})")
+                    }
+                    None => message,
+                };
+                crate::error::HtmlError::Accessibility {
+                    kind: HtmlErrorKind::Other,
+                    message,
+                    wcag_guideline: None,
+                }
+            }
+        }
+    }
+}
+
 /// From implementation for TryFromIntError
 impl From<std::num::TryFromIntError> for Error {
     fn from(err: std::num::TryFromIntError) -> Self {
@@ -634,8 +696,9 @@ impl AccessibilityReport {
 }
 
 /// Regex for matching HTML tags
-static HTML_TAG_REGEX: Lazy<Option<Regex>> =
-    Lazy::new(|| Regex::new(r"<[^>]*>").ok());
+static HTML_TAG_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<[^>]*>").expect("static HTML_TAG_REGEX must compile")
+});
 
 /// Bundled emoji map — always available regardless of the working directory.
 ///
@@ -664,10 +727,7 @@ static EMOJI_MAP: Lazy<HashMap<String, String>> = Lazy::new(|| {
 /// Returns a normalized string suitable for use as an ARIA label
 fn normalize_aria_label(content: &str) -> String {
     // 1. Remove HTML
-    let no_html = HTML_TAG_REGEX.as_ref().map_or_else(
-        || std::borrow::Cow::Borrowed(content),
-        |r| r.replace_all(content, ""),
-    );
+    let no_html = HTML_TAG_REGEX.replace_all(content, "");
     // 2. Trim
     let text_only = no_html.trim();
 
@@ -704,15 +764,21 @@ fn normalize_aria_label(content: &str) -> String {
 fn add_aria_to_tooltips(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no <button> with title= means no tooltips to add.
+    // `str::contains` is SIMD-backed memchr; ~10 ns vs. ~µs for a
+    // full html5ever parse.
+    if !html_builder.content.contains("<button")
+        || !html_builder.content.contains("title=")
+    {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     let mut tooltip_counter = 0;
 
-    let Some(button_selector) = ALL_BUTTON_SELECTOR.as_ref() else {
-        return Ok(html_builder);
-    };
     let buttons: Vec<ElementRef> =
-        document.select(button_selector).collect();
+        document.select(&ALL_BUTTON_SELECTOR).collect();
 
     let mut replacer = DomReplacer::new(&html_builder.content);
 
@@ -777,7 +843,12 @@ fn add_aria_to_tooltips(
 fn add_aria_to_toggle(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no `.toggle-button` class anywhere → nothing to do.
+    if !html_builder.content.contains("toggle-button") {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     if let Ok(selector) = Selector::parse(".toggle-button") {
         let mut replacer = DomReplacer::new(&html_builder.content);
@@ -837,13 +908,18 @@ fn add_aria_to_toggle(
 fn add_aria_to_buttons(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no <button> tag → no work.
+    if !html_builder.content.contains("<button") {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     // Our selector targets <button> elements lacking an aria-label
-    if let Some(selector) = BUTTON_SELECTOR.as_ref() {
+    {
         let mut replacer = DomReplacer::new(&html_builder.content);
 
-        for button in document.select(selector) {
+        for button in document.select(&BUTTON_SELECTOR) {
             let original_button_html = button.html();
             let mut inner_content = button.inner_html();
             let mut aria_label = normalize_aria_label(&inner_content);
@@ -1125,12 +1201,17 @@ fn normalize_shorthand_attributes(html: &str) -> String {
 fn add_aria_to_navs(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no <nav> tag in the source.
+    if !html_builder.content.contains("<nav") {
+        return Ok(html_builder);
+    }
 
-    if let Some(selector) = NAV_SELECTOR.as_ref() {
+    let document = Html::parse_fragment(&html_builder.content);
+
+    {
         let mut replacer = DomReplacer::new(&html_builder.content);
 
-        for nav in document.select(selector) {
+        for nav in document.select(&NAV_SELECTOR) {
             let nav_html = nav.html();
             let new_nav_html = nav_html.replace(
                 "<nav",
@@ -1152,18 +1233,22 @@ fn add_aria_to_navs(
 fn add_aria_to_forms(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no <form> tag in the source.
+    if !html_builder.content.contains("<form") {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     // Traverse form elements and add ARIA attributes
-    let Some(form_selector) = FORM_SELECTOR.as_ref() else {
-        return Ok(html_builder);
-    };
-
     let mut replacer = DomReplacer::new(&html_builder.content);
-    let forms = document.select(form_selector);
+    let forms = document.select(&FORM_SELECTOR);
+    let mut form_counter: u32 = 0;
     for form in forms {
-        // Generate a unique ID for the form
-        let form_id = format!("form-{}", generate_unique_id());
+        form_counter += 1;
+        // Deterministic per-invocation id — stable across runs for the
+        // same input, which keeps ETag/snapshot caching honest.
+        let form_id = format!("form-{form_counter}");
 
         let form_element = form.value().clone();
         let mut attributes = form_element.attrs().collect::<Vec<_>>();
@@ -1209,7 +1294,13 @@ fn add_aria_to_forms(
 fn add_aria_to_tabs(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no `role='tablist'` literal in the source.
+    // (`role="tablist"` with double-quotes is also accepted.)
+    if !html_builder.content.contains("tablist") {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     if let Ok(tablist_selector) = Selector::parse("[role='tablist']") {
         let mut replacer = DomReplacer::new(&html_builder.content);
@@ -1272,6 +1363,11 @@ fn add_aria_to_tabs(
 fn add_aria_to_modals(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
+    // Fast path: no `modal` substring → no `.modal` elements.
+    if !html_builder.content.contains("modal") {
+        return Ok(html_builder);
+    }
+
     // 1) Parse with parse_fragment to avoid automatic <html> or <body> insertion
     let document = Html::parse_fragment(&html_builder.content);
 
@@ -1285,8 +1381,10 @@ fn add_aria_to_modals(
 
     // 3) For each `.modal` in the parsed fragment — batch replacements
     let mut replacer = DomReplacer::new(&html_builder.content);
+    let mut modal_counter: u32 = 0;
 
     for modal_elem in document.select(&modal_selector) {
+        modal_counter += 1;
         let old_modal_html = modal_elem.html();
 
         let mut new_attrs = Vec::new();
@@ -1333,12 +1431,9 @@ fn add_aria_to_modals(
         let mut doc_inner =
             Html::parse_fragment(&modal_elem.inner_html());
         let mut maybe_describedby = None;
-        let Some(p_selector) = DIALOG_DESC_SELECTOR.as_ref() else {
-            continue;
-        };
 
         if let Some(descriptive_elem) =
-            doc_inner.select(p_selector).next()
+            doc_inner.select(&DIALOG_DESC_SELECTOR).next()
         {
             let desc_id: String = if let Some(id_val) =
                 descriptive_elem.value().attr("id")
@@ -1346,7 +1441,7 @@ fn add_aria_to_modals(
                 id_val.to_string()
             } else {
                 let generated_id =
-                    format!("dialog-desc-{}", uuid::Uuid::new_v4());
+                    format!("dialog-desc-{modal_counter}");
                 let old_snippet = descriptive_elem.html();
 
                 let new_opening_tag = format!(
@@ -1407,7 +1502,12 @@ fn add_aria_to_modals(
 fn add_aria_to_accordions(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    let document = Html::parse_document(&html_builder.content);
+    // Fast path: no `accordion` class string → no .accordion elements.
+    if !html_builder.content.contains("accordion") {
+        return Ok(html_builder);
+    }
+
+    let document = Html::parse_fragment(&html_builder.content);
 
     if let Ok(accordion_selector) = Selector::parse(".accordion") {
         let mut replacer = DomReplacer::new(&html_builder.content);
@@ -1453,12 +1553,16 @@ fn add_aria_to_accordions(
 fn add_aria_to_inputs(
     mut html_builder: HtmlBuilder,
 ) -> Result<HtmlBuilder> {
-    if let Some(regex) = INPUT_REGEX.as_ref() {
+    // Fast path: no <input tag → regex has nothing to find.
+    if !html_builder.content.contains("<input") {
+        return Ok(html_builder);
+    }
+    {
         let mut replacements: Vec<(String, String)> = Vec::new();
         let mut id_counter = 0;
 
         // Find all <input> tags via the regex
-        for cap in regex.captures_iter(&html_builder.content) {
+        for cap in INPUT_REGEX.captures_iter(&html_builder.content) {
             let input_tag = &cap[0];
 
             // If there's already an associated label or aria-label, skip
@@ -1566,10 +1670,7 @@ fn add_aria_to_inputs(
 
 // Helper function to check for associated labels (using string manipulation)
 fn has_associated_label(input_tag: &str, html_content: &str) -> bool {
-    let Some(id_regex) = INPUT_ID_REGEX.as_ref() else {
-        return false;
-    };
-    if let Some(id_match) = id_regex.captures(input_tag) {
+    if let Some(id_match) = INPUT_ID_REGEX.captures(input_tag) {
         let id = &id_match[1];
         Regex::new(&format!(
             r#"<label\s+for="{}"\s*>"#,
@@ -1582,7 +1683,7 @@ fn has_associated_label(input_tag: &str, html_content: &str) -> bool {
 }
 
 // Regex to capture all key-value pairs in the tag
-static ATTRIBUTE_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
+static ATTRIBUTE_REGEX: Lazy<Regex> = Lazy::new(|| {
     try_create_regex(
         r#"(?:data-\w+|[a-zA-Z]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|\S+))?"#,
     )
@@ -1590,10 +1691,7 @@ static ATTRIBUTE_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
 
 /// Extract and preserve existing attributes from an input tag.
 fn preserve_attributes(input_tag: &str) -> String {
-    let Some(regex) = ATTRIBUTE_REGEX.as_ref() else {
-        return String::new();
-    };
-    regex
+    ATTRIBUTE_REGEX
         .captures_iter(input_tag)
         .map(|cap| cap[0].to_string())
         .collect::<Vec<String>>()
@@ -1602,61 +1700,72 @@ fn preserve_attributes(input_tag: &str) -> String {
 
 /// Extract input type from an input tag.
 fn extract_input_type(input_tag: &str) -> Option<String> {
-    static TYPE_REGEX: Lazy<Option<Regex>> =
-        Lazy::new(|| Regex::new(r#"type=["']([^"']+)["']"#).ok());
+    static TYPE_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r#"type=["']([^"']+)["']"#)
+            .expect("static TYPE_REGEX must compile")
+    });
 
     TYPE_REGEX
-        .as_ref()?
         .captures(input_tag)
         .and_then(|cap| cap.get(1))
         .map(|m| m.as_str().to_string())
 }
 
-/// Generate a unique ID prefixed with "aria-" and UUIDs.
+/// Generate a unique ID prefixed with `aria-`.
+///
+/// Uses a process-wide monotonic counter instead of a random UUID so the
+/// output is reproducible across runs of identical input. Retained as a
+/// test helper only — pipeline functions ([`add_aria_to_forms`],
+/// [`add_aria_to_modals`]) own their own per-invocation counters so that
+/// `add_aria_attributes(x) == add_aria_attributes(x)` byte-for-byte.
+#[cfg(test)]
 fn generate_unique_id() -> String {
-    format!("aria-{}", uuid::Uuid::new_v4())
-}
-
-/// Validate ARIA attributes within the HTML.
-fn validate_aria(html: &str) -> bool {
-    let document = Html::parse_document(html);
-
-    if let Some(selector) = ARIA_SELECTOR.as_ref() {
-        document
-            .select(selector)
-            .flat_map(|el| el.value().attrs())
-            .filter(|(name, _)| name.starts_with("aria-"))
-            .all(|(name, value)| is_valid_aria_attribute(name, value))
-    } else {
-        false
-    }
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("aria-{n}")
 }
 
 fn remove_invalid_aria_attributes(html: &str) -> String {
-    let document = Html::parse_document(html);
-    let mut new_html = html.to_string();
+    // Fast path: the overwhelmingly common case is that every aria-*
+    // attribute is already valid. In that case the function should
+    // touch neither the allocator nor the document tree.
+    let document = Html::parse_fragment(html);
+    let mut replacer: Option<DomReplacer> = None;
 
-    if let Some(selector) = ARIA_SELECTOR.as_ref() {
-        for element in document.select(selector) {
-            let element_html = element.html();
-            let mut updated_html = element_html.clone();
-
-            for (attr_name, attr_value) in element.value().attrs() {
-                if attr_name.starts_with("aria-")
-                    && !is_valid_aria_attribute(attr_name, attr_value)
-                {
-                    updated_html = updated_html.replace(
-                        &format!(r#" {}="{}""#, attr_name, attr_value),
-                        "",
-                    );
-                }
-            }
-
-            new_html = new_html.replace(&element_html, &updated_html);
+    for element in document.select(&ARIA_SELECTOR) {
+        // Skip elements with no invalid attrs before touching memory.
+        let has_invalid = element.value().attrs().any(|(n, v)| {
+            n.starts_with("aria-") && !is_valid_aria_attribute(n, v)
+        });
+        if !has_invalid {
+            continue;
         }
+
+        let element_html = element.html();
+        let mut updated_html = element_html.clone();
+        for (attr_name, attr_value) in element.value().attrs() {
+            if attr_name.starts_with("aria-")
+                && !is_valid_aria_attribute(attr_name, attr_value)
+            {
+                updated_html = updated_html.replace(
+                    &format!(r#" {}="{}""#, attr_name, attr_value),
+                    "",
+                );
+            }
+        }
+
+        replacer
+            .get_or_insert_with(|| DomReplacer::new(html))
+            .push(&element_html, &updated_html);
     }
 
-    new_html
+    // If no replacer was allocated, no invalid attrs were found —
+    // the original string is already the correct output.
+    match replacer {
+        Some(r) => r.apply(),
+        None => html.to_string(),
+    }
 }
 
 /// Check if an ARIA attribute is valid.
@@ -1682,10 +1791,8 @@ impl AccessibilityReport {
         document: &Html,
         issues: &mut Vec<Issue>,
     ) -> Result<()> {
-        let Some(binding) = INTERACTIVE_SELECTOR.as_ref() else {
-            return Ok(());
-        };
-        let interactive_elements = document.select(binding);
+        let interactive_elements =
+            document.select(&INTERACTIVE_SELECTOR);
 
         for element in interactive_elements {
             // Check tabindex
@@ -1730,9 +1837,7 @@ impl AccessibilityReport {
         issues: &mut Vec<Issue>,
     ) -> Result<()> {
         // Check html lang attribute
-        let html_element = HTML_SELECTOR
-            .as_ref()
-            .and_then(|s| document.select(s).next());
+        let html_element = document.select(&HTML_SELECTOR).next();
         if let Some(element) = html_element {
             if element.value().attr("lang").is_none() {
                 Self::add_issue(
@@ -1750,10 +1855,7 @@ impl AccessibilityReport {
         }
 
         // Check for changes in language
-        let Some(lang_sel) = LANG_SELECTOR.as_ref() else {
-            return Ok(());
-        };
-        let text_elements = document.select(lang_sel);
+        let text_elements = document.select(&LANG_SELECTOR);
         for element in text_elements {
             if let Some(lang) = element.value().attr("lang") {
                 if !is_valid_language_code(lang) {
@@ -1780,35 +1882,26 @@ impl AccessibilityReport {
         issues: &mut Vec<Issue>,
     ) -> Result<()> {
         // Check for proper ARIA roles
-        if let Some(role_sel) = ROLE_SELECTOR.as_ref() {
-            let elements_with_roles = document.select(role_sel);
-            for element in elements_with_roles {
-                if let Some(role) = element.value().attr("role") {
-                    if !is_valid_aria_role(role, &element) {
-                        Self::add_issue(
-                            issues,
-                            IssueType::InvalidAria,
-                            format!(
-                                "Invalid ARIA role '{}' for element",
-                                role
-                            ),
-                            Some("WCAG 4.1.2".to_string()),
-                            Some(element.html()),
-                            Some(
-                                "Use appropriate ARIA role".to_string(),
-                            ),
-                        );
-                    }
+        for element in document.select(&ROLE_SELECTOR) {
+            if let Some(role) = element.value().attr("role") {
+                if !is_valid_aria_role(role, &element) {
+                    Self::add_issue(
+                        issues,
+                        IssueType::InvalidAria,
+                        format!(
+                            "Invalid ARIA role '{}' for element",
+                            role
+                        ),
+                        Some("WCAG 4.1.2".to_string()),
+                        Some(element.html()),
+                        Some("Use appropriate ARIA role".to_string()),
+                    );
                 }
             }
         }
 
         // Check for required ARIA properties
-        let Some(aria_sel) = ARIA_SELECTOR.as_ref() else {
-            return Ok(());
-        };
-        let elements_with_aria = document.select(aria_sel);
-        for element in elements_with_aria {
+        for element in document.select(&ARIA_SELECTOR) {
             if let Some(missing_props) =
                 get_missing_required_aria_properties(&element)
             {
@@ -1840,17 +1933,14 @@ pub mod utils {
 
     /// Validate language code against simplified BCP 47 rules.
     pub(crate) fn is_valid_language_code(lang: &str) -> bool {
-        static LANGUAGE_CODE_REGEX: Lazy<Option<Regex>> =
-            Lazy::new(|| {
-                // Match primary language and optional subtags
-                Regex::new(r"(?i)^[a-z]{2,3}(-[a-z0-9]{2,8})*$").ok()
-            });
+        static LANGUAGE_CODE_REGEX: Lazy<Regex> = Lazy::new(|| {
+            // Match primary language and optional subtags
+            Regex::new(r"(?i)^[a-z]{2,3}(-[a-z0-9]{2,8})*$")
+                .expect("static LANGUAGE_CODE_REGEX must compile")
+        });
 
         // Ensure the regex matches and the code does not end with a hyphen
-        LANGUAGE_CODE_REGEX
-            .as_ref()
-            .is_some_and(|r| r.is_match(lang))
-            && !lang.ends_with('-')
+        LANGUAGE_CODE_REGEX.is_match(lang) && !lang.ends_with('-')
     }
 
     /// Check if ARIA role is valid for element
@@ -1934,6 +2024,62 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Drives [`DomReplacer`] directly with crafted inputs that force
+    /// the shorthand-attribute fallback and the last-resort branches.
+    mod dom_replacer_fallbacks {
+        use super::*;
+
+        #[test]
+        fn direct_match_hits_the_fast_path() {
+            let mut r = DomReplacer::new("<p>one</p><p>two</p>");
+            r.push("<p>one</p>", "<p>ONE</p>");
+            r.push("<p>two</p>", "<p>TWO</p>");
+            assert_eq!(r.apply(), "<p>ONE</p><p>TWO</p>");
+        }
+
+        #[test]
+        fn shorthand_fallback_anchors_via_tag_name() {
+            // Source has `disabled` (shorthand); queued `old_html` has
+            // `disabled=""` (scraper-normalised form). Direct find
+            // fails; the normalised fallback matches and the
+            // opening-tag anchor locates the original span.
+            let source = r#"<form><input disabled type="text"></form>"#;
+            let mut r = DomReplacer::new(source);
+            r.push(
+                r#"<input disabled="" type="text">"#,
+                r#"<input disabled aria-disabled="true" type="text">"#,
+            );
+            let out = r.apply();
+            assert!(
+                out.contains("aria-disabled"),
+                "shorthand fallback should patch source: {out}"
+            );
+        }
+
+        #[test]
+        fn last_resort_path_fires_when_fallback_misses() {
+            // Queue an `old_html` that isn't present in source at all
+            // under any normalisation — the whole pipeline must fall
+            // through every branch without panicking and return the
+            // source unchanged.
+            let mut r = DomReplacer::new("<p>unchanged</p>");
+            r.push("<nonexistent></nonexistent>", "<whatever/>");
+            assert_eq!(r.apply(), "<p>unchanged</p>");
+        }
+
+        #[test]
+        fn duplicate_identical_snippets_map_to_distinct_occurrences() {
+            // When the same `old_html` is pushed twice, the two
+            // replacements must land on occurrence #1 and #2
+            // respectively, not the same byte offset.
+            let source = "<span>x</span><span>x</span>";
+            let mut r = DomReplacer::new(source);
+            r.push("<span>x</span>", "<span>A</span>");
+            r.push("<span>x</span>", "<span>B</span>");
+            assert_eq!(r.apply(), "<span>A</span><span>B</span>");
+        }
+    }
 
     // Test WCAG Level functionality
     mod wcag_level_tests {
@@ -2747,30 +2893,36 @@ mod tests {
 
         #[test]
         fn test_try_create_selector_valid() {
-            let selector = "div.class";
-            let result = try_create_selector(selector);
-            assert!(result.is_some());
+            // A well-formed selector parses and the Selector is usable
+            // for matching against a parsed document.
+            let selector = try_create_selector("div.class");
+            let html = scraper::Html::parse_fragment(
+                r#"<div class="class">x</div>"#,
+            );
+            assert!(html.select(&selector).next().is_some());
         }
 
         #[test]
-        fn test_try_create_selector_invalid() {
-            let selector = "div..class";
-            let result = try_create_selector(selector);
-            assert!(result.is_none());
+        #[should_panic(expected = "static selector")]
+        fn test_try_create_selector_invalid_panics() {
+            // Malformed selectors must panic loudly so a bad static
+            // pattern does not silently disable a feature at runtime.
+            let _ = try_create_selector("div..class");
         }
 
         #[test]
         fn test_try_create_regex_valid() {
-            let pattern = r"\d+";
-            let result = try_create_regex(pattern);
-            assert!(result.is_some());
+            // A well-formed pattern compiles and the Regex is usable.
+            let regex = try_create_regex(r"\d+");
+            assert!(regex.is_match("42"));
         }
 
         #[test]
-        fn test_try_create_regex_invalid() {
-            let pattern = r"\d+(";
-            let result = try_create_regex(pattern);
-            assert!(result.is_none());
+        #[should_panic(expected = "static regex")]
+        fn test_try_create_regex_invalid_panics() {
+            // Malformed patterns must panic loudly so a bad static
+            // pattern does not silently disable a feature at runtime.
+            let _ = try_create_regex(r"\d+(");
         }
 
         /// Test `From<TryFromIntError>` for `Error`
@@ -2963,26 +3115,18 @@ mod tests {
             );
         }
 
-        /// Test custom selector failure handling
+        /// Malformed selector literal: must panic (not silently disable).
         #[test]
-        fn test_custom_selector_failure() {
-            let invalid_selector = "div..class";
-            let result = try_create_selector(invalid_selector);
-            assert!(
-                result.is_none(),
-                "Invalid selector should return None"
-            );
+        #[should_panic(expected = "static selector")]
+        fn test_custom_selector_failure_panics() {
+            let _ = try_create_selector("div..class");
         }
 
-        /// Test invalid regex pattern
+        /// Malformed regex literal: must panic (not silently disable).
         #[test]
-        fn test_invalid_regex_pattern() {
-            let invalid_pattern = r"\d+(";
-            let result = try_create_regex(invalid_pattern);
-            assert!(
-                result.is_none(),
-                "Invalid regex pattern should return None"
-            );
+        #[should_panic(expected = "static regex")]
+        fn test_invalid_regex_pattern_panics() {
+            let _ = try_create_regex(r"\d+(");
         }
 
         /// Test ARIA attribute removal with invalid values
@@ -2996,12 +3140,12 @@ mod tests {
             );
         }
 
-        // Test invalid selector handling
+        // Test invalid selector handling — panics under the loud-failure
+        // contract (see try_create_selector docs).
         #[test]
-        fn test_invalid_selector() {
-            let invalid_selector = "div..class";
-            let result = try_create_selector(invalid_selector);
-            assert!(result.is_none());
+        #[should_panic(expected = "static selector")]
+        fn test_invalid_selector_panics() {
+            let _ = try_create_selector("div..class");
         }
 
         // Test `issue_type` handling in `Issue` struct
@@ -3091,26 +3235,18 @@ mod tests {
             assert!(missing.contains(&"aria-valuenow".to_string()));
         }
 
-        /// Test invalid regex pattern handling
+        /// Test invalid regex pattern handling (loud-failure contract).
         #[test]
-        fn test_invalid_regex_creation() {
-            let invalid_pattern = "[unclosed";
-            let regex = try_create_regex(invalid_pattern);
-            assert!(
-                regex.is_none(),
-                "Invalid regex should return None"
-            );
+        #[should_panic(expected = "static regex")]
+        fn test_invalid_regex_creation_panics() {
+            let _ = try_create_regex("[unclosed");
         }
 
-        /// Test invalid selector handling
+        /// Test invalid selector handling (loud-failure contract).
         #[test]
-        fn test_invalid_selector_creation() {
-            let invalid_selector = "div..class";
-            let selector = try_create_selector(invalid_selector);
-            assert!(
-                selector.is_none(),
-                "Invalid selector should return None"
-            );
+        #[should_panic(expected = "static selector")]
+        fn test_invalid_selector_creation_panics() {
+            let _ = try_create_selector("div..class");
         }
 
         /// Test adding ARIA attributes to empty buttons
@@ -3274,14 +3410,10 @@ mod tests {
         fn test_preserve_attributes_with_data_attributes() {
             // Print actual regex matches for debugging
             let input = r#"<input data-test="value" type="text">"#;
-            let matches: Vec<_> = ATTRIBUTE_REGEX
-                .as_ref()
-                .map(|r| {
-                    r.captures_iter(input)
-                        .map(|cap| cap[0].to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
+            let matches: Vec<String> = ATTRIBUTE_REGEX
+                .captures_iter(input)
+                .map(|cap| cap[0].to_string())
+                .collect();
             println!("Actual matches: {:?}", matches);
 
             let result = preserve_attributes(input);

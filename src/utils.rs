@@ -14,19 +14,20 @@ use scraper::ElementRef;
 use serde_json::Value;
 use std::collections::HashMap;
 
-static FRONT_MATTER_REGEX: Lazy<Option<Regex>> =
-    Lazy::new(|| Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n").ok());
-
-static TOML_FRONT_MATTER_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
-    Regex::new(r"(?ms)^\+\+\+\s*\n(.*?)\n\+\+\+\s*\n").ok()
+static FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?ms)^---\s*\n(.*?)\n---\s*\n")
+        .expect("static FRONT_MATTER_REGEX must compile")
 });
 
-static HEADER_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
-    Regex::new(r"<(h[1-6])(?:\s[^>]*)?>(.+?)</h[1-6]>").ok()
+static TOML_FRONT_MATTER_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?ms)^\+\+\+\s*\n(.*?)\n\+\+\+\s*\n")
+        .expect("static TOML_FRONT_MATTER_REGEX must compile")
 });
 
-static CONSECUTIVE_HYPHENS_REGEX: Lazy<Option<Regex>> =
-    Lazy::new(|| Regex::new(r"-{2,}").ok());
+static HEADER_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<(h[1-6])(?:\s[^>]*)?>(.+?)</h[1-6]>")
+        .expect("static HEADER_REGEX must compile")
+});
 
 /// Maximum allowed input size (in bytes) to prevent DOS attacks
 const MAX_INPUT_SIZE: usize = 1_000_000; // 1 MB
@@ -65,17 +66,12 @@ pub fn extract_front_matter(content: &str) -> Result<String> {
     }
 
     if content.starts_with("---") {
-        if let Some(captures) = FRONT_MATTER_REGEX
-            .as_ref()
-            .and_then(|r| r.captures(content))
-        {
+        if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
+            // Group 1 is the mandatory `(.*?)` — if `captures`
+            // matched, the group is always present.
             let front_matter = captures
                 .get(1)
-                .ok_or_else(|| {
-                    HtmlError::InvalidFrontMatterFormat(
-                        "Missing front matter match".to_string(),
-                    )
-                })?
+                .expect("front-matter regex group 1 is mandatory")
                 .as_str();
 
             for line in front_matter.lines() {
@@ -150,17 +146,10 @@ pub fn extract_front_matter_data(
 
     // YAML front matter (---)
     if content.starts_with("---") {
-        if let Some(captures) = FRONT_MATTER_REGEX
-            .as_ref()
-            .and_then(|r| r.captures(content))
-        {
+        if let Some(captures) = FRONT_MATTER_REGEX.captures(content) {
             let raw = captures
                 .get(1)
-                .ok_or_else(|| {
-                    HtmlError::InvalidFrontMatterFormat(
-                        "Missing front matter match".to_string(),
-                    )
-                })?
+                .expect("front-matter regex group 1 is mandatory")
                 .as_str();
 
             let map = parse_yaml_to_map(raw)?;
@@ -178,17 +167,12 @@ pub fn extract_front_matter_data(
 
     // TOML front matter (+++)
     if content.starts_with("+++") {
-        if let Some(captures) = TOML_FRONT_MATTER_REGEX
-            .as_ref()
-            .and_then(|r| r.captures(content))
+        if let Some(captures) =
+            TOML_FRONT_MATTER_REGEX.captures(content)
         {
             let raw = captures
                 .get(1)
-                .ok_or_else(|| {
-                    HtmlError::InvalidFrontMatterFormat(
-                        "Missing front matter match".to_string(),
-                    )
-                })?
+                .expect("TOML front-matter regex group 1 is mandatory")
                 .as_str();
 
             let map = parse_toml_to_map(raw)?;
@@ -259,10 +243,13 @@ fn parse_toml_to_map(
                 "Failed to convert TOML to JSON: {e}"
             ))
         })?;
+    // `toml::from_str::<toml::Value>` only succeeds on a table
+    // document, so the round-trip through serde_json yields an
+    // `Object` every time.
     match json_value {
         Value::Object(map) => Ok(map),
         _ => Err(HtmlError::InvalidFrontMatterFormat(
-            "TOML front matter must be a table".to_string(),
+            "TOML document must parse as a table".to_string(),
         )),
     }
 }
@@ -327,31 +314,22 @@ pub fn format_header_with_id_class(
     id_generator: Option<fn(&str) -> String>,
     class_generator: Option<fn(&str) -> String>,
 ) -> Result<String> {
-    let captures = HEADER_REGEX
-        .as_ref()
-        .and_then(|r| r.captures(header))
-        .ok_or_else(|| {
-            HtmlError::InvalidHeaderFormat(
-                "Invalid header format".to_string(),
-            )
-        })?;
+    let captures = HEADER_REGEX.captures(header).ok_or_else(|| {
+        HtmlError::InvalidHeaderFormat(
+            "Invalid header format".to_string(),
+        )
+    })?;
 
+    // Groups 1 and 2 are both mandatory (`(h[1-6])` and `(.+?)`); if
+    // `captures` returned Some, they are always present.
     let tag = captures
         .get(1)
-        .ok_or_else(|| {
-            HtmlError::InvalidHeaderFormat(
-                "Missing header tag".to_string(),
-            )
-        })?
+        .expect("header regex group 1 is mandatory")
         .as_str();
 
     let text_content = captures
         .get(2)
-        .ok_or_else(|| {
-            HtmlError::InvalidHeaderFormat(
-                "Missing header content".to_string(),
-            )
-        })?
+        .expect("header regex group 2 is mandatory")
         .as_str();
 
     let id = id_generator.map_or_else(
@@ -399,9 +377,7 @@ pub fn generate_table_of_contents(html: &str) -> Result<String> {
     let mut toc = String::new();
     toc.push_str("<ul>");
 
-    let header_regex_iter =
-        HEADER_REGEX.as_ref().map(|r| r.captures_iter(html));
-    for captures in header_regex_iter.into_iter().flatten() {
+    for captures in HEADER_REGEX.captures_iter(html) {
         if let Some(tag) = captures.get(1) {
             let content = captures.get(2).map_or("", |m| m.as_str());
             let id = generate_id(content);
@@ -468,24 +444,27 @@ pub fn is_valid_language_code(lang: &str) -> bool {
     parts[0].chars().all(|c| c.is_ascii_lowercase())
 }
 
-/// Generates an ID from the given content.
+/// Generates a slug-like ID from the given content.
 ///
-/// # Arguments
-///
-/// * `content` - The content to generate the ID from.
-///
-/// # Returns
-///
-/// * `String` - The generated ID.
+/// Walks the input once: alphanumerics pass through as lowercase, any
+/// other character becomes a single `-` (duplicates collapsed), and
+/// trailing/leading dashes are trimmed. Allocates exactly one `String`.
 fn generate_id(content: &str) -> String {
-    let lowered = content
-        .to_lowercase()
-        .replace(|c: char| !c.is_alphanumeric(), "-");
-    let collapsed = CONSECUTIVE_HYPHENS_REGEX.as_ref().map_or_else(
-        || lowered.clone(),
-        |r| r.replace_all(&lowered, "-").to_string(),
-    );
-    collapsed.trim_matches('-').to_string()
+    let mut out = String::with_capacity(content.len());
+    let mut last_dash = true;
+    for ch in content.chars().flat_map(char::to_lowercase) {
+        if ch.is_alphanumeric() {
+            out.push(ch);
+            last_dash = false;
+        } else if !last_dash {
+            out.push('-');
+            last_dash = true;
+        }
+    }
+    while out.ends_with('-') {
+        let _ = out.pop();
+    }
+    out
 }
 
 #[cfg(test)]
@@ -501,31 +480,17 @@ mod tests {
         fn test_valid_front_matter() {
             let content = "---\ntitle: My Page\n---\n# Hello, world!\n\nThis is a test.";
             let result = extract_front_matter(content);
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
-            );
-            if let Ok(extracted) = result {
-                assert_eq!(
-                    extracted,
-                    "# Hello, world!\n\nThis is a test."
-                );
-            }
+            let extracted = result.expect("valid front matter");
+            assert_eq!(extracted, "# Hello, world!\n\nThis is a test.");
         }
 
         #[test]
         fn test_no_front_matter() {
             let content = "# Hello, world!\n\nThis is a test without front matter.";
             let result = extract_front_matter(content);
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
-            );
-            if let Ok(extracted) = result {
-                assert_eq!(extracted, content);
-            }
+            let extracted =
+                result.expect("valid no-front-matter input");
+            assert_eq!(extracted, content);
         }
 
         #[test]
@@ -579,14 +544,8 @@ mod tests {
             let header = "<h2>Hello, World!</h2>";
             let result =
                 format_header_with_id_class(header, None, None);
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
-            );
-            if let Ok(formatted) = result {
-                assert_eq!(formatted, "<h2 id=\"hello-world\" class=\"hello-world\">Hello, World!</h2>");
-            }
+            let formatted = result.expect("valid header");
+            assert_eq!(formatted, "<h2 id=\"hello-world\" class=\"hello-world\">Hello, World!</h2>");
         }
 
         #[test]
@@ -606,14 +565,9 @@ mod tests {
                 Some(id_gen),
                 Some(class_gen),
             );
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
-            );
-            if let Ok(formatted) = result {
-                assert_eq!(formatted, "<h3 id=\"custom-test-header\" class=\"custom-class\">Test Header</h3>");
-            }
+            let formatted =
+                result.expect("valid header with custom generators");
+            assert_eq!(formatted, "<h3 id=\"custom-test-header\" class=\"custom-class\">Test Header</h3>");
         }
 
         #[test]
@@ -668,31 +622,20 @@ mod tests {
         fn test_valid_html_with_headers() {
             let html = "<h1>Title</h1><h2>Subtitle</h2>";
             let result = generate_table_of_contents(html);
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
+            let toc = result.expect("valid headers produce a TOC");
+            assert_eq!(
+                toc,
+                r#"<ul><li class="toc-h1"><a href="\#title">Title</a></li><li class="toc-h2"><a href="\#subtitle">Subtitle</a></li></ul>"#
             );
-            if let Ok(toc) = result {
-                assert_eq!(
-                    toc,
-                    r#"<ul><li class="toc-h1"><a href="\#title">Title</a></li><li class="toc-h2"><a href="\#subtitle">Subtitle</a></li></ul>"#
-                );
-            }
         }
 
         #[test]
         fn test_html_without_headers() {
             let html = "<p>No headers here.</p>";
             let result = generate_table_of_contents(html);
-            assert!(
-                result.is_ok(),
-                "Expected Ok, got Err: {:?}",
-                result
-            );
-            if let Ok(toc) = result {
-                assert_eq!(toc, "<ul></ul>");
-            }
+            let toc =
+                result.expect("no headers still yields an empty TOC");
+            assert_eq!(toc, "<ul></ul>");
         }
 
         #[test]

@@ -20,8 +20,24 @@ use log::warn;
 use mdx_gen::{process_markdown, MarkdownOptions, Options};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
+
+/// Pre-built comrak [`Options`] with every extension this crate uses
+/// enabled. Cloned per call and mutated for `render.r#unsafe`, which
+/// is the only extension-layer bit that varies at runtime. Cheap
+/// shallow clone; avoids reconstructing the full option tree on each
+/// `generate_html` invocation.
+static BASE_COMRAK_OPTIONS: Lazy<Options<'static>> = Lazy::new(|| {
+    let mut opts = Options::default();
+    opts.extension.strikethrough = true;
+    opts.extension.table = true;
+    opts.extension.autolink = true;
+    opts.extension.tasklist = true;
+    opts.extension.superscript = true;
+    opts
+});
 
 /// Severity level for a processing diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,12 +79,15 @@ pub struct HtmlOutput {
 }
 
 /// Regex matching triple-colon custom class blocks.
-static CUSTOM_CLASS_REGEX: Lazy<Option<Regex>> =
-    Lazy::new(|| Regex::new(r":::(\w+)\n([\s\S]*?)\n:::").ok());
+static CUSTOM_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r":::(\w+)\n([\s\S]*?)\n:::")
+        .expect("static CUSTOM_CLASS_REGEX must compile")
+});
 
 /// Regex matching image-with-class syntax: `![alt](url).class="cls"`.
-static IMAGE_CLASS_REGEX: Lazy<Option<Regex>> = Lazy::new(|| {
-    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#).ok()
+static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#)
+        .expect("static IMAGE_CLASS_REGEX must compile")
 });
 
 /// Generate HTML from Markdown content using `mdx-gen`.
@@ -275,13 +294,19 @@ fn wrap_full_document(
     )
 }
 
+/// Selector for the first heading; the source content is a compile-time
+/// constant, so parsing is infallible at runtime.
+static H1_SELECTOR: Lazy<scraper::Selector> = Lazy::new(|| {
+    scraper::Selector::parse("h1")
+        .expect("static H1_SELECTOR must parse")
+});
+
 /// Extracts text content from the first `<h1>` in a pre-parsed DOM.
 fn extract_first_heading_from_doc(
     document: &scraper::Html,
 ) -> Option<String> {
-    let selector = scraper::Selector::parse("h1").ok()?;
     document
-        .select(&selector)
+        .select(&H1_SELECTOR)
         .next()
         .map(|el| el.text().collect::<String>())
 }
@@ -301,26 +326,21 @@ fn markdown_to_html_impl(
     let content_without_front_matter = extract_front_matter(markdown)
         .unwrap_or_else(|_| markdown.to_string());
 
-    // 2) Convert triple-colon blocks, re-parsing inline Markdown inside them
+    // 2) Convert triple-colon blocks (no-alloc when no `:::` match).
     let markdown_with_classes = add_custom_classes(
         &content_without_front_matter,
         config.allow_unsafe_html,
     );
 
-    // 3) Convert images with `.class="..."`
+    // 3) Convert images with `.class="..."` (no-alloc when no match).
     let markdown_with_images =
         process_images_with_classes(&markdown_with_classes);
 
-    // 4) Configure Comrak/Markdown Options
-    let mut comrak_options = Options::default();
-    comrak_options.extension.strikethrough = true;
-    comrak_options.extension.table = true;
-    comrak_options.extension.autolink = true;
-    comrak_options.extension.tasklist = true;
-    comrak_options.extension.superscript = true;
+    // 4) Clone the cached Options tree and set the two runtime-varying
+    //    bits (unsafe HTML + syntax highlighting/theme).
+    let mut comrak_options = BASE_COMRAK_OPTIONS.clone();
     comrak_options.render.r#unsafe = config.allow_unsafe_html;
 
-    // 5) Wire syntax highlighting settings into mdx-gen
     let mut md_options = MarkdownOptions::default()
         .with_comrak_options(comrak_options)
         .with_syntax_highlighting(config.enable_syntax_highlighting);
@@ -329,13 +349,10 @@ fn markdown_to_html_impl(
         md_options = md_options.with_custom_theme(theme.clone());
     }
 
-    // 6) Convert final Markdown to HTML
-    match process_markdown(&markdown_with_images, &md_options) {
-        Ok(html_output) => Ok(html_output),
-        Err(err) => {
-            Err(HtmlError::markdown_conversion(err.to_string(), None))
-        }
-    }
+    // 5) Convert final Markdown to HTML
+    process_markdown(&markdown_with_images, &md_options).map_err(
+        |err| HtmlError::markdown_conversion(err.to_string(), None),
+    )
 }
 
 /// Re-parse inline Markdown for triple-colon blocks, e.g.:
@@ -356,12 +373,13 @@ fn markdown_to_html_impl(
 fn add_custom_classes(
     markdown: &str,
     allow_unsafe_html: bool,
-) -> String {
-    let Some(regex) = CUSTOM_CLASS_REGEX.as_ref() else {
-        return markdown.to_string();
-    };
-    regex
-        .replace_all(markdown, |caps: &regex::Captures| {
+) -> Cow<'_, str> {
+    // `regex::Regex::replace_all` returns `Cow::Borrowed(markdown)`
+    // when there are zero matches — avoiding the allocation
+    // entirely for the common case of a document without `:::` blocks.
+    CUSTOM_CLASS_REGEX.replace_all(
+        markdown,
+        |caps: &regex::Captures| {
             let class_name = &caps[1];
             let block_content = &caps[2];
 
@@ -378,8 +396,8 @@ fn add_custom_classes(
                 "<div class=\"{}\">{}</div>",
                 class_name, inline_html
             )
-        })
-        .to_string()
+        },
+    )
 }
 
 /// Processes inline Markdown (bold, italics, links, etc.) without block-level syntax.
@@ -393,38 +411,29 @@ fn process_markdown_inline_impl(
     content: &str,
     allow_unsafe_html: bool,
 ) -> std::result::Result<String, Box<dyn Error>> {
-    let mut comrak_opts = Options::default();
-
-    comrak_opts.extension.strikethrough = true;
-    comrak_opts.extension.table = true;
-    comrak_opts.extension.autolink = true;
-    comrak_opts.extension.tasklist = true;
-    comrak_opts.extension.superscript = true;
-
+    // Inline rendering shares the same extension tree as the outer
+    // pipeline; clone from the cached base rather than rebuilding.
+    let mut comrak_opts = BASE_COMRAK_OPTIONS.clone();
     comrak_opts.render.r#unsafe = allow_unsafe_html;
 
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_opts);
-    let inline_html = process_markdown(content, &options)?;
-    Ok(inline_html)
+    Ok(process_markdown(content, &options)?)
 }
 
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
-fn process_images_with_classes(markdown: &str) -> String {
-    let Some(regex) = IMAGE_CLASS_REGEX.as_ref() else {
-        return markdown.to_string();
-    };
-    regex
-        .replace_all(markdown, |caps: &regex::Captures| {
-            format!(
-                r#"<img src="{}" alt="{}" class="{}" />"#,
-                escape_html(&caps[2]), // URL
-                escape_html(&caps[1]), // alt text
-                escape_html(&caps[3]), // class attribute
-            )
-        })
-        .to_string()
+fn process_images_with_classes(markdown: &str) -> Cow<'_, str> {
+    // Borrowed-Cow when the document has no `![alt](url).class="x"`
+    // construct — i.e. every typical document.
+    IMAGE_CLASS_REGEX.replace_all(markdown, |caps: &regex::Captures| {
+        format!(
+            r#"<img src="{}" alt="{}" class="{}" />"#,
+            escape_html(&caps[2]), // URL
+            escape_html(&caps[1]), // alt text
+            escape_html(&caps[3]), // class attribute
+        )
+    })
 }
 
 #[cfg(test)]
