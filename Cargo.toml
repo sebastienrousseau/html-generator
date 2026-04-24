@@ -71,7 +71,7 @@ cfg = "0.9.0"
 comrak = { version = "0.50", features = ["syntect"] }
 lazy_static = "1.5.0"
 log = "0.4.29"
-mdx-gen = "0.0.2"
+mdx-gen = "0.0.4"
 minify-html = "0.18"
 once_cell = "1.21.4"
 regex = "1.12.3"
