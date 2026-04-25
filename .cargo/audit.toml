@@ -1,4 +1,21 @@
-# Advisories to ignore in cargo audit
-# Both are transitive deps of syntect (via comrak/mdx-gen) — no direct replacement available
+# Advisories to ignore in cargo audit.
+#
+# RUSTSEC-2025-0141, RUSTSEC-2024-0320:
+#   Transitive deps of syntect (via comrak/mdx-gen) — no direct
+#   replacement available.
+#
+# RUSTSEC-2025-0068:
+#   Targets the upstream `serde_yml@0.0.12` crate, which is unsound
+#   because it links the unsafe `libyml` C library. We do NOT depend
+#   on the upstream crate — `crates/serde_yml/` is a hand-vetted,
+#   `#![forbid(unsafe_code)]`, pure-Rust rewrite that happens to share
+#   the name and version for API parity. cargo-audit cannot
+#   distinguish them by source path; the ignore here is the
+#   advisory-database's documented mechanism for that case. See the
+#   rationale in `crates/serde_yml/src/lib.rs`.
 [advisories]
-ignore = ["RUSTSEC-2025-0141", "RUSTSEC-2024-0320"]
+ignore = [
+    "RUSTSEC-2025-0141",
+    "RUSTSEC-2024-0320",
+    "RUSTSEC-2025-0068",
+]

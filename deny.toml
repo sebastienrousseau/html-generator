@@ -17,7 +17,19 @@ skip = []
 skip-tree = []
 
 [advisories]
-# List of advisory IDs to ignore
-# bincode 1.x is unmaintained — transitive dep of syntect (via comrak/mdx-gen), no direct replacement available
-# yaml-rust is unmaintained — transitive dep of syntect (via comrak/mdx-gen), no direct replacement available
-ignore = ["RUSTSEC-2025-0141", "RUSTSEC-2024-0320"]
+# List of advisory IDs to ignore.
+#
+# RUSTSEC-2025-0141 (bincode 1.x): unmaintained — transitive dep of
+#   syntect (via comrak/mdx-gen), no direct replacement available.
+# RUSTSEC-2024-0320 (yaml-rust):  unmaintained — transitive dep of
+#   syntect (via comrak/mdx-gen), no direct replacement available.
+# RUSTSEC-2025-0068 (serde_yml@0.0.12 unsound): targets the upstream
+#   crate, which links unsafe libyml. We do NOT depend on the upstream
+#   crate — `crates/serde_yml/` is a hand-vetted, forbid(unsafe_code)
+#   pure-Rust rewrite carrying the same name+version for API parity.
+#   See `crates/serde_yml/src/lib.rs` for the vendor rationale.
+ignore = [
+    "RUSTSEC-2025-0141",
+    "RUSTSEC-2024-0320",
+    "RUSTSEC-2025-0068",
+]
