@@ -95,9 +95,9 @@ impl Clone for Error {
             ErrorImpl::Message(msg) => {
                 Error(Box::new(ErrorImpl::Message(msg.clone())))
             }
-            ErrorImpl::Io(err) => Error(Box::new(
-                ErrorImpl::Message(err.to_string()),
-            )),
+            ErrorImpl::Io(err) => {
+                Error(Box::new(ErrorImpl::Message(err.to_string())))
+            }
         }
     }
 }

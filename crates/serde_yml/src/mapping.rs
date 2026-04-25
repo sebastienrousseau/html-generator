@@ -50,11 +50,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn insert(
-        &mut self,
-        k: Value,
-        v: Value,
-    ) -> Option<Value> {
+    pub fn insert(&mut self, k: Value, v: Value) -> Option<Value> {
         self.map.insert(k, v)
     }
 
@@ -89,10 +85,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn remove<I: Index>(
-        &mut self,
-        index: I,
-    ) -> Option<Value> {
+    pub fn remove<I: Index>(&mut self, index: I) -> Option<Value> {
         self.swap_remove(index)
     }
 
@@ -105,10 +98,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn swap_remove<I: Index>(
-        &mut self,
-        index: I,
-    ) -> Option<Value> {
+    pub fn swap_remove<I: Index>(&mut self, index: I) -> Option<Value> {
         index.swap_remove_from(self)
     }
 
@@ -221,30 +211,21 @@ pub trait Index: private::Sealed {
     #[doc(hidden)]
     fn is_key_into(&self, v: &Mapping) -> bool;
     #[doc(hidden)]
-    fn index_into<'a>(
-        &self,
-        v: &'a Mapping,
-    ) -> Option<&'a Value>;
+    fn index_into<'a>(&self, v: &'a Mapping) -> Option<&'a Value>;
     #[doc(hidden)]
     fn index_into_mut<'a>(
         &self,
         v: &'a mut Mapping,
     ) -> Option<&'a mut Value>;
     #[doc(hidden)]
-    fn swap_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value>;
+    fn swap_remove_from(&self, v: &mut Mapping) -> Option<Value>;
     #[doc(hidden)]
     fn swap_remove_entry_from(
         &self,
         v: &mut Mapping,
     ) -> Option<(Value, Value)>;
     #[doc(hidden)]
-    fn shift_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value>;
+    fn shift_remove_from(&self, v: &mut Mapping) -> Option<Value>;
     #[doc(hidden)]
     fn shift_remove_entry_from(
         &self,
@@ -276,10 +257,7 @@ impl Index for Value {
     fn is_key_into(&self, v: &Mapping) -> bool {
         v.map.contains_key(self)
     }
-    fn index_into<'a>(
-        &self,
-        v: &'a Mapping,
-    ) -> Option<&'a Value> {
+    fn index_into<'a>(&self, v: &'a Mapping) -> Option<&'a Value> {
         v.map.get(self)
     }
     fn index_into_mut<'a>(
@@ -288,10 +266,7 @@ impl Index for Value {
     ) -> Option<&'a mut Value> {
         v.map.get_mut(self)
     }
-    fn swap_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn swap_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         v.map.swap_remove(self)
     }
     fn swap_remove_entry_from(
@@ -300,10 +275,7 @@ impl Index for Value {
     ) -> Option<(Value, Value)> {
         v.map.swap_remove_entry(self)
     }
-    fn shift_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn shift_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         v.map.shift_remove(self)
     }
     fn shift_remove_entry_from(
@@ -319,10 +291,7 @@ impl Index for str {
     fn is_key_into(&self, v: &Mapping) -> bool {
         v.map.contains_key(&HashLikeValue(self))
     }
-    fn index_into<'a>(
-        &self,
-        v: &'a Mapping,
-    ) -> Option<&'a Value> {
+    fn index_into<'a>(&self, v: &'a Mapping) -> Option<&'a Value> {
         v.map.get(&HashLikeValue(self))
     }
     fn index_into_mut<'a>(
@@ -331,10 +300,7 @@ impl Index for str {
     ) -> Option<&'a mut Value> {
         v.map.get_mut(&HashLikeValue(self))
     }
-    fn swap_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn swap_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         v.map.swap_remove(&HashLikeValue(self))
     }
     fn swap_remove_entry_from(
@@ -343,10 +309,7 @@ impl Index for str {
     ) -> Option<(Value, Value)> {
         v.map.swap_remove_entry(&HashLikeValue(self))
     }
-    fn shift_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn shift_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         v.map.shift_remove(&HashLikeValue(self))
     }
     fn shift_remove_entry_from(
@@ -362,10 +325,7 @@ impl Index for String {
     fn is_key_into(&self, v: &Mapping) -> bool {
         self.as_str().is_key_into(v)
     }
-    fn index_into<'a>(
-        &self,
-        v: &'a Mapping,
-    ) -> Option<&'a Value> {
+    fn index_into<'a>(&self, v: &'a Mapping) -> Option<&'a Value> {
         self.as_str().index_into(v)
     }
     fn index_into_mut<'a>(
@@ -374,10 +334,7 @@ impl Index for String {
     ) -> Option<&'a mut Value> {
         self.as_str().index_into_mut(v)
     }
-    fn swap_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn swap_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         self.as_str().swap_remove_from(v)
     }
     fn swap_remove_entry_from(
@@ -386,10 +343,7 @@ impl Index for String {
     ) -> Option<(Value, Value)> {
         self.as_str().swap_remove_entry_from(v)
     }
-    fn shift_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn shift_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         self.as_str().shift_remove_from(v)
     }
     fn shift_remove_entry_from(
@@ -408,10 +362,7 @@ where
     fn is_key_into(&self, v: &Mapping) -> bool {
         (**self).is_key_into(v)
     }
-    fn index_into<'a>(
-        &self,
-        v: &'a Mapping,
-    ) -> Option<&'a Value> {
+    fn index_into<'a>(&self, v: &'a Mapping) -> Option<&'a Value> {
         (**self).index_into(v)
     }
     fn index_into_mut<'a>(
@@ -420,10 +371,7 @@ where
     ) -> Option<&'a mut Value> {
         (**self).index_into_mut(v)
     }
-    fn swap_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn swap_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         (**self).swap_remove_from(v)
     }
     fn swap_remove_entry_from(
@@ -432,10 +380,7 @@ where
     ) -> Option<(Value, Value)> {
         (**self).swap_remove_entry_from(v)
     }
-    fn shift_remove_from(
-        &self,
-        v: &mut Mapping,
-    ) -> Option<Value> {
+    fn shift_remove_from(&self, v: &mut Mapping) -> Option<Value> {
         (**self).shift_remove_from(v)
     }
     fn shift_remove_entry_from(
@@ -463,10 +408,7 @@ impl Hash for Mapping {
 }
 
 impl PartialOrd for Mapping {
-    fn partial_cmp(
-        &self,
-        other: &Self,
-    ) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut self_entries = Vec::from_iter(self);
         let mut other_entries = Vec::from_iter(other);
         let total_cmp_fn =
@@ -637,8 +579,7 @@ pub enum Entry<'a> {
 
 #[derive(Debug)]
 pub struct OccupiedEntry<'a> {
-    occupied:
-        indexmap::map::OccupiedEntry<'a, Value, Value>,
+    occupied: indexmap::map::OccupiedEntry<'a, Value, Value>,
 }
 
 #[derive(Debug)]
@@ -661,10 +602,7 @@ impl<'a> Entry<'a> {
         }
     }
 
-    pub fn or_insert_with<F>(
-        self,
-        default: F,
-    ) -> &'a mut Value
+    pub fn or_insert_with<F>(self, default: F) -> &'a mut Value
     where
         F: FnOnce() -> Value,
     {
@@ -729,8 +667,7 @@ impl Serialize for Mapping {
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeMap;
-        let mut map =
-            serializer.serialize_map(Some(self.len()))?;
+        let mut map = serializer.serialize_map(Some(self.len()))?;
         for (k, v) in self {
             map.serialize_entry(k, v)?;
         }
@@ -739,9 +676,7 @@ impl Serialize for Mapping {
 }
 
 impl<'de> Deserialize<'de> for Mapping {
-    fn deserialize<D>(
-        deserializer: D,
-    ) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -757,9 +692,7 @@ impl<'de> Deserialize<'de> for Mapping {
                 f.write_str("a YAML mapping")
             }
 
-            fn visit_unit<E>(
-                self,
-            ) -> Result<Self::Value, E>
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
             {
@@ -777,18 +710,15 @@ impl<'de> Deserialize<'de> for Mapping {
                 while let Some(key) = data.next_key()? {
                     match mapping.entry(key) {
                         Entry::Occupied(entry) => {
-                            return Err(
-                                serde::de::Error::custom(
-                                    format!(
-                                        "duplicate key: {:?}",
-                                        entry.key()
-                                    ),
+                            return Err(serde::de::Error::custom(
+                                format!(
+                                    "duplicate key: {:?}",
+                                    entry.key()
                                 ),
-                            );
+                            ));
                         }
                         Entry::Vacant(entry) => {
-                            let value =
-                                data.next_value()?;
+                            let value = data.next_value()?;
                             entry.insert(value);
                         }
                     }

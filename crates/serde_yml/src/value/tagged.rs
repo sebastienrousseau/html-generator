@@ -5,9 +5,8 @@ use crate::error::Error;
 use crate::value::Value;
 use serde::{
     de::{
-        value::StrDeserializer, DeserializeSeed,
-        Deserializer, EnumAccess, VariantAccess,
-        Visitor,
+        value::StrDeserializer, DeserializeSeed, Deserializer,
+        EnumAccess, VariantAccess, Visitor,
     },
     forward_to_deserialize_any,
     ser::{Serialize, SerializeMap, Serializer},
@@ -86,10 +85,7 @@ impl Ord for Tag {
 }
 
 impl PartialOrd for Tag {
-    fn partial_cmp(
-        &self,
-        other: &Self,
-    ) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -101,28 +97,19 @@ impl Hash for Tag {
 }
 
 impl Display for Tag {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "!{}", nobang(&self.string))
     }
 }
 
 impl Debug for Tag {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
 
 impl Serialize for TaggedValue {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -141,18 +128,13 @@ impl Serialize for TaggedValue {
         }
 
         let mut map = serializer.serialize_map(Some(1))?;
-        map.serialize_entry(
-            &SerializeTag(&self.tag),
-            &self.value,
-        )?;
+        map.serialize_entry(&SerializeTag(&self.tag), &self.value)?;
         map.end()
     }
 }
 
 impl<'de> Deserialize<'de> for TaggedValue {
-    fn deserialize<D>(
-        deserializer: D,
-    ) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -189,10 +171,7 @@ impl<'de> Deserialize<'de> for TaggedValue {
 impl<'de> Deserializer<'de> for TaggedValue {
     type Error = Error;
 
-    fn deserialize_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
@@ -229,9 +208,8 @@ impl<'de> EnumAccess<'de> for TaggedValue {
     where
         V: DeserializeSeed<'de>,
     {
-        let tag = StrDeserializer::<Error>::new(nobang(
-            &self.tag.string,
-        ));
+        let tag =
+            StrDeserializer::<Error>::new(nobang(&self.tag.string));
         let value = seed.deserialize(tag)?;
         Ok((value, self.value))
     }
@@ -244,10 +222,7 @@ impl<'de> VariantAccess<'de> for Value {
         Deserialize::deserialize(self)
     }
 
-    fn newtype_variant_seed<T>(
-        self,
-        seed: T,
-    ) -> Result<T::Value, Error>
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Error>
     where
         T: DeserializeSeed<'de>,
     {
@@ -298,34 +273,23 @@ pub(crate) struct TagStringVisitor;
 impl Visitor<'_> for TagStringVisitor {
     type Value = Tag;
 
-    fn expecting(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a YAML tag string")
     }
 
-    fn visit_str<E>(
-        self,
-        string: &str,
-    ) -> Result<Self::Value, E>
+    fn visit_str<E>(self, string: &str) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
         self.visit_string(string.to_owned())
     }
 
-    fn visit_string<E>(
-        self,
-        string: String,
-    ) -> Result<Self::Value, E>
+    fn visit_string<E>(self, string: String) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
         if string.is_empty() {
-            return Err(E::custom(
-                "empty YAML tag is not allowed",
-            ));
+            return Err(E::custom("empty YAML tag is not allowed"));
         }
         Ok(Tag::new(string))
     }
@@ -363,9 +327,7 @@ where
     match s.as_str() {
         "" => MaybeTag::NotTag(String::new()),
         "!" => MaybeTag::NotTag("!".to_owned()),
-        tag if tag.starts_with('!') => {
-            MaybeTag::Tag(tag.to_owned())
-        }
+        tag if tag.starts_with('!') => MaybeTag::Tag(tag.to_owned()),
         _ => MaybeTag::NotTag(s),
     }
 }

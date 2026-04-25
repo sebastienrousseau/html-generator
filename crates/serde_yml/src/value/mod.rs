@@ -172,9 +172,7 @@ impl Value {
         }
     }
 
-    pub fn as_sequence_mut(
-        &mut self,
-    ) -> Option<&mut Sequence> {
+    pub fn as_sequence_mut(&mut self) -> Option<&mut Sequence> {
         match self.untag_mut() {
             Value::Sequence(seq) => Some(seq),
             _ => None,
@@ -192,9 +190,7 @@ impl Value {
         }
     }
 
-    pub fn as_mapping_mut(
-        &mut self,
-    ) -> Option<&mut Mapping> {
+    pub fn as_mapping_mut(&mut self) -> Option<&mut Mapping> {
         match self.untag_mut() {
             Value::Mapping(map) => Some(map),
             _ => None,
@@ -207,22 +203,20 @@ impl Value {
         while let Some(node) = stack.pop() {
             match node {
                 Value::Mapping(mapping) => {
-                    if let Some(merge) =
-                        mapping.remove("<<")
-                    {
+                    if let Some(merge) = mapping.remove("<<") {
                         match merge {
                             Value::Mapping(m) => {
                                 for (k, v) in m {
-                                    mapping
-                                        .entry(k)
-                                        .or_insert(v);
+                                    mapping.entry(k).or_insert(v);
                                 }
                             }
                             Value::Sequence(seq) => {
                                 for item in seq {
                                     if let Value::Mapping(m) = item {
                                         for (k, v) in m {
-                                            mapping.entry(k).or_insert(v);
+                                            mapping
+                                                .entry(k)
+                                                .or_insert(v);
                                         }
                                     } else {
                                         return Err(Error::msg("expected mapping in merge element"));
@@ -266,22 +260,14 @@ impl Value {
         cur
     }
 
-    pub(crate) fn unexpected(
-        &self,
-    ) -> serde::de::Unexpected<'_> {
+    pub(crate) fn unexpected(&self) -> serde::de::Unexpected<'_> {
         match self {
             Value::Null => serde::de::Unexpected::Unit,
             Value::Bool(b) => serde::de::Unexpected::Bool(*b),
             Value::Number(n) => number::unexpected(n),
-            Value::String(s) => {
-                serde::de::Unexpected::Str(s)
-            }
-            Value::Sequence(_) => {
-                serde::de::Unexpected::Seq
-            }
-            Value::Mapping(_) => {
-                serde::de::Unexpected::Map
-            }
+            Value::String(s) => serde::de::Unexpected::Str(s),
+            Value::Sequence(_) => serde::de::Unexpected::Seq,
+            Value::Mapping(_) => serde::de::Unexpected::Map,
             Value::Tagged(t) => t.value.unexpected(),
         }
     }
@@ -311,15 +297,11 @@ impl Debug for Value {
             Value::Bool(b) => write!(f, "Bool({})", b),
             Value::Number(n) => write!(f, "{:?}", n),
             Value::String(s) => write!(f, "String({:?})", s),
-            Value::Sequence(s) => {
-                f.debug_list().entries(s).finish()
-            }
+            Value::Sequence(s) => f.debug_list().entries(s).finish(),
             Value::Mapping(m) => Debug::fmt(m, f),
-            Value::Tagged(t) => write!(
-                f,
-                "Tagged({} {:?})",
-                t.tag, t.value
-            ),
+            Value::Tagged(t) => {
+                write!(f, "Tagged({} {:?})", t.tag, t.value)
+            }
         }
     }
 }
@@ -491,9 +473,7 @@ pub(crate) fn total_cmp(a: &Value, b: &Value) -> Ordering {
         (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
         (Value::Bool(_), _) => Ordering::Less,
         (_, Value::Bool(_)) => Ordering::Greater,
-        (Value::Number(a), Value::Number(b)) => {
-            a.total_cmp(b)
-        }
+        (Value::Number(a), Value::Number(b)) => a.total_cmp(b),
         (Value::Number(_), _) => Ordering::Less,
         (_, Value::Number(_)) => Ordering::Greater,
         (Value::String(a), Value::String(b)) => a.cmp(b),
@@ -519,10 +499,7 @@ pub(crate) fn total_cmp(a: &Value, b: &Value) -> Ordering {
 // ---- Serialize ----
 
 impl Serialize for Value {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -541,9 +518,7 @@ impl Serialize for Value {
 // ---- Deserialize ----
 
 impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(
-        deserializer: D,
-    ) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -559,45 +534,27 @@ impl<'de> Deserialize<'de> for Value {
                 f.write_str("any YAML value")
             }
 
-            fn visit_bool<E>(
-                self,
-                v: bool,
-            ) -> Result<Value, E> {
+            fn visit_bool<E>(self, v: bool) -> Result<Value, E> {
                 Ok(Value::Bool(v))
             }
 
-            fn visit_i64<E>(
-                self,
-                v: i64,
-            ) -> Result<Value, E> {
+            fn visit_i64<E>(self, v: i64) -> Result<Value, E> {
                 Ok(Value::Number(v.into()))
             }
 
-            fn visit_u64<E>(
-                self,
-                v: u64,
-            ) -> Result<Value, E> {
+            fn visit_u64<E>(self, v: u64) -> Result<Value, E> {
                 Ok(Value::Number(v.into()))
             }
 
-            fn visit_f64<E>(
-                self,
-                v: f64,
-            ) -> Result<Value, E> {
+            fn visit_f64<E>(self, v: f64) -> Result<Value, E> {
                 Ok(Value::Number(v.into()))
             }
 
-            fn visit_str<E>(
-                self,
-                v: &str,
-            ) -> Result<Value, E> {
+            fn visit_str<E>(self, v: &str) -> Result<Value, E> {
                 Ok(Value::String(v.to_owned()))
             }
 
-            fn visit_string<E>(
-                self,
-                v: String,
-            ) -> Result<Value, E> {
+            fn visit_string<E>(self, v: String) -> Result<Value, E> {
                 Ok(Value::String(v))
             }
 
@@ -619,10 +576,7 @@ impl<'de> Deserialize<'de> for Value {
                 Deserialize::deserialize(deserializer)
             }
 
-            fn visit_seq<A>(
-                self,
-                mut seq: A,
-            ) -> Result<Value, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> Result<Value, A::Error>
             where
                 A: SeqAccess<'de>,
             {
@@ -633,39 +587,25 @@ impl<'de> Deserialize<'de> for Value {
                 Ok(Value::Sequence(values))
             }
 
-            fn visit_map<A>(
-                self,
-                mut map: A,
-            ) -> Result<Value, A::Error>
+            fn visit_map<A>(self, mut map: A) -> Result<Value, A::Error>
             where
                 A: MapAccess<'de>,
             {
                 let mut mapping = Mapping::new();
-                while let Some((k, v)) =
-                    map.next_entry()?
-                {
+                while let Some((k, v)) = map.next_entry()? {
                     mapping.insert(k, v);
                 }
                 Ok(Value::Mapping(mapping))
             }
 
-            fn visit_enum<A>(
-                self,
-                data: A,
-            ) -> Result<Value, A::Error>
+            fn visit_enum<A>(self, data: A) -> Result<Value, A::Error>
             where
                 A: de::EnumAccess<'de>,
             {
                 let (tag, variant) =
-                    data.variant_seed(
-                        tagged::TagStringVisitor,
-                    )?;
-                let value: Value =
-                    variant.newtype_variant()?;
-                Ok(Value::Tagged(Box::new(TaggedValue {
-                    tag,
-                    value,
-                })))
+                    data.variant_seed(tagged::TagStringVisitor)?;
+                let value: Value = variant.newtype_variant()?;
+                Ok(Value::Tagged(Box::new(TaggedValue { tag, value })))
             }
         }
 
@@ -679,10 +619,7 @@ impl<'de> Deserialize<'de> for Value {
 impl<'de> serde::Deserializer<'de> for Value {
     type Error = Error;
 
-    fn deserialize_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
@@ -692,13 +629,11 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::Number(n) => n.deserialize_any(visitor),
             Value::String(s) => visitor.visit_string(s),
             Value::Sequence(v) => {
-                let de =
-                    crate::de::SeqDeserializer::new(v);
+                let de = crate::de::SeqDeserializer::new(v);
                 de.deserialize_any(visitor)
             }
             Value::Mapping(v) => {
-                let de =
-                    crate::de::MapDeserializer::new(v);
+                let de = crate::de::MapDeserializer::new(v);
                 de.deserialize_any(visitor)
             }
             Value::Tagged(t) => visitor.visit_enum(*t),
@@ -728,13 +663,15 @@ impl<'de> serde::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         match self {
-            Value::String(s) => visitor.visit_enum(
-                de::value::StrDeserializer::new(&s),
-            ),
+            Value::String(s) => {
+                visitor.visit_enum(de::value::StrDeserializer::new(&s))
+            }
             Value::Mapping(m) => {
                 if m.len() == 1 {
-                    let (k, v) = m.into_iter().next()
-                        .ok_or_else(|| Error::msg("empty mapping for enum"))?;
+                    let (k, v) =
+                        m.into_iter().next().ok_or_else(|| {
+                            Error::msg("empty mapping for enum")
+                        })?;
                     visitor.visit_enum(EnumDeserializer {
                         variant: k,
                         value: Some(v),
@@ -746,9 +683,7 @@ impl<'de> serde::Deserializer<'de> for Value {
                 }
             }
             Value::Tagged(t) => visitor.visit_enum(*t),
-            _ => Err(Error::msg(
-                "expected string or mapping for enum",
-            )),
+            _ => Err(Error::msg("expected string or mapping for enum")),
         }
     }
 
@@ -788,10 +723,7 @@ impl<'de> de::EnumAccess<'de> for EnumDeserializer {
         V: de::DeserializeSeed<'de>,
     {
         let variant = seed.deserialize(self.variant)?;
-        Ok((
-            variant,
-            VariantDeserializer { value: self.value },
-        ))
+        Ok((variant, VariantDeserializer { value: self.value }))
     }
 }
 
@@ -805,24 +737,17 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     fn unit_variant(self) -> Result<(), Error> {
         match self.value {
             Some(Value::Null) | None => Ok(()),
-            Some(other) => {
-                Deserialize::deserialize(other)
-            }
+            Some(other) => Deserialize::deserialize(other),
         }
     }
 
-    fn newtype_variant_seed<T>(
-        self,
-        seed: T,
-    ) -> Result<T::Value, Error>
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Error>
     where
         T: de::DeserializeSeed<'de>,
     {
         match self.value {
             Some(v) => seed.deserialize(v),
-            None => Err(Error::msg(
-                "expected newtype variant value",
-            )),
+            None => Err(Error::msg("expected newtype variant value")),
         }
     }
 
@@ -836,15 +761,10 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     {
         match self.value {
             Some(Value::Sequence(v)) => {
-                let de =
-                    crate::de::SeqDeserializer::new(v);
-                serde::Deserializer::deserialize_any(
-                    de, visitor,
-                )
+                let de = crate::de::SeqDeserializer::new(v);
+                serde::Deserializer::deserialize_any(de, visitor)
             }
-            _ => Err(Error::msg(
-                "expected sequence for tuple variant",
-            )),
+            _ => Err(Error::msg("expected sequence for tuple variant")),
         }
     }
 
@@ -858,15 +778,10 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     {
         match self.value {
             Some(Value::Mapping(m)) => {
-                let de =
-                    crate::de::MapDeserializer::new(m);
-                serde::Deserializer::deserialize_any(
-                    de, visitor,
-                )
+                let de = crate::de::MapDeserializer::new(m);
+                serde::Deserializer::deserialize_any(de, visitor)
             }
-            _ => Err(Error::msg(
-                "expected mapping for struct variant",
-            )),
+            _ => Err(Error::msg("expected mapping for struct variant")),
         }
     }
 }
@@ -886,86 +801,50 @@ impl Serializer for ValueSerializer {
     type SerializeStruct = SerializeMap;
     type SerializeStructVariant = SerializeStructVariant;
 
-    fn serialize_bool(
-        self,
-        v: bool,
-    ) -> Result<Value, Error> {
+    fn serialize_bool(self, v: bool) -> Result<Value, Error> {
         Ok(Value::Bool(v))
     }
 
     fn serialize_i8(self, v: i8) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_i16(
-        self,
-        v: i16,
-    ) -> Result<Value, Error> {
+    fn serialize_i16(self, v: i16) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_i32(
-        self,
-        v: i32,
-    ) -> Result<Value, Error> {
+    fn serialize_i32(self, v: i32) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_i64(
-        self,
-        v: i64,
-    ) -> Result<Value, Error> {
+    fn serialize_i64(self, v: i64) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
     fn serialize_u8(self, v: u8) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_u16(
-        self,
-        v: u16,
-    ) -> Result<Value, Error> {
+    fn serialize_u16(self, v: u16) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_u32(
-        self,
-        v: u32,
-    ) -> Result<Value, Error> {
+    fn serialize_u32(self, v: u32) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_u64(
-        self,
-        v: u64,
-    ) -> Result<Value, Error> {
+    fn serialize_u64(self, v: u64) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_f32(
-        self,
-        v: f32,
-    ) -> Result<Value, Error> {
+    fn serialize_f32(self, v: f32) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
-    fn serialize_f64(
-        self,
-        v: f64,
-    ) -> Result<Value, Error> {
+    fn serialize_f64(self, v: f64) -> Result<Value, Error> {
         Ok(Value::Number(v.into()))
     }
 
-    fn serialize_char(
-        self,
-        v: char,
-    ) -> Result<Value, Error> {
+    fn serialize_char(self, v: char) -> Result<Value, Error> {
         Ok(Value::String(v.to_string()))
     }
 
-    fn serialize_str(
-        self,
-        v: &str,
-    ) -> Result<Value, Error> {
+    fn serialize_str(self, v: &str) -> Result<Value, Error> {
         Ok(Value::String(v.to_owned()))
     }
 
-    fn serialize_bytes(
-        self,
-        _v: &[u8],
-    ) -> Result<Value, Error> {
+    fn serialize_bytes(self, _v: &[u8]) -> Result<Value, Error> {
         Err(Error::msg("bytes not supported in YAML"))
     }
 
@@ -973,10 +852,7 @@ impl Serializer for ValueSerializer {
         Ok(Value::Null)
     }
 
-    fn serialize_some<T>(
-        self,
-        value: &T,
-    ) -> Result<Value, Error>
+    fn serialize_some<T>(self, value: &T) -> Result<Value, Error>
     where
         T: ?Sized + Serialize,
     {
@@ -1037,9 +913,7 @@ impl Serializer for ValueSerializer {
         len: Option<usize>,
     ) -> Result<SerializeSeq, Error> {
         Ok(SerializeSeq {
-            vec: Vec::with_capacity(
-                len.unwrap_or_default(),
-            ),
+            vec: Vec::with_capacity(len.unwrap_or_default()),
         })
     }
 
@@ -1111,15 +985,11 @@ impl serde::ser::SerializeSeq for SerializeSeq {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_element<T>(
-        &mut self,
-        value: &T,
-    ) -> Result<(), Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
-        self.vec
-            .push(value.serialize(ValueSerializer)?);
+        self.vec.push(value.serialize(ValueSerializer)?);
         Ok(())
     }
 
@@ -1132,16 +1002,11 @@ impl serde::ser::SerializeTuple for SerializeSeq {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_element<T>(
-        &mut self,
-        value: &T,
-    ) -> Result<(), Error>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
-        serde::ser::SerializeSeq::serialize_element(
-            self, value,
-        )
+        serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Value, Error> {
@@ -1153,16 +1018,11 @@ impl serde::ser::SerializeTupleStruct for SerializeSeq {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_field<T>(
-        &mut self,
-        value: &T,
-    ) -> Result<(), Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
-        serde::ser::SerializeSeq::serialize_element(
-            self, value,
-        )
+        serde::ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<Value, Error> {
@@ -1175,30 +1035,21 @@ pub(crate) struct SerializeTupleVariant {
     vec: Vec<Value>,
 }
 
-impl serde::ser::SerializeTupleVariant
-    for SerializeTupleVariant
-{
+impl serde::ser::SerializeTupleVariant for SerializeTupleVariant {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_field<T>(
-        &mut self,
-        value: &T,
-    ) -> Result<(), Error>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
-        self.vec
-            .push(value.serialize(ValueSerializer)?);
+        self.vec.push(value.serialize(ValueSerializer)?);
         Ok(())
     }
 
     fn end(self) -> Result<Value, Error> {
         let mut m = Mapping::new();
-        m.insert(
-            Value::String(self.name),
-            Value::Sequence(self.vec),
-        );
+        m.insert(Value::String(self.name), Value::Sequence(self.vec));
         Ok(Value::Mapping(m))
     }
 }
@@ -1212,22 +1063,15 @@ impl serde::ser::SerializeMap for SerializeMap {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_key<T>(
-        &mut self,
-        key: &T,
-    ) -> Result<(), Error>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
-        self.next_key =
-            Some(key.serialize(ValueSerializer)?);
+        self.next_key = Some(key.serialize(ValueSerializer)?);
         Ok(())
     }
 
-    fn serialize_value<T>(
-        &mut self,
-        value: &T,
-    ) -> Result<(), Error>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Error>
     where
         T: ?Sized + Serialize,
     {
@@ -1235,8 +1079,7 @@ impl serde::ser::SerializeMap for SerializeMap {
             .next_key
             .take()
             .ok_or_else(|| Error::msg("value before key"))?;
-        self.map
-            .insert(key, value.serialize(ValueSerializer)?);
+        self.map.insert(key, value.serialize(ValueSerializer)?);
         Ok(())
     }
 
@@ -1257,9 +1100,7 @@ impl serde::ser::SerializeStruct for SerializeMap {
     where
         T: ?Sized + Serialize,
     {
-        serde::ser::SerializeMap::serialize_entry(
-            self, key, value,
-        )
+        serde::ser::SerializeMap::serialize_entry(self, key, value)
     }
 
     fn end(self) -> Result<Value, Error> {
@@ -1272,9 +1113,7 @@ pub(crate) struct SerializeStructVariant {
     map: Mapping,
 }
 
-impl serde::ser::SerializeStructVariant
-    for SerializeStructVariant
-{
+impl serde::ser::SerializeStructVariant for SerializeStructVariant {
     type Ok = Value;
     type Error = Error;
 
@@ -1295,10 +1134,7 @@ impl serde::ser::SerializeStructVariant
 
     fn end(self) -> Result<Value, Error> {
         let mut m = Mapping::new();
-        m.insert(
-            Value::String(self.name),
-            Value::Mapping(self.map),
-        );
+        m.insert(Value::String(self.name), Value::Mapping(self.map));
         Ok(Value::Mapping(m))
     }
 }

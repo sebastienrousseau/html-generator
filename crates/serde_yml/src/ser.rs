@@ -119,10 +119,9 @@ fn needs_quoting(s: &str) -> bool {
     }
     // Values that would be interpreted as non-string
     match s {
-        "null" | "Null" | "NULL" | "~" | "true"
-        | "True" | "TRUE" | "false" | "False" | "FALSE"
-        | ".nan" | ".NaN" | ".NAN" | ".inf" | ".Inf"
-        | ".INF" | "-.inf" | "-.Inf" | "-.INF" => {
+        "null" | "Null" | "NULL" | "~" | "true" | "True" | "TRUE"
+        | "false" | "False" | "FALSE" | ".nan" | ".NaN" | ".NAN"
+        | ".inf" | ".Inf" | ".INF" | "-.inf" | "-.Inf" | "-.INF" => {
             return true
         }
         _ => {}
@@ -131,8 +130,7 @@ fn needs_quoting(s: &str) -> bool {
     // Starts with special char
     if matches!(
         first,
-        b'{'
-            | b'}'
+        b'{' | b'}'
             | b'['
             | b']'
             | b','
@@ -160,18 +158,13 @@ fn needs_quoting(s: &str) -> bool {
         return true;
     }
     // Looks like a number
-    if s.parse::<i64>().is_ok() || s.parse::<f64>().is_ok()
-    {
+    if s.parse::<i64>().is_ok() || s.parse::<f64>().is_ok() {
         return true;
     }
     false
 }
 
-fn emit_block_sequence(
-    seq: &[Value],
-    out: &mut String,
-    indent: usize,
-) {
+fn emit_block_sequence(seq: &[Value], out: &mut String, indent: usize) {
     for (i, item) in seq.iter().enumerate() {
         if i > 0 || !out.is_empty() {
             if !out.ends_with('\n') {
@@ -196,37 +189,18 @@ fn emit_block_sequence(
                     out.push_str(": ");
                     if is_compound(v) {
                         out.push('\n');
-                        emit_value(
-                            v,
-                            out,
-                            indent + 4,
-                            false,
-                        );
+                        emit_value(v, out, indent + 4, false);
                     } else {
-                        emit_value(
-                            v,
-                            out,
-                            indent + 4,
-                            true,
-                        );
+                        emit_value(v, out, indent + 4, true);
                     }
                 }
             }
             Value::Sequence(s) if !s.is_empty() => {
                 out.push('\n');
-                emit_block_sequence(
-                    s,
-                    out,
-                    indent + 2,
-                );
+                emit_block_sequence(s, out, indent + 2);
             }
             _ => {
-                emit_value(
-                    item,
-                    out,
-                    indent + 2,
-                    true,
-                );
+                emit_value(item, out, indent + 2, true);
             }
         }
     }
@@ -241,8 +215,7 @@ fn emit_block_mapping(
     indent: usize,
 ) {
     for (i, (k, v)) in m.iter().enumerate() {
-        if i > 0 || (!out.is_empty() && !out.ends_with('\n'))
-        {
+        if i > 0 || (!out.is_empty() && !out.ends_with('\n')) {
             if !out.ends_with('\n') {
                 out.push('\n');
             }
@@ -271,10 +244,7 @@ fn emit_flow_sequence(seq: &[Value], out: &mut String) {
     out.push(']');
 }
 
-fn emit_flow_mapping(
-    m: &crate::mapping::Mapping,
-    out: &mut String,
-) {
+fn emit_flow_mapping(m: &crate::mapping::Mapping, out: &mut String) {
     out.push('{');
     for (i, (k, v)) in m.iter().enumerate() {
         if i > 0 {

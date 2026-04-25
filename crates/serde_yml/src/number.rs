@@ -4,8 +4,8 @@
 use crate::error::Error;
 use serde::{
     de::{Unexpected, Visitor},
-    forward_to_deserialize_any, Deserialize, Deserializer,
-    Serialize, Serializer,
+    forward_to_deserialize_any, Deserialize, Deserializer, Serialize,
+    Serializer,
 };
 use std::{
     cmp::Ordering,
@@ -102,16 +102,11 @@ impl Number {
 }
 
 impl Display for Number {
-    fn fmt(
-        &self,
-        formatter: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.n {
             N::PositiveInteger(i) => write!(formatter, "{}", i),
             N::NegativeInteger(i) => write!(formatter, "{}", i),
-            N::Float(f) if f.is_nan() => {
-                formatter.write_str(".nan")
-            }
+            N::Float(f) if f.is_nan() => formatter.write_str(".nan"),
             N::Float(f) if f.is_infinite() => {
                 if f.is_sign_negative() {
                     formatter.write_str("-.inf")
@@ -139,12 +134,8 @@ impl fmt::Debug for Number {
 impl PartialEq for N {
     fn eq(&self, other: &N) -> bool {
         match (*self, *other) {
-            (N::PositiveInteger(a), N::PositiveInteger(b)) => {
-                a == b
-            }
-            (N::NegativeInteger(a), N::NegativeInteger(b)) => {
-                a == b
-            }
+            (N::PositiveInteger(a), N::PositiveInteger(b)) => a == b,
+            (N::NegativeInteger(a), N::NegativeInteger(b)) => a == b,
             (N::Float(a), N::Float(b)) => {
                 if a.is_nan() && b.is_nan() {
                     true
@@ -158,10 +149,7 @@ impl PartialEq for N {
 }
 
 impl PartialOrd for N {
-    fn partial_cmp(
-        &self,
-        other: &Self,
-    ) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (*self, *other) {
             (N::Float(a), N::Float(b)) => {
                 if a.is_nan() && b.is_nan() {
@@ -178,21 +166,17 @@ impl PartialOrd for N {
 impl N {
     fn total_cmp(&self, other: &Self) -> Ordering {
         match (*self, *other) {
-            (N::PositiveInteger(a), N::PositiveInteger(b)) => {
-                a.cmp(&b)
-            }
-            (N::NegativeInteger(a), N::NegativeInteger(b)) => {
-                a.cmp(&b)
-            }
+            (N::PositiveInteger(a), N::PositiveInteger(b)) => a.cmp(&b),
+            (N::NegativeInteger(a), N::NegativeInteger(b)) => a.cmp(&b),
             (N::NegativeInteger(_), N::PositiveInteger(_)) => {
                 Ordering::Less
             }
             (N::PositiveInteger(_), N::NegativeInteger(_)) => {
                 Ordering::Greater
             }
-            (N::Float(a), N::Float(b)) => a
-                .partial_cmp(&b)
-                .unwrap_or(Ordering::Equal),
+            (N::Float(a), N::Float(b)) => {
+                a.partial_cmp(&b).unwrap_or(Ordering::Equal)
+            }
             (_, N::Float(_)) => Ordering::Less,
             (N::Float(_), _) => Ordering::Greater,
         }
@@ -212,10 +196,7 @@ impl Hash for Number {
 impl Eq for Number {}
 
 impl Serialize for Number {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -232,10 +213,7 @@ struct NumberVisitor;
 impl Visitor<'_> for NumberVisitor {
     type Value = Number;
 
-    fn expecting(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a number")
     }
 
@@ -253,9 +231,7 @@ impl Visitor<'_> for NumberVisitor {
 }
 
 impl<'de> Deserialize<'de> for Number {
-    fn deserialize<D>(
-        deserializer: D,
-    ) -> Result<Number, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Number, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -266,10 +242,7 @@ impl<'de> Deserialize<'de> for Number {
 impl<'de> Deserializer<'de> for Number {
     type Error = Error;
 
-    fn deserialize_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
@@ -291,10 +264,7 @@ impl<'de> Deserializer<'de> for Number {
 impl<'de> Deserializer<'de> for &Number {
     type Error = Error;
 
-    fn deserialize_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
@@ -313,9 +283,7 @@ impl<'de> Deserializer<'de> for &Number {
     }
 }
 
-pub(crate) fn unexpected(
-    number: &Number,
-) -> Unexpected<'_> {
+pub(crate) fn unexpected(number: &Number) -> Unexpected<'_> {
     match number.n {
         N::PositiveInteger(u) => Unexpected::Unsigned(u),
         N::NegativeInteger(i) => Unexpected::Signed(i),

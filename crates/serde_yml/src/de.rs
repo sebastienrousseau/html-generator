@@ -117,9 +117,7 @@ impl<'a> Parser<'a> {
         loop {
             // Skip whitespace (spaces, tabs, newlines)
             while let Some(ch) = self.peek() {
-                if ch == ' ' || ch == '\t' || ch == '\n'
-                    || ch == '\r'
-                {
+                if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
                     self.advance_by(ch.len_utf8());
                 } else {
                     break;
@@ -141,16 +139,11 @@ impl<'a> Parser<'a> {
 
     fn current_line(&self) -> &'a str {
         let rest = self.rest();
-        let end = rest
-            .find('\n')
-            .unwrap_or(rest.len());
+        let end = rest.find('\n').unwrap_or(rest.len());
         &rest[..end]
     }
 
-    fn parse_value(
-        &mut self,
-        min_indent: usize,
-    ) -> Result<Value> {
+    fn parse_value(&mut self, min_indent: usize) -> Result<Value> {
         self.skip_blanks_and_comments();
         if self.is_eof() {
             return Ok(Value::Null);
@@ -191,14 +184,10 @@ impl<'a> Parser<'a> {
             // Quoted string
             '\'' | '"' => {
                 self.advance_to_content();
-                let s = self.parse_quoted_string(
-                    first_char,
-                )?;
+                let s = self.parse_quoted_string(first_char)?;
                 // Check if this is a mapping key
                 self.skip_inline_spaces();
-                if self.peek() == Some(':')
-                    && self.is_mapping_colon()
-                {
+                if self.peek() == Some(':') && self.is_mapping_colon() {
                     self.parse_mapping_from_first_key(
                         Value::String(s),
                         indent,
@@ -210,9 +199,7 @@ impl<'a> Parser<'a> {
             // Block scalar
             '|' | '>' => {
                 self.advance_to_content();
-                self.parse_block_scalar(
-                    first_char, indent,
-                )
+                self.parse_block_scalar(first_char, indent)
             }
             // Mapping or plain scalar
             _ => {
@@ -232,20 +219,14 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_inline_spaces(&mut self) {
-        while self.peek() == Some(' ')
-            || self.peek() == Some('\t')
-        {
+        while self.peek() == Some(' ') || self.peek() == Some('\t') {
             self.advance_by(1);
         }
     }
 
-    fn is_sequence_dash(
-        &self,
-        expected_indent: usize,
-    ) -> bool {
+    fn is_sequence_dash(&self, expected_indent: usize) -> bool {
         let rest = self.rest();
-        let indent = rest.len()
-            - rest.trim_start_matches(' ').len();
+        let indent = rest.len() - rest.trim_start_matches(' ').len();
         if indent != expected_indent {
             return false;
         }
@@ -264,13 +245,9 @@ impl<'a> Parser<'a> {
             || rest.starts_with(":\r")
     }
 
-    fn line_has_mapping_colon(
-        &self,
-        expected_indent: usize,
-    ) -> bool {
+    fn line_has_mapping_colon(&self, expected_indent: usize) -> bool {
         let rest = self.rest();
-        let indent = rest.len()
-            - rest.trim_start_matches(' ').len();
+        let indent = rest.len() - rest.trim_start_matches(' ').len();
         if indent != expected_indent {
             return false;
         }
@@ -283,10 +260,7 @@ impl<'a> Parser<'a> {
         self.find_mapping_colon(line).is_some()
     }
 
-    fn find_mapping_colon(
-        &self,
-        line: &str,
-    ) -> Option<usize> {
+    fn find_mapping_colon(&self, line: &str) -> Option<usize> {
         let mut in_single = false;
         let mut in_double = false;
         let bytes = line.as_bytes();
@@ -320,10 +294,7 @@ impl<'a> Parser<'a> {
         None
     }
 
-    fn parse_block_mapping(
-        &mut self,
-        indent: usize,
-    ) -> Result<Value> {
+    fn parse_block_mapping(&mut self, indent: usize) -> Result<Value> {
         let mut mapping = Mapping::new();
         loop {
             self.skip_blanks_and_comments();
@@ -335,8 +306,7 @@ impl<'a> Parser<'a> {
                 break;
             }
             // Check for document end
-            let rest_trimmed =
-                self.rest().trim_start_matches(' ');
+            let rest_trimmed = self.rest().trim_start_matches(' ');
             if rest_trimmed.starts_with("---")
                 || rest_trimmed.starts_with("...")
             {
@@ -344,8 +314,7 @@ impl<'a> Parser<'a> {
             }
 
             self.advance_by(indent);
-            let (key, value) =
-                self.parse_mapping_entry(indent)?;
+            let (key, value) = self.parse_mapping_entry(indent)?;
             mapping.insert(key, value);
         }
         Ok(Value::Mapping(mapping))
@@ -383,9 +352,9 @@ impl<'a> Parser<'a> {
     fn parse_mapping_key(&mut self) -> Result<Value> {
         match self.peek() {
             Some('\'') | Some('"') => {
-                let q = self.peek().ok_or_else(|| {
-                    Error::msg("unexpected EOF")
-                })?;
+                let q = self
+                    .peek()
+                    .ok_or_else(|| Error::msg("unexpected EOF"))?;
                 let s = self.parse_quoted_string(q)?;
                 Ok(Value::String(s))
             }
@@ -396,18 +365,15 @@ impl<'a> Parser<'a> {
                     Some(i) => &rest[..i],
                     None => rest,
                 };
-                let colon_pos = self
-                    .find_mapping_colon(line)
-                    .ok_or_else(|| {
+                let colon_pos =
+                    self.find_mapping_colon(line).ok_or_else(|| {
                         Error::msg(format!(
                             "expected ':' in mapping, \
                              got: {:?}",
-                            &line
-                                [..line.len().min(40)]
+                            &line[..line.len().min(40)]
                         ))
                     })?;
-                let key_str =
-                    rest[..colon_pos].trim_end();
+                let key_str = rest[..colon_pos].trim_end();
                 let key = interpret_scalar(key_str);
                 self.advance_by(colon_pos);
                 Ok(key)
@@ -452,16 +418,14 @@ impl<'a> Parser<'a> {
             if cur_indent != indent {
                 break;
             }
-            let rest_trimmed =
-                self.rest().trim_start_matches(' ');
+            let rest_trimmed = self.rest().trim_start_matches(' ');
             if rest_trimmed.starts_with("---")
                 || rest_trimmed.starts_with("...")
             {
                 break;
             }
             self.advance_by(indent);
-            let (key, value) =
-                self.parse_mapping_entry(indent)?;
+            let (key, value) = self.parse_mapping_entry(indent)?;
             mapping.insert(key, value);
         }
         Ok(Value::Mapping(mapping))
@@ -475,32 +439,24 @@ impl<'a> Parser<'a> {
             Some('[') => self.parse_flow_sequence(),
             Some('{') => self.parse_flow_mapping(),
             Some('\'') | Some('"') => {
-                let q = self.peek().ok_or_else(|| {
-                    Error::msg("unexpected EOF")
-                })?;
+                let q = self
+                    .peek()
+                    .ok_or_else(|| Error::msg("unexpected EOF"))?;
                 let s = self.parse_quoted_string(q)?;
                 Ok(Value::String(s))
             }
             Some('|') | Some('>') => {
-                let ch = self.peek().ok_or_else(|| {
-                    Error::msg("unexpected EOF")
-                })?;
-                self.parse_block_scalar(
-                    ch,
-                    parent_indent,
-                )
+                let ch = self
+                    .peek()
+                    .ok_or_else(|| Error::msg("unexpected EOF"))?;
+                self.parse_block_scalar(ch, parent_indent)
             }
-            Some('!') => {
-                self.parse_tagged_value(parent_indent)
-            }
+            Some('!') => self.parse_tagged_value(parent_indent),
             _ => self.parse_plain_scalar(),
         }
     }
 
-    fn parse_block_sequence(
-        &mut self,
-        indent: usize,
-    ) -> Result<Value> {
+    fn parse_block_sequence(&mut self, indent: usize) -> Result<Value> {
         let mut items = Vec::new();
         loop {
             self.skip_blanks_and_comments();
@@ -511,8 +467,7 @@ impl<'a> Parser<'a> {
             if cur_indent != indent {
                 break;
             }
-            let rest_trimmed =
-                self.rest().trim_start_matches(' ');
+            let rest_trimmed = self.rest().trim_start_matches(' ');
             if !rest_trimmed.starts_with("- ")
                 && rest_trimmed != "-"
                 && !rest_trimmed.starts_with("-\n")
@@ -538,25 +493,19 @@ impl<'a> Parser<'a> {
                 if self.peek() == Some('#') {
                     self.skip_to_eol();
                 }
-                let item =
-                    self.parse_value(indent + 2)?;
+                let item = self.parse_value(indent + 2)?;
                 items.push(item);
             } else {
                 // Inline value after "- "
                 // Check if it's a mapping
                 let line = self.current_line();
-                if self
-                    .find_mapping_colon(line)
-                    .is_some()
-                {
+                if self.find_mapping_colon(line).is_some() {
                     // It's a mapping starting on this
                     // line. The indent for this mapping
                     // is indent + 2.
                     let item_indent = indent + 2;
-                    let (key, value) = self
-                        .parse_mapping_entry(
-                            item_indent,
-                        )?;
+                    let (key, value) =
+                        self.parse_mapping_entry(item_indent)?;
                     let mut m = Mapping::new();
                     m.insert(key, value);
                     // Continue reading more mapping
@@ -566,38 +515,28 @@ impl<'a> Parser<'a> {
                         if self.is_eof() {
                             break;
                         }
-                        let ci =
-                            self.peek_line_indent();
+                        let ci = self.peek_line_indent();
                         if ci != item_indent {
                             break;
                         }
-                        let rt = self
-                            .rest()
-                            .trim_start_matches(' ');
+                        let rt = self.rest().trim_start_matches(' ');
                         if !self
-                            .find_mapping_colon(
-                                match rt.find('\n') {
-                                    Some(i) => {
-                                        &rt[..i]
-                                    }
-                                    None => rt,
-                                },
-                            )
+                            .find_mapping_colon(match rt.find('\n') {
+                                Some(i) => &rt[..i],
+                                None => rt,
+                            })
                             .is_some()
                         {
                             break;
                         }
                         self.advance_by(item_indent);
-                        let (k, v) = self
-                            .parse_mapping_entry(
-                                item_indent,
-                            )?;
+                        let (k, v) =
+                            self.parse_mapping_entry(item_indent)?;
                         m.insert(k, v);
                     }
                     items.push(Value::Mapping(m));
                 } else {
-                    let item =
-                        self.parse_inline_value(indent)?;
+                    let item = self.parse_inline_value(indent)?;
                     items.push(item);
                 }
             }
@@ -641,9 +580,7 @@ impl<'a> Parser<'a> {
             self.skip_flow_whitespace();
             match self.peek() {
                 None => {
-                    return Err(Error::msg(
-                        "unterminated flow mapping",
-                    ))
+                    return Err(Error::msg("unterminated flow mapping"))
                 }
                 Some('}') => {
                     self.advance_by(1);
@@ -659,9 +596,7 @@ impl<'a> Parser<'a> {
             let key = self.parse_flow_value()?;
             self.skip_flow_whitespace();
             if self.peek() != Some(':') {
-                return Err(Error::msg(
-                    "expected ':' in flow mapping",
-                ));
+                return Err(Error::msg("expected ':' in flow mapping"));
             }
             self.advance_by(1);
             self.skip_flow_whitespace();
@@ -678,9 +613,9 @@ impl<'a> Parser<'a> {
             Some('[') => self.parse_flow_sequence(),
             Some('{') => self.parse_flow_mapping(),
             Some('\'') | Some('"') => {
-                let q = self.peek().ok_or_else(|| {
-                    Error::msg("unexpected EOF")
-                })?;
+                let q = self
+                    .peek()
+                    .ok_or_else(|| Error::msg("unexpected EOF"))?;
                 let s = self.parse_quoted_string(q)?;
                 Ok(Value::String(s))
             }
@@ -689,17 +624,13 @@ impl<'a> Parser<'a> {
                 let rest = self.rest();
                 let mut end = rest.len();
                 for (i, ch) in rest.char_indices() {
-                    if ch == ','
-                        || ch == ']'
-                        || ch == '}'
-                        || ch == ':'
+                    if ch == ',' || ch == ']' || ch == '}' || ch == ':'
                     {
                         end = i;
                         break;
                     }
                 }
-                let token =
-                    rest[..end].trim_end();
+                let token = rest[..end].trim_end();
                 if token.is_empty() {
                     return Ok(Value::Null);
                 }
@@ -712,11 +643,7 @@ impl<'a> Parser<'a> {
 
     fn skip_flow_whitespace(&mut self) {
         while let Some(ch) = self.peek() {
-            if ch == ' '
-                || ch == '\t'
-                || ch == '\n'
-                || ch == '\r'
-            {
+            if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
                 self.advance_by(ch.len_utf8());
             } else if ch == '#' {
                 self.skip_to_eol();
@@ -726,10 +653,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_quoted_string(
-        &mut self,
-        quote: char,
-    ) -> Result<String> {
+    fn parse_quoted_string(&mut self, quote: char) -> Result<String> {
         // Skip opening quote
         self.advance_by(1);
         let mut result = String::new();
@@ -743,9 +667,7 @@ impl<'a> Parser<'a> {
                 Some(ch) if ch == quote => {
                     self.advance_by(1);
                     // For single quotes, check for ''
-                    if quote == '\''
-                        && self.peek() == Some('\'')
-                    {
+                    if quote == '\'' && self.peek() == Some('\'') {
                         result.push('\'');
                         self.advance_by(1);
                         continue;
@@ -782,9 +704,7 @@ impl<'a> Parser<'a> {
                         Some(c) => {
                             result.push('\\');
                             result.push(c);
-                            self.advance_by(
-                                c.len_utf8(),
-                            );
+                            self.advance_by(c.len_utf8());
                         }
                         None => {
                             result.push('\\');
@@ -839,10 +759,7 @@ impl<'a> Parser<'a> {
                     look += line.len() + 1;
                     continue;
                 }
-                break line.len()
-                    - line
-                        .trim_start_matches(' ')
-                        .len();
+                break line.len() - line.trim_start_matches(' ').len();
             }
         };
 
@@ -870,15 +787,13 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            let line_indent = line.len()
-                - line.trim_start_matches(' ').len();
+            let line_indent =
+                line.len() - line.trim_start_matches(' ').len();
             if line_indent < content_indent {
                 break;
             }
 
-            lines.push(
-                line[content_indent..].to_owned(),
-            );
+            lines.push(line[content_indent..].to_owned());
             self.advance_by(line.len());
             if self.peek() == Some('\n') {
                 self.advance_by(1);
@@ -886,11 +801,8 @@ impl<'a> Parser<'a> {
         }
 
         // Remove trailing empty lines for processing
-        let trailing_empties = lines
-            .iter()
-            .rev()
-            .take_while(|l| l.is_empty())
-            .count();
+        let trailing_empties =
+            lines.iter().rev().take_while(|l| l.is_empty()).count();
 
         let content = if style == '|' {
             // Literal: preserve newlines
@@ -901,9 +813,7 @@ impl<'a> Parser<'a> {
             let mut result = String::new();
             for (i, line) in lines.iter().enumerate() {
                 if i > 0 {
-                    if line.is_empty()
-                        || lines[i - 1].is_empty()
-                    {
+                    if line.is_empty() || lines[i - 1].is_empty() {
                         result.push('\n');
                     } else {
                         result.push(' ');
@@ -915,13 +825,9 @@ impl<'a> Parser<'a> {
         };
 
         let content = match chomp {
-            Chomp::Strip => {
-                content.trim_end_matches('\n').to_owned()
-            }
+            Chomp::Strip => content.trim_end_matches('\n').to_owned(),
             Chomp::Clip => {
-                let trimmed = content
-                    .trim_end_matches('\n')
-                    .to_owned();
+                let trimmed = content.trim_end_matches('\n').to_owned();
                 if trailing_empties > 0 || !content.ends_with('\n') {
                     trimmed + "\n"
                 } else {
@@ -941,8 +847,7 @@ impl<'a> Parser<'a> {
             None => rest,
         };
         // Strip inline comment
-        let effective =
-            strip_inline_comment(line).trim_end();
+        let effective = strip_inline_comment(line).trim_end();
         if effective.is_empty() {
             self.skip_to_eol();
             return Ok(Value::Null);
@@ -955,26 +860,20 @@ impl<'a> Parser<'a> {
         Ok(value)
     }
 
-    fn parse_tagged_value(
-        &mut self,
-        indent: usize,
-    ) -> Result<Value> {
+    fn parse_tagged_value(&mut self, indent: usize) -> Result<Value> {
         // Skip '!'
         self.advance_by(1);
         // Read tag name
         let rest = self.rest();
         let end = rest
-            .find(|c: char| {
-                c == ' ' || c == '\n' || c == '\r'
-            })
+            .find(|c: char| c == ' ' || c == '\n' || c == '\r')
             .unwrap_or(rest.len());
         let tag_name = rest[..end].to_owned();
         self.advance_by(end);
         self.skip_inline_spaces();
 
-        let tag = crate::value::tagged::Tag::new(
-            format!("!{}", tag_name),
-        );
+        let tag =
+            crate::value::tagged::Tag::new(format!("!{}", tag_name));
 
         // Parse the tagged value
         let value = if self.peek() == Some('\n')
@@ -986,10 +885,7 @@ impl<'a> Parser<'a> {
             self.parse_inline_value(indent)?
         };
 
-        Ok(Value::Tagged(Box::new(TaggedValue {
-            tag,
-            value,
-        })))
+        Ok(Value::Tagged(Box::new(TaggedValue { tag, value })))
     }
 }
 
@@ -1014,9 +910,7 @@ fn strip_inline_comment(line: &str) -> &str {
                 in_double = !in_double;
             }
             b' ' if !in_single && !in_double => {
-                if i + 1 < bytes.len()
-                    && bytes[i + 1] == b'#'
-                {
+                if i + 1 < bytes.len() && bytes[i + 1] == b'#' {
                     return &line[..i];
                 }
             }
@@ -1031,13 +925,9 @@ fn strip_inline_comment(line: &str) -> &str {
 /// appropriate YAML type.
 fn interpret_scalar(s: &str) -> Value {
     match s {
-        "" | "null" | "Null" | "NULL" | "~" => {
-            Value::Null
-        }
+        "" | "null" | "Null" | "NULL" | "~" => Value::Null,
         "true" | "True" | "TRUE" => Value::Bool(true),
-        "false" | "False" | "FALSE" => {
-            Value::Bool(false)
-        }
+        "false" | "False" | "FALSE" => Value::Bool(false),
         ".nan" | ".NaN" | ".NAN" => {
             Value::Number(Number::from(f64::NAN))
         }
@@ -1066,8 +956,7 @@ fn parse_integer(s: &str) -> Option<Value> {
         u64::from_str_radix(&s[2..], 16)
             .ok()
             .map(|n| Value::Number(Number::from(n)))
-    } else if s.starts_with("0o") || s.starts_with("0O")
-    {
+    } else if s.starts_with("0o") || s.starts_with("0O") {
         u64::from_str_radix(&s[2..], 8)
             .ok()
             .map(|n| Value::Number(Number::from(n)))
@@ -1092,10 +981,7 @@ fn parse_integer(s: &str) -> Option<Value> {
 
 fn parse_float(s: &str) -> Option<Value> {
     // Must contain a '.' or 'e'/'E' to be a float
-    if !s.contains('.')
-        && !s.contains('e')
-        && !s.contains('E')
-    {
+    if !s.contains('.') && !s.contains('e') && !s.contains('E') {
         return None;
     }
     let clean = s.replace('_', "");
@@ -1152,9 +1038,7 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
         T: serde::de::DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some(value) => {
-                seed.deserialize(value).map(Some)
-            }
+            Some(value) => seed.deserialize(value).map(Some),
             None => Ok(None),
         }
     }
@@ -1223,9 +1107,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     {
         match self.value.take() {
             Some(value) => seed.deserialize(value),
-            None => Err(Error::msg(
-                "value called before key",
-            )),
+            None => Err(Error::msg("value called before key")),
         }
     }
 }

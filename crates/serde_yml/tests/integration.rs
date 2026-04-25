@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 use serde_yml::{
-    from_reader, from_slice, from_str, from_value, to_string,
-    to_value, to_writer, Mapping, Number, Tag, TaggedValue, Value,
+    from_reader, from_slice, from_str, from_value, to_string, to_value,
+    to_writer, Mapping, Number, Tag, TaggedValue, Value,
 };
 
 // ----------------------------------------------------------------
@@ -298,7 +298,8 @@ fn value_number_float() {
 
 #[test]
 fn value_sequence() {
-    let v = Value::Sequence(vec![Value::from(1_i64), Value::from(2_i64)]);
+    let v =
+        Value::Sequence(vec![Value::from(1_i64), Value::from(2_i64)]);
     assert!(v.is_sequence());
     let seq = v.as_sequence().unwrap();
     assert_eq!(seq.len(), 2);
@@ -310,10 +311,7 @@ fn value_mapping() {
     m.insert(Value::from("key"), Value::from("val"));
     let v = Value::Mapping(m);
     assert!(v.is_mapping());
-    assert_eq!(
-        v.get("key").unwrap().as_str().unwrap(),
-        "val"
-    );
+    assert_eq!(v.get("key").unwrap().as_str().unwrap(), "val");
 }
 
 #[test]
@@ -348,10 +346,8 @@ fn mapping_new_is_empty() {
 #[test]
 fn mapping_insert_and_get() {
     let mut m = Mapping::new();
-    let prev = m.insert(
-        Value::String("key".into()),
-        Value::from(100_i64),
-    );
+    let prev =
+        m.insert(Value::String("key".into()), Value::from(100_i64));
     assert!(prev.is_none());
     assert_eq!(m.len(), 1);
     assert!(!m.is_empty());
@@ -829,10 +825,8 @@ fn nested_via_flow_style() {
     // Use flow-style for nested mappings
     let yaml = "a: {b: deep}\n";
     let v: Value = from_str(yaml).unwrap();
-    let result = v
-        .get("a")
-        .and_then(|a| a.get("b"))
-        .and_then(|b| b.as_str());
+    let result =
+        v.get("a").and_then(|a| a.get("b")).and_then(|b| b.as_str());
     assert_eq!(result, Some("deep"));
 }
 
