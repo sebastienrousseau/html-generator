@@ -1116,8 +1116,10 @@ impl DomReplacer {
             // If nothing matched at all, skip this replacement silently
         }
 
-        // Phase 2: sort by offset descending, then apply
-        resolved.sort_by(|a, b| b.0.cmp(&a.0));
+        // Phase 2: sort by offset descending, then apply.
+        // `sort_by_key(Reverse)` is what clippy 1.95+ asks for in
+        // place of a manual comparator closure.
+        resolved.sort_by_key(|r| std::cmp::Reverse(r.0));
 
         let mut result = source.to_string();
         for (offset, len, replacement) in resolved {
