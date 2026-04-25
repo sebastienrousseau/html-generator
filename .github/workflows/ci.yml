@@ -14,7 +14,9 @@ jobs:
     with:
       rust-version: 'stable'
       run-coverage: true
-      all-features: true
+      # `cargo-features: ''` (the default) already means `--all-features`
+      # in the reusable workflow; the previous `all-features: true` was
+      # an undeclared input and caused `startup_failure` on every push.
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
