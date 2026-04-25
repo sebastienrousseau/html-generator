@@ -17,6 +17,19 @@ jobs:
       # `cargo-features: ''` (the default) already means `--all-features`
       # in the reusable workflow; the previous `all-features: true` was
       # an undeclared input and caused `startup_failure` on every push.
+      #
+      # Coverage is reported on the library (`src/**`) only. Tarpaulin
+      # otherwise instruments every .rs in the workspace — including
+      # integration tests, benches, examples, and the build script —
+      # and treats unexecuted branches in *those* files as uncovered
+      # project lines, which depresses the percentage and makes the
+      # codecov/patch + codecov/project gates flap on every PR that
+      # adds tests.
+      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs'
+      # The vendored `crates/serde_yml/` is published-false and has its
+      # own tests that aren't run by `cargo test --all-features` on the
+      # parent package. Excluding it keeps the metric honest.
+      coverage-exclude-packages: 'serde_yml'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
