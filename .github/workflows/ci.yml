@@ -25,11 +25,16 @@ jobs:
       # project lines, which depresses the percentage and makes the
       # codecov/patch + codecov/project gates flap on every PR that
       # adds tests.
-      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs'
-      # The vendored `crates/serde_yml/` is published-false and has its
-      # own tests that aren't run by `cargo test --all-features` on the
-      # parent package. Excluding it keeps the metric honest.
-      coverage-exclude-packages: 'serde_yml'
+      # `crates/*` is a vendored path dependency, not a workspace
+      # member, so `coverage-exclude-packages` cannot reach it
+      # (tarpaulin emits `excluded package(s) … not found in
+      # workspace`). The file glob below is the durable mechanism.
+      # The vendored `crates/serde_yml/` is published-false and has
+      # its own test harness that isn't executed by
+      # `cargo test --all-features` on the parent package; counting
+      # its 1 500+ lines as project code dragged the metric from
+      # ~96% (src/) to ~54%.
+      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs,crates/*'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
