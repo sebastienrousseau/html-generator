@@ -687,6 +687,46 @@ fn check_advanced_aria_accepts_empty_document() {
     assert!(issues.is_empty());
 }
 
+// ─── builder: theme = None falls back to DEFAULT_SYNTAX_THEME ────
+
+#[test]
+fn builder_with_syntax_highlighting_true_none_uses_default_theme() {
+    use html_generator::constants::DEFAULT_SYNTAX_THEME;
+    // `with_syntax_highlighting(true, None)` exercises the `or_else`
+    // closure that falls back to `DEFAULT_SYNTAX_THEME`. The
+    // explicit-Some path is already covered elsewhere.
+    let config = HtmlConfigBuilder::new()
+        .with_syntax_highlighting(true, None)
+        .build()
+        .unwrap();
+    assert!(config.enable_syntax_highlighting);
+    assert_eq!(
+        config.syntax_theme.as_deref(),
+        Some(DEFAULT_SYNTAX_THEME),
+    );
+}
+
+// ─── accessibility: empty title="" skips tooltip handler ─────────
+
+#[test]
+fn empty_title_attribute_skips_tooltip_handler() {
+    // A button with `title=""` passes the fast-path
+    // (`html_builder.content.contains("title=")`) but the per-button
+    // loop in `add_aria_to_tooltips` must `continue` when the
+    // trimmed value is empty rather than emit a `<span id="tooltip-N"
+    // role="tooltip" hidden></span>` placeholder.
+    let input = r#"<button title="">Click</button>"#;
+    let enhanced = accessibility::add_aria_attributes(input, None).unwrap();
+    assert!(
+        !enhanced.contains(r#"role="tooltip""#),
+        "no tooltip span should be emitted for empty title; got: {enhanced}"
+    );
+    assert!(
+        !enhanced.contains("aria-describedby"),
+        "no aria-describedby should be added for empty title; got: {enhanced}"
+    );
+}
+
 // ─── accessibility: aria-pressed toggle flipping ─────────────────
 
 #[test]
