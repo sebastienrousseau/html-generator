@@ -986,3 +986,30 @@ fn markdown_file_to_html_surfaces_writer_write_errors() {
         other => panic!("expected Io error, got {other:?}"),
     }
 }
+
+// ─── accessibility: negative tabindex flagged by keyboard check ──
+
+#[test]
+fn negative_tabindex_is_flagged_by_keyboard_navigation_check() {
+    // `validate_wcag` does not call `check_keyboard_navigation`; the
+    // method is public and meant to be invoked directly. Build the
+    // `scraper::Html` document by hand and assert the negative-
+    // tabindex branch reports an issue.
+    use html_generator::accessibility::{AccessibilityReport, Issue};
+    use scraper::Html;
+    let html =
+        r#"<html><body><button tabindex="-1">x</button></body></html>"#;
+    let document = Html::parse_document(html);
+    let mut issues: Vec<Issue> = Vec::new();
+    AccessibilityReport::check_keyboard_navigation(
+        &document,
+        &mut issues,
+    )
+    .unwrap();
+    assert!(
+        issues.iter().any(|i| i
+            .message
+            .contains("Negative tabindex prevents keyboard focus")),
+        "expected negative-tabindex issue in {issues:?}"
+    );
+}

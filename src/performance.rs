@@ -356,6 +356,29 @@ mod tests {
         }
 
         #[test]
+        fn test_minify_non_utf8_failure_path_via_directory_path() {
+            // Pointing `minify_html` at a directory exercises the
+            // non-UTF-8 *fallback* arm in the read-error mapping —
+            // `fs::read_to_string` on a directory fails with
+            // "Is a directory" (or platform-equivalent), which does
+            // not match the UTF-8 substring and so routes to the
+            // "Failed to read file" branch.
+            let dir =
+                tempdir().expect("Failed to create temp directory");
+            let result = minify_html(dir.path());
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+            let err_msg = result.unwrap_err().to_string();
+            assert!(
+                err_msg.contains("Failed to read file"),
+                "expected 'Failed to read file' branch, got: {err_msg}"
+            );
+            drop(dir);
+        }
+
+        #[test]
         fn test_minify_utf8_content() {
             let html = "<html><body><p>Test 你好 🦀</p></body></html>";
             let (dir, file_path) = create_test_file(html);
