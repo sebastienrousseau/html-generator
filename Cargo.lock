@@ -985,7 +985,7 @@ dependencies = [
 
 [[package]]
 name = "html-generator"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "ammonia",
  "criterion",
