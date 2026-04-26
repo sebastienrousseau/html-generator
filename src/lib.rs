@@ -324,7 +324,9 @@ impl Default for HtmlConfig {
     fn default() -> Self {
         Self {
             enable_syntax_highlighting: true,
-            syntax_theme: Some("github".to_string()),
+            syntax_theme: Some(
+                constants::DEFAULT_SYNTAX_THEME.to_string(),
+            ),
             minify_output: false,
             add_aria_attributes: true,
             generate_structured_data: false,
@@ -474,7 +476,9 @@ impl HtmlConfigBuilder {
     ) -> Self {
         self.config.enable_syntax_highlighting = enable;
         self.config.syntax_theme = if enable {
-            theme.or_else(|| Some("github".to_string()))
+            theme.or_else(|| {
+                Some(constants::DEFAULT_SYNTAX_THEME.to_string())
+            })
         } else {
             None
         };
@@ -1624,7 +1628,7 @@ fn main() {
             assert!(default.enable_syntax_highlighting);
             assert_eq!(
                 default.syntax_theme,
-                Some("github".to_string())
+                Some(constants::DEFAULT_SYNTAX_THEME.to_string())
             );
             assert!(!default.minify_output);
             assert!(default.add_aria_attributes);
