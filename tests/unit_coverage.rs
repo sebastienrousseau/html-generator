@@ -716,7 +716,8 @@ fn empty_title_attribute_skips_tooltip_handler() {
     // trimmed value is empty rather than emit a `<span id="tooltip-N"
     // role="tooltip" hidden></span>` placeholder.
     let input = r#"<button title="">Click</button>"#;
-    let enhanced = accessibility::add_aria_attributes(input, None).unwrap();
+    let enhanced =
+        accessibility::add_aria_attributes(input, None).unwrap();
     assert!(
         !enhanced.contains(r#"role="tooltip""#),
         "no tooltip span should be emitted for empty title; got: {enhanced}"
