@@ -425,6 +425,16 @@ pub fn add_aria_attributes(
         });
     }
 
+    // Did the *input* already contain any `aria-…` attribute? If not,
+    // the final pipeline output's aria-* attributes are entirely our
+    // own additions, every one of which is in `VALID_ARIA_ATTRIBUTES`
+    // by construction (each `add_aria_to_*` only writes validated
+    // names). In that case the post-pipeline `remove_invalid_aria_attributes`
+    // sweep cannot find anything to strip and the html5ever parse
+    // it does to discover that is pure overhead. The byte-scan is
+    // SIMD-backed via stdlib `memchr`; ~10 ns vs. ~µs for a parse.
+    let input_had_aria = html.contains("aria-");
+
     let mut html_builder = HtmlBuilder::new(html);
 
     // Apply transformations
@@ -438,13 +448,19 @@ pub fn add_aria_attributes(
     html_builder = add_aria_to_toggle(html_builder)?;
     html_builder = add_aria_to_tooltips(html_builder)?;
 
-    // `remove_invalid_aria_attributes` parses the final HTML once and
-    // strips every aria-* attribute that fails `is_valid_aria_attribute`.
-    // Its output contains only valid aria-* pairs by construction, so
-    // the historical second-parse validation guard was redundant (and
-    // measured as pure overhead); it has been removed from the hot
-    // path.
-    Ok(remove_invalid_aria_attributes(&html_builder.build()))
+    let final_html = html_builder.build();
+    if !input_had_aria {
+        // Fast path: no user-supplied aria-* could have survived;
+        // every aria-* in `final_html` was emitted by us with a
+        // validated name. Skip the parse-and-sweep entirely.
+        return Ok(final_html);
+    }
+
+    // Slow path: input did have aria-* attributes, so the user could
+    // have supplied invalid ones (raw-HTML pass-through with
+    // `allow_unsafe_html: true`, or attributes preserved through the
+    // handler rewrites). Parse and strip.
+    Ok(remove_invalid_aria_attributes(&final_html))
 }
 
 /// A builder struct for constructing HTML content.
