@@ -43,9 +43,20 @@ to `0.0.4` until this version is published.
 - Compact JSON-LD output (`serde_json::to_string` instead of
   `to_string_pretty`).
 
+- `add_aria_attributes` skips the post-pipeline
+  `remove_invalid_aria_attributes` parse when the input contains no
+  `aria-*` substring (cheapest possible byte-scan). The slow path
+  still runs when a user supplied raw HTML with `allow_unsafe_html:
+  true` could carry invalid attributes. Realistic 8 KB markdown:
+  **2.58 ms → 2.04 ms (−21%)**. Trivial input is now mdx-gen-bound
+  (html5ever cost is negligible on a 30-byte string); breaking past
+  the trivial floor would require a different markdown engine, not
+  an ARIA refactor — out of scope for v0.0.5.
+
 **Throughput on the trivial `generate_html` bench: 2 374 → 10 316
-msg/sec (4.35×).** Scorecard methodology and per-bench measurements
-recorded in commit `8fcfd7c`.
+msg/sec (4.35×). Realistic 8 KB markdown: 162 → 490 msg/sec (3.0×).**
+Scorecard methodology and per-bench measurements recorded in commit
+`8fcfd7c`; final fast-path measured in `e522d38`.
 
 ### Security
 
@@ -106,6 +117,14 @@ recorded in commit `8fcfd7c`.
   `read_all_from_reader<R: Read>` and `write_all_to_writer<W: Write>`
   helpers so stdin and writer-failure paths are covered without
   subprocess tests.
+
+### CI gates
+
+- New `codecov.yml` enforces a coverage floor: project ≥95% (1%
+  threshold), patch ≥90% (1% threshold). The `coverage-exclude`
+  glob the workflow passes to tarpaulin is mirrored as the
+  Codecov `ignore` list so the two sources agree on the
+  denominator.
 
 ### Tests + coverage
 
