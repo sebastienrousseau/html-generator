@@ -1,0 +1,222 @@
+# Changelog
+
+All notable changes to **html-generator** are recorded in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.5] — Unreleased
+
+The first release after the public `0.0.4` ship on crates.io. Everything
+below is hardening on top of the published `0.0.4` and is **not** yet
+on the registry — `cargo install html-generator` continues to resolve
+to `0.0.4` until this version is published.
+
+### Performance
+
+- Bench profile gets explicit `opt-level = 3` + fat LTO. The release
+  profile had been `opt-level = "z"` (size-optimised) and
+  `cargo bench` inherited it; benchmarks were measuring a size-tuned
+  binary, not realistic throughput. This single change took
+  `generate_html` on a trivial input from **421 µs → 117 µs** before
+  any code changes.
+- Per-handler fast-paths in `add_aria_attributes`. Every
+  `add_aria_to_*` now short-circuits via `str::contains` (SIMD-backed
+  via stdlib `memchr`) before any html5ever parse. A realistic 8 KB
+  blog-post markdown skips 7 of the 9 ARIA parses; pipeline drops
+  from **6.16 ms → 2.58 ms** (−58%).
+- `escape_html` gains a SIMD short-circuit before entering the regex
+  engine — zero-alloc on the typical no-escape input.
+- mdx-gen `Options` is now memoised in a `Lazy<Options<'static>>` and
+  cloned per call; only the runtime-varying fields (unsafe HTML,
+  syntax theme) mutate. `add_custom_classes` and
+  `process_images_with_classes` return `Cow<'_, str>` so a markdown
+  document with no `:::class` or image-class syntax allocates nothing.
+- `generate_id` walks the input once instead of three times. Three
+  intermediate allocations → one per heading.
+- `remove_invalid_aria_attributes` is offset-based via `DomReplacer`
+  with a no-op fast path when every attribute is already valid.
+  `O(n²)` → `O(n)` on element-heavy documents.
+- Nine hot-path `Html::parse_document` calls swapped for
+  `Html::parse_fragment` (the input is a fragment; document parsing
+  was synthesising an unnecessary `<html><head><body>` wrapper).
+- Compact JSON-LD output (`serde_json::to_string` instead of
+  `to_string_pretty`).
+
+**Throughput on the trivial `generate_html` bench: 2 374 → 10 316
+msg/sec (4.35×).** Scorecard methodology and per-bench measurements
+recorded in commit `8fcfd7c`.
+
+### Security
+
+- `validate_file_path` now rejects NUL bytes — closes a C-string
+  smuggling vector on Unix where path-string handling silently
+  truncates at the first `\0`.
+- ARIA IDs are deterministic. The previous implementation generated
+  `dialog-desc-{uuid::Uuid::new_v4()}` and `aria-{uuid}` per call,
+  so the same Markdown produced different HTML on every run. Per
+  call ID counters give byte-identical output for byte-identical
+  input. The `uuid` dependency was dropped entirely.
+- Dropped `RUSTSEC-2025-0068` from the `cargo-audit` and `cargo-deny`
+  ignore lists. The advisory targets `serde_yml@0.0.12` (which links
+  the unsafe `libyml` C library); after renaming our vendored copy
+  from `serde_yml` to `yaml_safe` the name collision evaporated, so
+  the ignore is no longer masking anything.
+- All commits are signed (ED25519); every commit message carries the
+  `Assisted-by:` trailer per the Linux kernel coding-assistants
+  standard.
+
+### Changed
+
+- Vendored YAML implementation renamed from `serde_yml` to
+  `yaml_safe` and re-imported from
+  `/Users/seb/Code/Public/Rust/yaml_safe@0.1.0`. `forbid(unsafe_code)`
+  preserved; API surface unchanged at the parent-crate boundary; one
+  call site (`src/utils.rs::parse_yaml_to_map`).
+- `accessibility::Error` now converts cleanly to `HtmlError` via
+  `From`. `?` composes across module boundaries without explicit
+  `.map_err`. No public signatures changed.
+- Static compile-time regex/selector patterns now panic with a clear
+  message on parse failure instead of silently disabling features
+  via `.ok()`. A typo in a static pattern fails loudly at first use.
+- `generate_id` is single-pass; the now-unused
+  `CONSECUTIVE_HYPHENS_REGEX` static is removed.
+- `DomReplacer::apply` uses `sort_by_key(Reverse(_))` per
+  `clippy::unnecessary-sort-by` (Rust 1.95+).
+
+### Removed
+
+- `uuid` runtime dependency (was only used for non-deterministic
+  ARIA ids; replaced with deterministic counters).
+- `tempfile` from `[dependencies]` — was only used in tests and
+  benches; moved to `[dev-dependencies]`.
+- Duplicate `performance::generate_html` (one-line wrapper around
+  `generator::markdown_to_html_with_extensions`); use
+  `generator::generate_html` instead.
+- Unused `HtmlError::Minification { message, size, source }` variant
+  (only the `MinificationError(String)` form was ever constructed).
+
+### Fixed
+
+- `validate_file_path`'s `#[cfg(not(test))]`-gated test was nested
+  inside a `#[cfg(test)]` module — it was never compiled. Removed
+  the dead gate; added live tests for absolute-path acceptance and
+  NUL-byte rejection.
+- `read_input` and `write_output` factored into testable
+  `read_all_from_reader<R: Read>` and `write_all_to_writer<W: Write>`
+  helpers so stdin and writer-failure paths are covered without
+  subprocess tests.
+
+### Tests + coverage
+
+- New `tests/unit_coverage.rs` — 58 tests covering every front-matter
+  variant, builder option, full-document wrapping, fragment language
+  injection, Writer destinations, every `From<accessibility::Error>`
+  variant, `DomReplacer` direct cases (fast path, shorthand fallback,
+  last-resort, duplicate snippets), checkbox vs option input labels,
+  tooltip attachment, modal `aria-describedby` reuse, fast-path
+  regressions.
+- New `generate_html_realistic` criterion benchmark on an ~8 KB blog
+  post payload — establishes a regression gate for realistic-document
+  throughput.
+- Determinism regression test in `tests/integration_tests.rs`
+  asserts byte-identical output across two consecutive calls.
+- **Line coverage: 91.10% → 98.04%** (`cargo llvm-cov`); Codecov
+  project 95.78%, patch 93.90%.
+
+### CI
+
+- Fixed a five-day-long invisible CI failure: `ci.yml` was passing
+  `all-features: true` to `pipelines/.github/workflows/rust-ci.yml@main`,
+  which declares no such input. The workflow exited with
+  `startup_failure` rather than a check failure on the PR, so the
+  branch was passing review checks while no jobs were actually
+  running. Removed the bad input.
+- Tarpaulin coverage scoping. The reusable workflow's
+  `coverage-exclude-packages` cannot reach a path-only dependency
+  (vendored `crates/yaml_safe/` is not a workspace member). Switched
+  to file-glob exclusion (`tests/*,benches/*,examples/*,build.rs,crates/*`)
+  which catches the vendored tree regardless of workspace topology.
+  This took the codecov/project gate from `53.76% (-33.15%)` to
+  `95.78% (+8.87%)` in one commit.
+- New `[profile.bench]` section in `Cargo.toml` (see Performance).
+
+### Internal — not user-visible
+
+- `chore(fmt)` of the vendored `crates/yaml_safe/` (was
+  `crates/serde_yml/`) under workspace rustfmt rules. Isolated as
+  its own commit per blame hygiene.
+- `DEFAULT_SYNTAX_THEME` constant now actually used — three call
+  sites that hardcoded `"github"` route through the constant.
+- `Cargo.lock` transitive auto-bumps (e.g. `jiff` 0.2.23 → 0.2.24).
+
+### Deferred to a later release
+
+- **`cargo publish` blocker.** `crates/yaml_safe/` is a path
+  dependency without `version =`; `cargo publish --dry-run` fails
+  for that reason. The fix is either (a) publish `yaml_safe@0.1.0`
+  to crates.io and add `version = "0.1"` next to the path entry, or
+  (b) inline the YAML logic into `html-generator/src/yaml/`.
+  Documented in `crates/yaml_safe/src/lib.rs`.
+- **`mdx-gen` 0.0.4 upgrade.** Tracked as a separate effort. The
+  release added `MarkdownOptions::validate()` (which rejects the
+  existing default `syntax_theme = "github"`), native `:::warning`
+  recognition that competes with `add_custom_classes`, and a hardened
+  sanitiser that strips arbitrary `class` attributes. ~10 test
+  rewrites required; out of scope for this release. See the close
+  comment on PR #37.
+
+## [0.0.4] — 2026-04-04
+
+First public release on crates.io after a six-month iteration on
+unreleased branches.
+
+### Added
+
+- HTML5 semantic element builders (`Article`, `Section`, `Nav`,
+  `Aside`, `Template`) with built-in ARIA support (closes #25).
+- Bundled emoji data via `include_str!` so emoji-to-ARIA-label
+  mapping works without filesystem access. Override path via
+  `HTML_GENERATOR_EMOJI_DATA` environment variable retained.
+- `ammonia`-backed sanitisation when `allow_unsafe_html=true`
+  combined with `sanitize_html=true`.
+- Full HTML5 document wrapping (`generate_full_document`) — output
+  is wrapped in `<!DOCTYPE html><html lang="…"><head>…</head><body>…</body></html>`
+  with title extracted from the first `<h1>`.
+- Diagnostics pipeline: `generate_html_with_diagnostics` returns
+  `HtmlOutput { html, diagnostics }` so callers can inspect which
+  post-processing steps degraded.
+- Async generation (`async_generate_html`) behind the `async`
+  feature flag.
+- DOM-aware `replace_element` (`DomReplacer`) replacing brittle
+  string-replacement code.
+- Configurable emoji loader, relaxed input path validation,
+  `[[TOC]]` placeholder, and unified pipeline.
+- 13 branded examples and a complete README rewrite.
+
+### Changed
+
+- Manual front-matter parsers replaced with a single delimiter-aware
+  extractor that supports YAML (`---`), TOML (`+++`), and JSON
+  (`{ … }`).
+- Migrated to `comrak` 0.50 and `minify-html` 0.18.
+- Image CDN migrated from `kura.pro` to `cloudcdn.pro`.
+
+## [0.0.3] — 2024-12-29
+
+Iterative comrak compatibility track. Incremental upgrades of the
+`comrak` dependency from 0.32 → 0.35 with associated minor fixes.
+
+## [0.0.2] — 2024-12-01
+
+Second pre-release iteration.
+
+## [0.0.1] — 2024-10-07
+
+Initial public release.
+
+[0.0.5]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.4
+[0.0.3]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.3
+[0.0.2]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.2
+[0.0.1]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.1

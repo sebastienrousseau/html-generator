@@ -1,0 +1,50 @@
+# Codecov configuration — coverage floors enforced as PR gates.
+#
+# The reusable rust-ci.yml workflow does not expose tarpaulin's
+# `--fail-under` flag, so the floor lives here. Codecov posts
+# `codecov/project` and `codecov/patch` check-runs against the PR;
+# the targets and thresholds below are what makes them red on a
+# regression.
+#
+# Targets reflect the steady state established for v0.0.5:
+#   * project: 95% (baseline at this writing is 95.78%)
+#   * patch:   90% (baseline for fresh PRs is 93.90%)
+# `threshold` allows that much erosion without flagging — small
+# enough to catch real regressions, large enough to absorb tarpaulin's
+# noise (line-counting drifts a fraction of a percent on transitive
+# lockfile bumps).
+#
+# Reference: https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  status:
+    project:
+      default:
+        target: 95%
+        threshold: 1%
+        if_ci_failed: error
+        only_pulls: false
+    patch:
+      default:
+        target: 90%
+        threshold: 1%
+        if_ci_failed: error
+
+# Files codecov should ignore when computing the project total. This
+# mirrors the `coverage-exclude` glob the CI workflow already passes
+# to tarpaulin so the two sources agree on the denominator. If the
+# tarpaulin glob changes, update both in lockstep.
+ignore:
+  - "tests/**"
+  - "benches/**"
+  - "examples/**"
+  - "build.rs"
+  - "crates/**"
+
+# Don't post a PR comment for every push — the check-runs are
+# sufficient and the comment thread on a long-lived branch
+# accumulates noise.
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: true
