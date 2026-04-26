@@ -21,11 +21,11 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::singleton_map;
-use crate::value::Value;
+use crate::yaml::value::Value;
 
 /// Serialize an `Option<T>` where `T` is an enum, using
 /// singleton-map representation for `Some(variant)`.
-pub fn serialize<T, S>(
+pub(crate) fn serialize<T, S>(
     value: &Option<T>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -41,7 +41,7 @@ where
 
 /// Deserialize an `Option<T>` where `T` is an enum, from a
 /// singleton-map or null.
-pub fn deserialize<'de, T, D>(
+pub(crate) fn deserialize<'de, T, D>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error>
 where

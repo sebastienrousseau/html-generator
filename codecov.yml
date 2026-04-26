@@ -39,7 +39,7 @@ ignore:
   - "benches/**"
   - "examples/**"
   - "build.rs"
-  - "crates/**"
+  - "src/yaml/**"
 
 # Don't post a PR comment for every push — the check-runs are
 # sufficient and the comment thread on a long-lived branch

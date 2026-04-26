@@ -1,7 +1,7 @@
 // Copyright © 2023 - 2026 Static Site Generator (SSG). All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::Value;
+use crate::yaml::Value;
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
@@ -15,9 +15,9 @@ use std::{
 /// A YAML mapping in which the keys and values are both
 /// `serde_yml::Value`.
 #[derive(Clone, Default, Eq, PartialEq)]
-pub struct Mapping {
+pub(crate) struct Mapping {
     /// The underlying map.
-    pub map: IndexMap<Value, Value>,
+    pub(crate) map: IndexMap<Value, Value>,
 }
 
 impl fmt::Debug for Mapping {
@@ -28,44 +28,48 @@ impl fmt::Debug for Mapping {
 
 impl Mapping {
     #[inline]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     #[inline]
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
         Mapping {
             map: IndexMap::with_capacity(capacity),
         }
     }
 
     #[inline]
-    pub fn reserve(&mut self, additional: usize) {
+    pub(crate) fn reserve(&mut self, additional: usize) {
         self.map.reserve(additional);
     }
 
     #[inline]
-    pub fn shrink_to_fit(&mut self) {
+    pub(crate) fn shrink_to_fit(&mut self) {
         self.map.shrink_to_fit();
     }
 
     #[inline]
-    pub fn insert(&mut self, k: Value, v: Value) -> Option<Value> {
+    pub(crate) fn insert(
+        &mut self,
+        k: Value,
+        v: Value,
+    ) -> Option<Value> {
         self.map.insert(k, v)
     }
 
     #[inline]
-    pub fn contains_key<I: Index>(&self, index: I) -> bool {
+    pub(crate) fn contains_key<I: Index>(&self, index: I) -> bool {
         index.is_key_into(self)
     }
 
     #[inline]
-    pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
+    pub(crate) fn get<I: Index>(&self, index: I) -> Option<&Value> {
         index.index_into(self)
     }
 
     #[inline]
-    pub fn get_mut<I: Index>(
+    pub(crate) fn get_mut<I: Index>(
         &mut self,
         index: I,
     ) -> Option<&mut Value> {
@@ -73,7 +77,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn entry(&mut self, k: Value) -> Entry<'_> {
+    pub(crate) fn entry(&mut self, k: Value) -> Entry<'_> {
         match self.map.entry(k) {
             indexmap::map::Entry::Occupied(occupied) => {
                 Entry::Occupied(OccupiedEntry { occupied })
@@ -85,12 +89,15 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn remove<I: Index>(&mut self, index: I) -> Option<Value> {
+    pub(crate) fn remove<I: Index>(
+        &mut self,
+        index: I,
+    ) -> Option<Value> {
         self.swap_remove(index)
     }
 
     #[inline]
-    pub fn remove_entry<I: Index>(
+    pub(crate) fn remove_entry<I: Index>(
         &mut self,
         index: I,
     ) -> Option<(Value, Value)> {
@@ -98,12 +105,15 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn swap_remove<I: Index>(&mut self, index: I) -> Option<Value> {
+    pub(crate) fn swap_remove<I: Index>(
+        &mut self,
+        index: I,
+    ) -> Option<Value> {
         index.swap_remove_from(self)
     }
 
     #[inline]
-    pub fn swap_remove_entry<I: Index>(
+    pub(crate) fn swap_remove_entry<I: Index>(
         &mut self,
         index: I,
     ) -> Option<(Value, Value)> {
@@ -111,7 +121,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn shift_remove<I: Index>(
+    pub(crate) fn shift_remove<I: Index>(
         &mut self,
         index: I,
     ) -> Option<Value> {
@@ -119,7 +129,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn shift_remove_entry<I: Index>(
+    pub(crate) fn shift_remove_entry<I: Index>(
         &mut self,
         index: I,
     ) -> Option<(Value, Value)> {
@@ -127,7 +137,7 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn retain<F>(&mut self, keep: F)
+    pub(crate) fn retain<F>(&mut self, keep: F)
     where
         F: FnMut(&Value, &mut Value) -> bool,
     {
@@ -135,64 +145,64 @@ impl Mapping {
     }
 
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub(crate) fn capacity(&self) -> usize {
         self.map.capacity()
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.map.len()
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
     #[inline]
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.map.clear();
     }
 
     #[inline]
-    pub fn iter(&self) -> Iter<'_> {
+    pub(crate) fn iter(&self) -> Iter<'_> {
         Iter {
             iter: self.map.iter(),
         }
     }
 
     #[inline]
-    pub fn iter_mut(&mut self) -> IterMut<'_> {
+    pub(crate) fn iter_mut(&mut self) -> IterMut<'_> {
         IterMut {
             iter: self.map.iter_mut(),
         }
     }
 
-    pub fn keys(&self) -> Keys<'_> {
+    pub(crate) fn keys(&self) -> Keys<'_> {
         Keys {
             iter: self.map.keys(),
         }
     }
 
-    pub fn into_keys(self) -> IntoKeys {
+    pub(crate) fn into_keys(self) -> IntoKeys {
         IntoKeys {
             iter: self.map.into_keys(),
         }
     }
 
-    pub fn values(&self) -> Values<'_> {
+    pub(crate) fn values(&self) -> Values<'_> {
         Values {
             iter: self.map.values(),
         }
     }
 
-    pub fn values_mut(&mut self) -> ValuesMut<'_> {
+    pub(crate) fn values_mut(&mut self) -> ValuesMut<'_> {
         ValuesMut {
             iter: self.map.values_mut(),
         }
     }
 
-    pub fn into_values(self) -> IntoValues {
+    pub(crate) fn into_values(self) -> IntoValues {
         IntoValues {
             iter: self.map.into_values(),
         }
@@ -203,11 +213,11 @@ impl Mapping {
 
 /// Sealed trait to prevent external implementations.
 mod private {
-    pub trait Sealed {}
+    pub(crate) trait Sealed {}
 }
 
 /// Types that can index into a `Mapping`.
-pub trait Index: private::Sealed {
+pub(crate) trait Index: private::Sealed {
     #[doc(hidden)]
     fn is_key_into(&self, v: &Mapping) -> bool;
     #[doc(hidden)]
@@ -411,8 +421,9 @@ impl PartialOrd for Mapping {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut self_entries = Vec::from_iter(self);
         let mut other_entries = Vec::from_iter(other);
-        let total_cmp_fn =
-            |&(a, _): &_, &(b, _): &_| crate::value::total_cmp(a, b);
+        let total_cmp_fn = |&(a, _): &_, &(b, _): &_| {
+            crate::yaml::value::total_cmp(a, b)
+        };
         self_entries.sort_by(total_cmp_fn);
         other_entries.sort_by(total_cmp_fn);
         self_entries.partial_cmp(&other_entries)
@@ -492,7 +503,7 @@ macro_rules! delegate_iterator {
 }
 
 #[derive(Debug)]
-pub struct Iter<'a> {
+pub(crate) struct Iter<'a> {
     iter: indexmap::map::Iter<'a, Value, Value>,
 }
 delegate_iterator!((Iter<'a>) => (&'a Value, &'a Value));
@@ -508,7 +519,7 @@ impl<'a> IntoIterator for &'a Mapping {
 }
 
 #[derive(Debug)]
-pub struct IterMut<'a> {
+pub(crate) struct IterMut<'a> {
     iter: indexmap::map::IterMut<'a, Value, Value>,
 }
 delegate_iterator!((IterMut<'a>) => (&'a Value, &'a mut Value));
@@ -524,7 +535,7 @@ impl<'a> IntoIterator for &'a mut Mapping {
 }
 
 #[derive(Debug)]
-pub struct IntoIter {
+pub(crate) struct IntoIter {
     iter: indexmap::map::IntoIter<Value, Value>,
 }
 delegate_iterator!((IntoIter) => (Value, Value));
@@ -540,31 +551,31 @@ impl IntoIterator for Mapping {
 }
 
 #[derive(Debug)]
-pub struct Keys<'a> {
+pub(crate) struct Keys<'a> {
     iter: indexmap::map::Keys<'a, Value, Value>,
 }
 delegate_iterator!((Keys<'a>) => &'a Value);
 
 #[derive(Debug)]
-pub struct IntoKeys {
+pub(crate) struct IntoKeys {
     iter: indexmap::map::IntoKeys<Value, Value>,
 }
 delegate_iterator!((IntoKeys) => Value);
 
 #[derive(Debug)]
-pub struct Values<'a> {
+pub(crate) struct Values<'a> {
     iter: indexmap::map::Values<'a, Value, Value>,
 }
 delegate_iterator!((Values<'a>) => &'a Value);
 
 #[derive(Debug)]
-pub struct ValuesMut<'a> {
+pub(crate) struct ValuesMut<'a> {
     iter: indexmap::map::ValuesMut<'a, Value, Value>,
 }
 delegate_iterator!((ValuesMut<'a>) => &'a mut Value);
 
 #[derive(Debug)]
-pub struct IntoValues {
+pub(crate) struct IntoValues {
     iter: indexmap::map::IntoValues<Value, Value>,
 }
 delegate_iterator!((IntoValues) => Value);
@@ -572,37 +583,37 @@ delegate_iterator!((IntoValues) => Value);
 // ---- Entry types ----
 
 #[derive(Debug)]
-pub enum Entry<'a> {
+pub(crate) enum Entry<'a> {
     Occupied(OccupiedEntry<'a>),
     Vacant(VacantEntry<'a>),
 }
 
 #[derive(Debug)]
-pub struct OccupiedEntry<'a> {
+pub(crate) struct OccupiedEntry<'a> {
     occupied: indexmap::map::OccupiedEntry<'a, Value, Value>,
 }
 
 #[derive(Debug)]
-pub struct VacantEntry<'a> {
+pub(crate) struct VacantEntry<'a> {
     vacant: indexmap::map::VacantEntry<'a, Value, Value>,
 }
 
 impl<'a> Entry<'a> {
-    pub fn key(&self) -> &Value {
+    pub(crate) fn key(&self) -> &Value {
         match self {
             Entry::Vacant(e) => e.key(),
             Entry::Occupied(e) => e.key(),
         }
     }
 
-    pub fn or_insert(self, default: Value) -> &'a mut Value {
+    pub(crate) fn or_insert(self, default: Value) -> &'a mut Value {
         match self {
             Entry::Vacant(entry) => entry.insert(default),
             Entry::Occupied(entry) => entry.into_mut(),
         }
     }
 
-    pub fn or_insert_with<F>(self, default: F) -> &'a mut Value
+    pub(crate) fn or_insert_with<F>(self, default: F) -> &'a mut Value
     where
         F: FnOnce() -> Value,
     {
@@ -615,46 +626,46 @@ impl<'a> Entry<'a> {
 
 impl<'a> OccupiedEntry<'a> {
     #[inline]
-    pub fn key(&self) -> &Value {
+    pub(crate) fn key(&self) -> &Value {
         self.occupied.key()
     }
     #[inline]
-    pub fn get(&self) -> &Value {
+    pub(crate) fn get(&self) -> &Value {
         self.occupied.get()
     }
     #[inline]
-    pub fn get_mut(&mut self) -> &mut Value {
+    pub(crate) fn get_mut(&mut self) -> &mut Value {
         self.occupied.get_mut()
     }
     #[inline]
-    pub fn into_mut(self) -> &'a mut Value {
+    pub(crate) fn into_mut(self) -> &'a mut Value {
         self.occupied.into_mut()
     }
     #[inline]
-    pub fn insert(&mut self, value: Value) -> Value {
+    pub(crate) fn insert(&mut self, value: Value) -> Value {
         self.occupied.insert(value)
     }
     #[inline]
-    pub fn remove(self) -> Value {
+    pub(crate) fn remove(self) -> Value {
         self.occupied.swap_remove()
     }
     #[inline]
-    pub fn remove_entry(self) -> (Value, Value) {
+    pub(crate) fn remove_entry(self) -> (Value, Value) {
         self.occupied.swap_remove_entry()
     }
 }
 
 impl<'a> VacantEntry<'a> {
     #[inline]
-    pub fn key(&self) -> &Value {
+    pub(crate) fn key(&self) -> &Value {
         self.vacant.key()
     }
     #[inline]
-    pub fn into_key(self) -> Value {
+    pub(crate) fn into_key(self) -> Value {
         self.vacant.into_key()
     }
     #[inline]
-    pub fn insert(self, value: Value) -> &'a mut Value {
+    pub(crate) fn insert(self, value: Value) -> &'a mut Value {
         self.vacant.insert(value)
     }
 }

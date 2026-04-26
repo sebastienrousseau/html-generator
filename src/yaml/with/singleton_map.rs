@@ -25,12 +25,12 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::error::Error;
-use crate::mapping::Mapping;
-use crate::value::Value;
+use crate::yaml::error::Error;
+use crate::yaml::mapping::Mapping;
+use crate::yaml::value::Value;
 
 /// Serialize an enum as a single-key mapping.
-pub fn serialize<T, S>(
+pub(crate) fn serialize<T, S>(
     value: &T,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -40,14 +40,16 @@ where
 {
     // Serialize to Value first, then convert unit variants
     let v = value
-        .serialize(crate::value::ValueSerializer)
+        .serialize(crate::yaml::value::ValueSerializer)
         .map_err(serde::ser::Error::custom)?;
     let mapped = to_singleton_map(v);
     mapped.serialize(serializer)
 }
 
 /// Deserialize an enum from a single-key mapping.
-pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+pub(crate) fn deserialize<'de, T, D>(
+    deserializer: D,
+) -> Result<T, D::Error>
 where
     T: Deserialize<'de>,
     D: Deserializer<'de>,
@@ -92,7 +94,7 @@ pub(crate) fn from_singleton_map(v: Value) -> Value {
 
 /// Applies singleton_map transformation to a Value, suitable
 /// for use in `apply_to_value` patterns.
-pub fn apply_to_value(v: &mut Value) -> Result<(), Error> {
+pub(crate) fn apply_to_value(v: &mut Value) -> Result<(), Error> {
     *v = to_singleton_map(std::mem::take(v));
     Ok(())
 }

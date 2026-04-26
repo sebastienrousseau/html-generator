@@ -9,10 +9,10 @@ use std::{
 };
 
 /// An error that occurred during YAML processing.
-pub struct Error(Box<ErrorImpl>);
+pub(crate) struct Error(Box<ErrorImpl>);
 
 /// Alias for a `Result` with error type `serde_yml::Error`.
-pub type Result<T> = result::Result<T, Error>;
+pub(crate) type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug)]
 enum ErrorImpl {
@@ -23,7 +23,7 @@ enum ErrorImpl {
 
 /// The input location where an error occurred.
 #[derive(Clone, Copy, Debug)]
-pub struct Location {
+pub(crate) struct Location {
     index: usize,
     line: usize,
     column: usize,
@@ -31,24 +31,24 @@ pub struct Location {
 
 impl Location {
     /// Returns the byte index where the error occurred.
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         self.index
     }
 
     /// Returns the line number where the error occurred.
-    pub fn line(&self) -> usize {
+    pub(crate) fn line(&self) -> usize {
         self.line
     }
 
     /// Returns the column number where the error occurred.
-    pub fn column(&self) -> usize {
+    pub(crate) fn column(&self) -> usize {
         self.column
     }
 }
 
 impl Error {
     /// Returns the I/O error that caused this, if any.
-    pub fn io_error(&self) -> Option<&io::Error> {
+    pub(crate) fn io_error(&self) -> Option<&io::Error> {
         if let ErrorImpl::Io(err) = &*self.0 {
             Some(err)
         } else {
@@ -57,7 +57,7 @@ impl Error {
     }
 
     /// Returns the location where the error occurred.
-    pub fn location(&self) -> Option<Location> {
+    pub(crate) fn location(&self) -> Option<Location> {
         match &*self.0 {
             ErrorImpl::MessageAt(_, loc) => Some(*loc),
             _ => None,
@@ -75,7 +75,11 @@ impl Error {
 
 impl Location {
     /// Creates a new `Location`.
-    pub fn new(index: usize, line: usize, column: usize) -> Self {
+    pub(crate) fn new(
+        index: usize,
+        line: usize,
+        column: usize,
+    ) -> Self {
         Location {
             index,
             line,

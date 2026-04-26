@@ -48,7 +48,6 @@ include = [
     "/benches/**",
     "/build.rs",
     "/Cargo.toml",
-    "/crates/**",
     "/data/**",
     "/examples/**",
     "/README.md",
@@ -71,14 +70,15 @@ path = "src/lib.rs"
 [dependencies]
 # Dependencies required for building and running the project.
 ammonia = "4"
+indexmap = "2"
 log = "0.4"
 mdx-gen = "0.0.2"
 minify-html = "0.18"
 once_cell = "1.21.4"
 regex = "1.12.3"
 scraper = "0.26.0"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
-yaml_safe = { path = "crates/yaml_safe" }
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"], optional = true }
 toml = "0.8"

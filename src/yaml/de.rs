@@ -3,7 +3,7 @@
 
 //! YAML deserialization: parser and `from_str`.
 
-use crate::{
+use crate::yaml::{
     error::Error,
     mapping::Mapping,
     number::Number,
@@ -25,7 +25,7 @@ type Result<T> = std::result::Result<T, Error>;
 /// Uses a streaming deserializer that drives the parser
 /// directly via serde's visitor pattern, avoiding a full
 /// intermediate `Value` tree for known types.
-pub fn from_str<T>(s: &str) -> Result<T>
+pub(crate) fn from_str<T>(s: &str) -> Result<T>
 where
     T: DeserializeOwned,
 {
@@ -46,7 +46,7 @@ where
 }
 
 /// Deserialize from a byte slice.
-pub fn from_slice<T>(v: &[u8]) -> Result<T>
+pub(crate) fn from_slice<T>(v: &[u8]) -> Result<T>
 where
     T: DeserializeOwned,
 {
@@ -56,7 +56,7 @@ where
 }
 
 /// Deserialize from a reader.
-pub fn from_reader<R, T>(mut rdr: R) -> Result<T>
+pub(crate) fn from_reader<R, T>(mut rdr: R) -> Result<T>
 where
     R: Read,
     T: DeserializeOwned,
@@ -73,7 +73,7 @@ where
 /// iterate over documents with [`into_iter`](Deserializer::into_iter)
 /// or call [`next_document`](Deserializer::next_document).
 #[derive(Debug)]
-pub struct Deserializer<'a> {
+pub(crate) struct Deserializer<'a> {
     input: &'a str,
     pos: usize,
     finished: bool,
@@ -81,7 +81,7 @@ pub struct Deserializer<'a> {
 
 impl<'a> Deserializer<'a> {
     /// Creates a new `Deserializer` from a YAML string.
-    pub fn new(input: &'a str) -> Self {
+    pub(crate) fn new(input: &'a str) -> Self {
         Deserializer {
             input,
             pos: 0,
@@ -94,13 +94,13 @@ impl<'a> Deserializer<'a> {
     /// Alias for [`new`](Deserializer::new) for API
     /// compatibility.
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(input: &'a str) -> Self {
+    pub(crate) fn from_str(input: &'a str) -> Self {
         Self::new(input)
     }
 
     /// Deserializes the next document in the stream, or
     /// `None` if no documents remain.
-    pub fn next_document<T>(&mut self) -> Option<Result<T>>
+    pub(crate) fn next_document<T>(&mut self) -> Option<Result<T>>
     where
         T: DeserializeOwned,
     {
@@ -127,7 +127,7 @@ impl<'a> Deserializer<'a> {
 
 /// Iterator over YAML documents in a stream.
 #[derive(Debug)]
-pub struct DocumentIter<'a> {
+pub(crate) struct DocumentIter<'a> {
     deser: Deserializer<'a>,
 }
 
@@ -214,14 +214,14 @@ impl<'a> Parser<'a> {
         self.pos >= self.input.len()
     }
 
-    fn location(&self) -> crate::error::Location {
+    fn location(&self) -> crate::yaml::error::Location {
         let consumed = &self.input[..self.pos];
         let line = consumed.chars().filter(|&c| c == '\n').count() + 1;
         let column = match consumed.rfind('\n') {
             Some(nl) => self.pos - nl,
             None => self.pos + 1,
         };
-        crate::error::Location::new(self.pos, line, column)
+        crate::yaml::error::Location::new(self.pos, line, column)
     }
 
     fn error(&self, msg: impl std::fmt::Display) -> Error {
@@ -1335,8 +1335,10 @@ impl<'a> Parser<'a> {
         self.advance_by(end);
         self.skip_inline_spaces();
 
-        let tag =
-            crate::value::tagged::Tag::new(format!("!{}", tag_name));
+        let tag = crate::yaml::value::tagged::Tag::new(format!(
+            "!{}",
+            tag_name
+        ));
 
         // Parse the tagged value
         let value = if self.peek() == Some('\n')
@@ -1510,7 +1512,7 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
 }
 
 pub(crate) struct MapDeserializer {
-    iter: crate::mapping::IntoIter,
+    iter: crate::yaml::mapping::IntoIter,
     value: Option<Value>,
 }
 

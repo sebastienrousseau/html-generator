@@ -21,11 +21,11 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::singleton_map;
-use crate::value::Value;
+use crate::yaml::value::Value;
 
 /// Serialize a value, recursively converting all enum
 /// representations to singleton-map form.
-pub fn serialize<T, S>(
+pub(crate) fn serialize<T, S>(
     value: &T,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -34,7 +34,7 @@ where
     S: Serializer,
 {
     let v = value
-        .serialize(crate::value::ValueSerializer)
+        .serialize(crate::yaml::value::ValueSerializer)
         .map_err(serde::ser::Error::custom)?;
     let mapped = apply_recursive(v);
     mapped.serialize(serializer)
@@ -42,7 +42,9 @@ where
 
 /// Deserialize a value, accepting singleton-map enum
 /// representations recursively.
-pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+pub(crate) fn deserialize<'de, T, D>(
+    deserializer: D,
+) -> Result<T, D::Error>
 where
     T: Deserialize<'de>,
     D: Deserializer<'de>,
@@ -66,18 +68,18 @@ fn apply_recursive(v: Value) -> Value {
             seq.into_iter().map(apply_recursive).collect(),
         ),
         Value::Mapping(m) => {
-            let mut new_m = crate::mapping::Mapping::new();
+            let mut new_m = crate::yaml::mapping::Mapping::new();
             for (k, val) in m {
                 new_m.insert(apply_recursive(k), apply_recursive(val));
             }
             Value::Mapping(new_m)
         }
-        Value::Tagged(t) => {
-            Value::Tagged(Box::new(crate::value::tagged::TaggedValue {
+        Value::Tagged(t) => Value::Tagged(Box::new(
+            crate::yaml::value::tagged::TaggedValue {
                 tag: t.tag,
                 value: apply_recursive(t.value),
-            }))
-        }
+            },
+        )),
         other => singleton_map::to_singleton_map(other),
     }
 }
@@ -85,8 +87,8 @@ fn apply_recursive(v: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mapping::Mapping;
-    use crate::value::tagged::{Tag, TaggedValue};
+    use crate::yaml::mapping::Mapping;
+    use crate::yaml::value::tagged::{Tag, TaggedValue};
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -181,9 +183,9 @@ mod tests {
     #[test]
     fn serialize_unit_variant_roundtrip() {
         let v = OneField { mode: Mode::Plain };
-        let yaml = crate::to_string(&v).unwrap();
+        let yaml = crate::yaml::to_string(&v).unwrap();
         assert!(yaml.contains("Plain"));
-        let back: OneField = crate::from_str(&yaml).unwrap();
+        let back: OneField = crate::yaml::from_str(&yaml).unwrap();
         assert_eq!(back, v);
     }
 
@@ -217,7 +219,7 @@ mod tests {
 
         // Should not panic; round-tripping semantics of this
         // helper are enum-specific and covered elsewhere.
-        let yaml = crate::to_string(&Wrap(&input)).unwrap();
+        let yaml = crate::yaml::to_string(&Wrap(&input)).unwrap();
         assert!(!yaml.is_empty());
     }
 
@@ -236,7 +238,7 @@ mod tests {
             }
         }
 
-        let w: Wrap = crate::from_str("foo: bar\n").unwrap();
+        let w: Wrap = crate::yaml::from_str("foo: bar\n").unwrap();
         let m = w.0.as_mapping().unwrap();
         assert_eq!(
             m.get(Value::String("foo".into())).and_then(Value::as_str),
@@ -249,7 +251,7 @@ mod tests {
         // deserialize does no transformation — a plain Value in
         // singleton-map form round-trips back to itself.
         let yaml = "animal:\n  Cat: null\n";
-        let got: Value = crate::from_str(yaml).unwrap();
+        let got: Value = crate::yaml::from_str(yaml).unwrap();
         let m = got.as_mapping().unwrap();
         assert!(m.get(Value::String("animal".into())).is_some());
     }

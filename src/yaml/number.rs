@@ -1,7 +1,7 @@
 // Copyright © 2023 - 2026 Static Site Generator (SSG). All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::error::Error;
+use crate::yaml::error::Error;
 use serde::{
     de::{Unexpected, Visitor},
     forward_to_deserialize_any, Deserialize, Deserializer, Serialize,
@@ -15,7 +15,7 @@ use std::{
 
 /// Represents a YAML number, whether integer or floating point.
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
-pub struct Number {
+pub(crate) struct Number {
     n: N,
 }
 
@@ -28,7 +28,7 @@ enum N {
 
 impl Number {
     #[inline]
-    pub fn is_i64(&self) -> bool {
+    pub(crate) fn is_i64(&self) -> bool {
         match self.n {
             N::PositiveInteger(v) => v <= i64::MAX as u64,
             N::NegativeInteger(_) => true,
@@ -37,17 +37,17 @@ impl Number {
     }
 
     #[inline]
-    pub fn is_u64(&self) -> bool {
+    pub(crate) fn is_u64(&self) -> bool {
         matches!(self.n, N::PositiveInteger(_))
     }
 
     #[inline]
-    pub fn is_f64(&self) -> bool {
+    pub(crate) fn is_f64(&self) -> bool {
         matches!(self.n, N::Float(_))
     }
 
     #[inline]
-    pub fn as_i64(&self) -> Option<i64> {
+    pub(crate) fn as_i64(&self) -> Option<i64> {
         match self.n {
             N::PositiveInteger(n) => {
                 if n <= i64::MAX as u64 {
@@ -62,7 +62,7 @@ impl Number {
     }
 
     #[inline]
-    pub fn as_u64(&self) -> Option<u64> {
+    pub(crate) fn as_u64(&self) -> Option<u64> {
         match self.n {
             N::PositiveInteger(n) => Some(n),
             _ => None,
@@ -70,7 +70,7 @@ impl Number {
     }
 
     #[inline]
-    pub fn as_f64(&self) -> Option<f64> {
+    pub(crate) fn as_f64(&self) -> Option<f64> {
         match self.n {
             N::PositiveInteger(n) => Some(n as f64),
             N::NegativeInteger(n) => Some(n as f64),
@@ -79,17 +79,17 @@ impl Number {
     }
 
     #[inline]
-    pub fn is_nan(&self) -> bool {
+    pub(crate) fn is_nan(&self) -> bool {
         matches!(self.n, N::Float(f) if f.is_nan())
     }
 
     #[inline]
-    pub fn is_infinite(&self) -> bool {
+    pub(crate) fn is_infinite(&self) -> bool {
         matches!(self.n, N::Float(f) if f.is_infinite())
     }
 
     #[inline]
-    pub fn is_finite(&self) -> bool {
+    pub(crate) fn is_finite(&self) -> bool {
         match self.n {
             N::PositiveInteger(_) | N::NegativeInteger(_) => true,
             N::Float(f) => f.is_finite(),
@@ -433,7 +433,7 @@ mod tests {
     fn number_visitor_expecting_emits_message() {
         // Deserialising a non-number triggers the Visitor error
         // path, which invokes `expecting` to build its message.
-        let bad: Result<Number, _> = crate::from_str("hello");
+        let bad: Result<Number, _> = crate::yaml::from_str("hello");
         let err = bad.unwrap_err();
         let msg = format!("{err}");
         assert!(msg.contains("number"), "expected message: {msg}");

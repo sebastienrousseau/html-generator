@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 /// A representation of YAML's `!Tag` syntax.
-pub mod tagged;
+pub(crate) mod tagged;
 
-use crate::{
+use crate::yaml::{
     error::Error,
     mapping::{Index, Mapping},
     number::{self, Number},
@@ -23,11 +23,11 @@ use std::{
     mem,
 };
 
-pub use self::tagged::{Tag, TaggedValue};
+pub(crate) use self::tagged::{Tag, TaggedValue};
 
 /// Represents any valid YAML value.
 #[derive(Clone, Default, PartialEq, PartialOrd)]
-pub enum Value {
+pub(crate) enum Value {
     /// A YAML null value.
     #[default]
     Null,
@@ -46,10 +46,10 @@ pub enum Value {
 }
 
 /// A YAML sequence.
-pub type Sequence = Vec<Value>;
+pub(crate) type Sequence = Vec<Value>;
 
 /// Converts a serializable value into a `Value`.
-pub fn to_value<T>(value: T) -> Result<Value, Error>
+pub(crate) fn to_value<T>(value: T) -> Result<Value, Error>
 where
     T: Serialize,
 {
@@ -57,7 +57,7 @@ where
 }
 
 /// Interpret a `Value` as an instance of type `T`.
-pub fn from_value<T>(value: Value) -> Result<T, Error>
+pub(crate) fn from_value<T>(value: Value) -> Result<T, Error>
 where
     T: DeserializeOwned,
 {
@@ -65,7 +65,7 @@ where
 }
 
 impl Value {
-    pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
+    pub(crate) fn get<I: Index>(&self, index: I) -> Option<&Value> {
         match self.untag_ref() {
             Value::Mapping(m) => index.index_into(m),
             Value::Sequence(_) => None,
@@ -73,7 +73,7 @@ impl Value {
         }
     }
 
-    pub fn get_mut<I: Index>(
+    pub(crate) fn get_mut<I: Index>(
         &mut self,
         index: I,
     ) -> Option<&mut Value> {
@@ -83,109 +83,109 @@ impl Value {
         }
     }
 
-    pub fn is_null(&self) -> bool {
+    pub(crate) fn is_null(&self) -> bool {
         matches!(self.untag_ref(), Value::Null)
     }
 
-    pub fn as_null(&self) -> Option<()> {
+    pub(crate) fn as_null(&self) -> Option<()> {
         match self.untag_ref() {
             Value::Null => Some(()),
             _ => None,
         }
     }
 
-    pub fn is_bool(&self) -> bool {
+    pub(crate) fn is_bool(&self) -> bool {
         self.as_bool().is_some()
     }
 
-    pub fn as_bool(&self) -> Option<bool> {
+    pub(crate) fn as_bool(&self) -> Option<bool> {
         match self.untag_ref() {
             Value::Bool(b) => Some(*b),
             _ => None,
         }
     }
 
-    pub fn is_number(&self) -> bool {
+    pub(crate) fn is_number(&self) -> bool {
         matches!(self.untag_ref(), Value::Number(_))
     }
 
-    pub fn is_i64(&self) -> bool {
+    pub(crate) fn is_i64(&self) -> bool {
         self.as_i64().is_some()
     }
 
-    pub fn as_i64(&self) -> Option<i64> {
+    pub(crate) fn as_i64(&self) -> Option<i64> {
         match self.untag_ref() {
             Value::Number(n) => n.as_i64(),
             _ => None,
         }
     }
 
-    pub fn is_u64(&self) -> bool {
+    pub(crate) fn is_u64(&self) -> bool {
         self.as_u64().is_some()
     }
 
-    pub fn as_u64(&self) -> Option<u64> {
+    pub(crate) fn as_u64(&self) -> Option<u64> {
         match self.untag_ref() {
             Value::Number(n) => n.as_u64(),
             _ => None,
         }
     }
 
-    pub fn is_f64(&self) -> bool {
+    pub(crate) fn is_f64(&self) -> bool {
         match self.untag_ref() {
             Value::Number(n) => n.is_f64(),
             _ => false,
         }
     }
 
-    pub fn as_f64(&self) -> Option<f64> {
+    pub(crate) fn as_f64(&self) -> Option<f64> {
         match self.untag_ref() {
             Value::Number(n) => n.as_f64(),
             _ => None,
         }
     }
 
-    pub fn is_string(&self) -> bool {
+    pub(crate) fn is_string(&self) -> bool {
         self.as_str().is_some()
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub(crate) fn as_str(&self) -> Option<&str> {
         match self.untag_ref() {
             Value::String(s) => Some(s),
             _ => None,
         }
     }
 
-    pub fn is_sequence(&self) -> bool {
+    pub(crate) fn is_sequence(&self) -> bool {
         self.as_sequence().is_some()
     }
 
-    pub fn as_sequence(&self) -> Option<&Sequence> {
+    pub(crate) fn as_sequence(&self) -> Option<&Sequence> {
         match self.untag_ref() {
             Value::Sequence(seq) => Some(seq),
             _ => None,
         }
     }
 
-    pub fn as_sequence_mut(&mut self) -> Option<&mut Sequence> {
+    pub(crate) fn as_sequence_mut(&mut self) -> Option<&mut Sequence> {
         match self.untag_mut() {
             Value::Sequence(seq) => Some(seq),
             _ => None,
         }
     }
 
-    pub fn is_mapping(&self) -> bool {
+    pub(crate) fn is_mapping(&self) -> bool {
         self.as_mapping().is_some()
     }
 
-    pub fn as_mapping(&self) -> Option<&Mapping> {
+    pub(crate) fn as_mapping(&self) -> Option<&Mapping> {
         match self.untag_ref() {
             Value::Mapping(map) => Some(map),
             _ => None,
         }
     }
 
-    pub fn as_mapping_mut(&mut self) -> Option<&mut Mapping> {
+    pub(crate) fn as_mapping_mut(&mut self) -> Option<&mut Mapping> {
         match self.untag_mut() {
             Value::Mapping(map) => Some(map),
             _ => None,
@@ -193,7 +193,7 @@ impl Value {
     }
 
     /// Merge `<<` keys into the surrounding mapping.
-    pub fn apply_merge(&mut self) -> Result<(), Error> {
+    pub(crate) fn apply_merge(&mut self) -> Result<(), Error> {
         let mut stack = vec![self as &mut Value];
         while let Some(node) = stack.pop() {
             match node {
@@ -623,11 +623,11 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::Number(n) => n.deserialize_any(visitor),
             Value::String(s) => visitor.visit_string(s),
             Value::Sequence(v) => {
-                let de = crate::de::SeqDeserializer::new(v);
+                let de = crate::yaml::de::SeqDeserializer::new(v);
                 de.deserialize_any(visitor)
             }
             Value::Mapping(v) => {
-                let de = crate::de::MapDeserializer::new(v);
+                let de = crate::yaml::de::MapDeserializer::new(v);
                 de.deserialize_any(visitor)
             }
             Value::Tagged(t) => visitor.visit_enum(*t),
@@ -755,7 +755,7 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     {
         match self.value {
             Some(Value::Sequence(v)) => {
-                let de = crate::de::SeqDeserializer::new(v);
+                let de = crate::yaml::de::SeqDeserializer::new(v);
                 serde::Deserializer::deserialize_any(de, visitor)
             }
             _ => Err(Error::msg("expected sequence for tuple variant")),
@@ -772,7 +772,7 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     {
         match self.value {
             Some(Value::Mapping(m)) => {
-                let de = crate::de::MapDeserializer::new(m);
+                let de = crate::yaml::de::MapDeserializer::new(m);
                 serde::Deserializer::deserialize_any(de, visitor)
             }
             _ => Err(Error::msg("expected mapping for struct variant")),
@@ -1136,7 +1136,7 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::tagged::{Tag, TaggedValue};
+    use crate::yaml::value::tagged::{Tag, TaggedValue};
 
     #[test]
     fn unexpected_covers_every_variant() {
@@ -1265,12 +1265,12 @@ mod tests {
 
         // Option None → Value::Null.
         let none: Option<i32> = None;
-        let v = crate::to_value(none).unwrap();
+        let v = crate::yaml::to_value(none).unwrap();
         assert!(v.is_null());
 
         // Option Some → inner value.
         let some: Option<i32> = Some(7);
-        let v = crate::to_value(some).unwrap();
+        let v = crate::yaml::to_value(some).unwrap();
         assert_eq!(v.as_i64(), Some(7));
     }
 
@@ -1279,7 +1279,7 @@ mod tests {
         // visit_string on TagStringVisitor returns an error when
         // the tag is the empty string.
         use serde::de::Visitor;
-        let v = crate::value::tagged::TagStringVisitor;
+        let v = crate::yaml::value::tagged::TagStringVisitor;
         let err: Result<_, serde::de::value::Error> =
             v.visit_string(String::new());
         assert!(err.is_err(), "empty tag must error");

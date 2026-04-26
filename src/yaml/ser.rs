@@ -3,7 +3,7 @@
 
 //! YAML serialization: `to_string` and `to_writer`.
 
-use crate::{
+use crate::yaml::{
     error::Error,
     value::{self, Value},
 };
@@ -13,7 +13,7 @@ use std::io::Write;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Serialize the given value as a YAML string.
-pub fn to_string<T>(value: &T) -> Result<String>
+pub(crate) fn to_string<T>(value: &T) -> Result<String>
 where
     T: ?Sized + Serialize,
 {
@@ -24,7 +24,7 @@ where
 }
 
 /// Serialize the given value as YAML into a writer.
-pub fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
+pub(crate) fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
 where
     W: Write,
     T: ?Sized + Serialize,
@@ -37,14 +37,14 @@ where
 
 /// The state of the YAML serializer (for API compat).
 #[derive(Debug)]
-pub enum State {
+pub(crate) enum State {
     /// Nothing in particular.
     NothingInParticular,
 }
 
 /// A YAML serializer (for API compat).
 #[derive(Debug)]
-pub struct Serializer {
+pub(crate) struct Serializer {
     _private: (),
 }
 
@@ -260,7 +260,7 @@ fn emit_block_sequence(seq: &[Value], out: &mut String, indent: usize) {
 }
 
 fn emit_block_mapping(
-    m: &crate::mapping::Mapping,
+    m: &crate::yaml::mapping::Mapping,
     out: &mut String,
     indent: usize,
 ) {
@@ -292,7 +292,10 @@ fn emit_flow_sequence(seq: &[Value], out: &mut String) {
     out.push(']');
 }
 
-fn emit_flow_mapping(m: &crate::mapping::Mapping, out: &mut String) {
+fn emit_flow_mapping(
+    m: &crate::yaml::mapping::Mapping,
+    out: &mut String,
+) {
     out.push('{');
     for (i, (k, v)) in m.iter().enumerate() {
         if i > 0 {
@@ -324,8 +327,8 @@ fn is_compound(v: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mapping::Mapping;
-    use crate::value::tagged::{Tag, TaggedValue};
+    use crate::yaml::mapping::Mapping;
+    use crate::yaml::value::tagged::{Tag, TaggedValue};
 
     #[test]
     fn emit_tagged_value_top_level() {

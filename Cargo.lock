@@ -989,12 +989,14 @@ version = "0.0.5"
 dependencies = [
  "ammonia",
  "criterion",
+ "indexmap",
  "log",
  "mdx-gen",
  "minify-html",
  "once_cell",
  "regex",
  "scraper",
+ "serde",
  "serde_json",
  "tempfile",
  "test-case",
@@ -1002,7 +1004,6 @@ dependencies = [
  "tokio",
  "toml",
  "version_check",
- "yaml_safe",
 ]
 
 [[package]]
@@ -3452,14 +3453,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
-]
-
-[[package]]
-name = "yaml_safe"
-version = "0.1.0"
-dependencies = [
- "indexmap",
- "serde",
 ]
 
 [[package]]

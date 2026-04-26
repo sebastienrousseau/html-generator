@@ -80,10 +80,18 @@ Scorecard methodology and per-bench measurements recorded in commit
 ### Changed
 
 - Vendored YAML implementation renamed from `serde_yml` to
-  `yaml_safe` and re-imported from
-  `/Users/seb/Code/Public/Rust/yaml_safe@0.1.0`. `forbid(unsafe_code)`
+  `yaml_safe` (re-imported from
+  `/Users/seb/Code/Public/Rust/yaml_safe@0.1.0`) and then **inlined**
+  into `src/yaml/` as a private module. `forbid(unsafe_code)`
   preserved; API surface unchanged at the parent-crate boundary; one
-  call site (`src/utils.rs::parse_yaml_to_map`).
+  call site (`src/utils.rs::parse_yaml_to_map`). The intermediate
+  `crates/yaml_safe/` separate-crate path-dep is gone; `serde` and
+  `indexmap` now appear as direct `[dependencies]` of html-generator.
+  This unblocks `cargo publish --dry-run` (which rejects path deps
+  without `version =`) without taking on any registry dependency on
+  the unsound `serde_yml`. Upstream of record remains the standalone
+  `yaml_safe` repo — fixes flow there first and are mirrored in by
+  re-vendoring.
 - `accessibility::Error` now converts cleanly to `HtmlError` via
   `From`. `?` composes across module boundaries without explicit
   `.map_err`. No public signatures changed.
@@ -154,29 +162,26 @@ Scorecard methodology and per-bench measurements recorded in commit
 - Tarpaulin coverage scoping. The reusable workflow's
   `coverage-exclude-packages` cannot reach a path-only dependency
   (vendored `crates/yaml_safe/` is not a workspace member). Switched
-  to file-glob exclusion (`tests/*,benches/*,examples/*,build.rs,crates/*`)
-  which catches the vendored tree regardless of workspace topology.
-  This took the codecov/project gate from `53.76% (-33.15%)` to
-  `95.78% (+8.87%)` in one commit.
+  to file-glob exclusion (`tests/*,benches/*,examples/*,build.rs,src/yaml/*`)
+  which catches the vendored YAML tree regardless of how it's wired
+  in (separate crate or inlined module). This took the
+  codecov/project gate from `53.76% (-33.15%)` to `95.78% (+8.87%)`
+  in one commit; the same glob still applies post-inline since
+  `src/yaml/*` is the new home of the same code.
 - New `[profile.bench]` section in `Cargo.toml` (see Performance).
 
 ### Internal — not user-visible
 
-- `chore(fmt)` of the vendored `crates/yaml_safe/` (was
-  `crates/serde_yml/`) under workspace rustfmt rules. Isolated as
-  its own commit per blame hygiene.
+- `chore(fmt)` of the vendored YAML tree (was `crates/serde_yml/`,
+  then `crates/yaml_safe/`, now inlined as `src/yaml/`) under
+  workspace rustfmt rules. Isolated as its own commit per blame
+  hygiene.
 - `DEFAULT_SYNTAX_THEME` constant now actually used — three call
   sites that hardcoded `"github"` route through the constant.
 - `Cargo.lock` transitive auto-bumps (e.g. `jiff` 0.2.23 → 0.2.24).
 
 ### Deferred to a later release
 
-- **`cargo publish` blocker.** `crates/yaml_safe/` is a path
-  dependency without `version =`; `cargo publish --dry-run` fails
-  for that reason. The fix is either (a) publish `yaml_safe@0.1.0`
-  to crates.io and add `version = "0.1"` next to the path entry, or
-  (b) inline the YAML logic into `html-generator/src/yaml/`.
-  Documented in `crates/yaml_safe/src/lib.rs`.
 - **`mdx-gen` 0.0.4 upgrade.** Tracked as a separate effort. The
   release added `MarkdownOptions::validate()` (which rejects the
   existing default `syntax_theme = "github"`), native `:::warning`

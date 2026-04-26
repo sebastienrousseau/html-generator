@@ -93,7 +93,7 @@ fn aria_failure_on_oversized_html_emits_error_diagnostic() {
 
 #[test]
 fn front_matter_data_yaml_parse_error_unterminated_quote() {
-    // An unterminated quoted scalar forces the vendored `yaml_safe`
+    // An unterminated quoted scalar forces the inlined `yaml`
     // parser to return Err, exercising the `parse_yaml_to_map`
     // `.map_err` branch.
     let content = "---\nkey: \"unterminated\nval: ok\n---\n# Body";

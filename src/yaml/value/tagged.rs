@@ -1,8 +1,8 @@
 // Copyright © 2023 - 2026 Static Site Generator (SSG). All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::error::Error;
-use crate::value::Value;
+use crate::yaml::error::Error;
+use crate::yaml::value::Value;
 use serde::{
     de::{
         value::StrDeserializer, DeserializeSeed, Deserializer,
@@ -20,23 +20,23 @@ use std::{
 
 /// A YAML `!Tag`.
 #[derive(Clone)]
-pub struct Tag {
+pub(crate) struct Tag {
     /// The string representation of the tag.
-    pub string: String,
+    pub(crate) string: String,
 }
 
 /// A `Tag` + `Value` representing a tagged YAML value.
 #[derive(Clone, PartialEq, PartialOrd, Hash, Debug)]
-pub struct TaggedValue {
+pub(crate) struct TaggedValue {
     /// The tag.
-    pub tag: Tag,
+    pub(crate) tag: Tag,
     /// The value.
-    pub value: Value,
+    pub(crate) value: Value,
 }
 
 impl TaggedValue {
     /// Creates a copy of this tagged value.
-    pub fn copy(&self) -> TaggedValue {
+    pub(crate) fn copy(&self) -> TaggedValue {
         TaggedValue {
             tag: self.tag.clone(),
             value: self.value.clone(),
@@ -46,7 +46,7 @@ impl TaggedValue {
 
 impl Tag {
     /// Creates a new `Tag`.
-    pub fn new(string: impl Into<String>) -> Self {
+    pub(crate) fn new(string: impl Into<String>) -> Self {
         let tag: String = string.into();
         assert!(!tag.is_empty(), "empty YAML tag not allowed");
         Tag { string: tag }
@@ -54,7 +54,7 @@ impl Tag {
 }
 
 /// Returns the portion after the leading `!`, if any.
-pub fn nobang(maybe_banged: &str) -> &str {
+pub(crate) fn nobang(maybe_banged: &str) -> &str {
     match maybe_banged.strip_prefix('!') {
         Some("") | None => maybe_banged,
         Some(unbanged) => unbanged,
@@ -238,7 +238,7 @@ impl<'de> VariantAccess<'de> for Value {
         V: Visitor<'de>,
     {
         if let Value::Sequence(v) = self {
-            let de = crate::de::SeqDeserializer::new(v);
+            let de = crate::yaml::de::SeqDeserializer::new(v);
             serde::Deserializer::deserialize_any(de, visitor)
         } else {
             Err(serde::de::Error::invalid_type(
@@ -257,7 +257,7 @@ impl<'de> VariantAccess<'de> for Value {
         V: Visitor<'de>,
     {
         if let Value::Mapping(v) = self {
-            let de = crate::de::MapDeserializer::new(v);
+            let de = crate::yaml::de::MapDeserializer::new(v);
             serde::Deserializer::deserialize_any(de, visitor)
         } else {
             Err(serde::de::Error::invalid_type(
@@ -311,7 +311,7 @@ impl<'de> DeserializeSeed<'de> for TagStringVisitor {
 
 /// A tagged value with an optional tag.
 #[derive(Debug)]
-pub enum MaybeTag<T> {
+pub(crate) enum MaybeTag<T> {
     /// The tag.
     Tag(String),
     /// The value.
@@ -319,7 +319,7 @@ pub enum MaybeTag<T> {
 }
 
 /// Check if a value is a YAML tag.
-pub fn check_for_tag<T>(value: &T) -> MaybeTag<String>
+pub(crate) fn check_for_tag<T>(value: &T) -> MaybeTag<String>
 where
     T: ?Sized + Display,
 {
@@ -335,7 +335,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mapping::Mapping;
+    use crate::yaml::mapping::Mapping;
 
     #[test]
     fn nobang_strips_single_leading_bang() {
@@ -402,12 +402,13 @@ mod tests {
         // with tag "!Foo" and value String("hello"). This
         // exercises the Deserialize impl and the tag visitor
         // happy path.
-        let tv: TaggedValue = crate::from_str("!Foo hello\n").unwrap();
+        let tv: TaggedValue =
+            crate::yaml::from_str("!Foo hello\n").unwrap();
         assert_eq!(tv.tag, Tag::new("!Foo"));
         assert_eq!(tv.value, Value::String("hello".into()));
 
         // Serialize back and round-trip a second time.
-        let yaml = crate::to_string(&tv).unwrap();
+        let yaml = crate::yaml::to_string(&tv).unwrap();
         assert!(yaml.contains("Foo"));
     }
 
