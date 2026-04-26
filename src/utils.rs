@@ -210,11 +210,14 @@ pub fn extract_front_matter_data(
     Ok((Value::Null, content.to_string()))
 }
 
-/// Parses a YAML front matter block into a serde_json Map using `serde_yml`.
+/// Parses a YAML front matter block into a serde_json Map using
+/// the vendored `yaml_safe` crate (a pure-Rust, `forbid(unsafe_code)`
+/// implementation; see `crates/yaml_safe/src/lib.rs` for vendor
+/// rationale).
 fn parse_yaml_to_map(
     raw: &str,
 ) -> Result<serde_json::Map<String, Value>> {
-    let value: Value = serde_yml::from_str(raw).map_err(|e| {
+    let value: Value = yaml_safe::from_str(raw).map_err(|e| {
         HtmlError::InvalidFrontMatterFormat(format!(
             "Invalid YAML front matter: {e}"
         ))

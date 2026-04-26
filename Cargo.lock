@@ -996,13 +996,13 @@ dependencies = [
  "regex",
  "scraper",
  "serde_json",
- "serde_yml",
  "tempfile",
  "test-case",
  "thiserror",
  "tokio",
  "toml",
  "version_check",
+ "yaml_safe",
 ]
 
 [[package]]
@@ -2557,14 +2557,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yml"
-version = "0.0.12"
-dependencies = [
- "indexmap",
- "serde",
-]
-
-[[package]]
 name = "servo_arc"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3460,6 +3452,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
 dependencies = [
  "linked-hash-map",
+]
+
+[[package]]
+name = "yaml_safe"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
 ]
 
 [[package]]

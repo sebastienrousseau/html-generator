@@ -93,8 +93,8 @@ fn aria_failure_on_oversized_html_emits_error_diagnostic() {
 
 #[test]
 fn front_matter_data_yaml_parse_error_unterminated_quote() {
-    // An unterminated quoted scalar forces the custom YAML parser
-    // (`serde_yml`) to return Err, exercising the `parse_yaml_to_map`
+    // An unterminated quoted scalar forces the vendored `yaml_safe`
+    // parser to return Err, exercising the `parse_yaml_to_map`
     // `.map_err` branch.
     let content = "---\nkey: \"unterminated\nval: ok\n---\n# Body";
     let err = extract_front_matter_data(content).unwrap_err();
@@ -104,9 +104,9 @@ fn front_matter_data_yaml_parse_error_unterminated_quote() {
             panic!("expected InvalidFrontMatterFormat, got {other:?}")
         }
     };
-    // Message either comes from serde_yml OR from the not-a-mapping
-    // path, depending on how far the parser gets — both land in the
-    // same error variant. Accept either.
+    // Message either comes from the YAML parser OR from the
+    // not-a-mapping path, depending on how far it gets — both land
+    // in the same error variant. Accept either.
     assert!(
         msg.contains("YAML") || msg.contains("front matter"),
         "unexpected message: {msg}"

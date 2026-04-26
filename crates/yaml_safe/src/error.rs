@@ -17,6 +17,7 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 enum ErrorImpl {
     Message(String),
+    MessageAt(String, Location),
     Io(io::Error),
 }
 
@@ -57,11 +58,29 @@ impl Error {
 
     /// Returns the location where the error occurred.
     pub fn location(&self) -> Option<Location> {
-        None
+        match &*self.0 {
+            ErrorImpl::MessageAt(_, loc) => Some(*loc),
+            _ => None,
+        }
     }
 
     pub(crate) fn msg(s: impl Display) -> Self {
         Error(Box::new(ErrorImpl::Message(s.to_string())))
+    }
+
+    pub(crate) fn msg_at(s: impl Display, loc: Location) -> Self {
+        Error(Box::new(ErrorImpl::MessageAt(s.to_string(), loc)))
+    }
+}
+
+impl Location {
+    /// Creates a new `Location`.
+    pub fn new(index: usize, line: usize, column: usize) -> Self {
+        Location {
+            index,
+            line,
+            column,
+        }
     }
 }
 
@@ -69,6 +88,13 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &*self.0 {
             ErrorImpl::Message(msg) => f.write_str(msg),
+            ErrorImpl::MessageAt(msg, loc) => {
+                write!(
+                    f,
+                    "{} at line {} column {}",
+                    msg, loc.line, loc.column
+                )
+            }
             ErrorImpl::Io(err) => write!(f, "I/O error: {}", err),
         }
     }
@@ -95,6 +121,9 @@ impl Clone for Error {
             ErrorImpl::Message(msg) => {
                 Error(Box::new(ErrorImpl::Message(msg.clone())))
             }
+            ErrorImpl::MessageAt(msg, loc) => {
+                Error(Box::new(ErrorImpl::MessageAt(msg.clone(), *loc)))
+            }
             ErrorImpl::Io(err) => {
                 Error(Box::new(ErrorImpl::Message(err.to_string())))
             }
@@ -117,5 +146,64 @@ impl ser::Error for Error {
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
         Error(Box::new(ErrorImpl::Io(err)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::de::Error as DeError;
+    use serde::ser::Error as SerError;
+
+    #[test]
+    fn location_is_none_for_message_without_location() {
+        let err = Error::msg("no loc");
+        assert!(err.location().is_none());
+    }
+
+    #[test]
+    fn source_is_none_for_non_io_variant() {
+        let err = Error::msg("plain");
+        assert!(err.source().is_none());
+
+        let loc = Location::new(0, 1, 1);
+        let err_at = Error::msg_at("at", loc);
+        assert!(err_at.source().is_none());
+    }
+
+    #[test]
+    fn clone_on_message_variant_preserves_text() {
+        let err = Error::msg("hello");
+        let cloned = err.clone();
+        assert_eq!(format!("{cloned}"), "hello");
+    }
+
+    #[test]
+    fn ser_error_custom_builds_message_variant() {
+        let err: Error = <Error as SerError>::custom("boom");
+        assert_eq!(format!("{err}"), "boom");
+    }
+
+    #[test]
+    fn de_error_custom_builds_message_variant() {
+        let err: Error = <Error as DeError>::custom("de");
+        assert_eq!(format!("{err}"), "de");
+    }
+
+    #[test]
+    fn display_io_variant_prefixes() {
+        let io = io::Error::other("disk");
+        let err: Error = io.into();
+        let s = format!("{err}");
+        assert!(s.starts_with("I/O error:"));
+        assert!(s.contains("disk"));
+    }
+
+    #[test]
+    fn location_accessors() {
+        let loc = Location::new(42, 3, 7);
+        assert_eq!(loc.index(), 42);
+        assert_eq!(loc.line(), 3);
+        assert_eq!(loc.column(), 7);
     }
 }

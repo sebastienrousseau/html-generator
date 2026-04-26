@@ -26,9 +26,10 @@ use std::{
 pub use self::tagged::{Tag, TaggedValue};
 
 /// Represents any valid YAML value.
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, Default, PartialEq, PartialOrd)]
 pub enum Value {
     /// A YAML null value.
+    #[default]
     Null,
     /// A YAML boolean.
     Bool(bool),
@@ -46,12 +47,6 @@ pub enum Value {
 
 /// A YAML sequence.
 pub type Sequence = Vec<Value>;
-
-impl Default for Value {
-    fn default() -> Value {
-        Value::Null
-    }
-}
 
 /// Converts a serializable value into a `Value`.
 pub fn to_value<T>(value: T) -> Result<Value, Error>
@@ -219,7 +214,9 @@ impl Value {
                                                 .or_insert(v);
                                         }
                                     } else {
-                                        return Err(Error::msg("expected mapping in merge element"));
+                                        return Err(Error::msg(
+                                            "expected mapping in merge element",
+                                        ));
                                     }
                                 }
                             }
@@ -400,25 +397,25 @@ impl<T: Into<Value>> From<Option<T>> for Value {
 
 impl PartialEq<str> for Value {
     fn eq(&self, other: &str) -> bool {
-        self.as_str().map_or(false, |s| s == other)
+        self.as_str().is_some_and(|s| s == other)
     }
 }
 
 impl PartialEq<&str> for Value {
     fn eq(&self, other: &&str) -> bool {
-        self.as_str().map_or(false, |s| s == *other)
+        self.as_str() == Some(*other)
     }
 }
 
 impl PartialEq<String> for Value {
     fn eq(&self, other: &String) -> bool {
-        self.as_str().map_or(false, |s| s == other)
+        self.as_str().is_some_and(|s| s == other)
     }
 }
 
 impl PartialEq<bool> for Value {
     fn eq(&self, other: &bool) -> bool {
-        self.as_bool().map_or(false, |b| b == *other)
+        self.as_bool() == Some(*other)
     }
 }
 
@@ -429,7 +426,8 @@ macro_rules! partialeq_integer {
                 fn eq(&self, other: &$ty) -> bool {
                     match self.untag_ref() {
                         Value::Number(n) => {
-                            n.as_i64().map_or(false, |v| v == *other as i64)
+                            n.as_i64()
+                                        .is_some_and(|v| v == *other as i64)
                         }
                         _ => false,
                     }
@@ -444,9 +442,7 @@ partialeq_integer!(i8 i16 i32 i64 u8 u16 u32);
 impl PartialEq<u64> for Value {
     fn eq(&self, other: &u64) -> bool {
         match self.untag_ref() {
-            Value::Number(n) => {
-                n.as_u64().map_or(false, |v| v == *other)
-            }
+            Value::Number(n) => n.as_u64() == Some(*other),
             _ => false,
         }
     }
@@ -455,9 +451,7 @@ impl PartialEq<u64> for Value {
 impl PartialEq<f64> for Value {
     fn eq(&self, other: &f64) -> bool {
         match self.untag_ref() {
-            Value::Number(n) => {
-                n.as_f64().map_or(false, |v| v == *other)
-            }
+            Value::Number(n) => n.as_f64() == Some(*other),
             _ => false,
         }
     }
@@ -1136,5 +1130,198 @@ impl serde::ser::SerializeStructVariant for SerializeStructVariant {
         let mut m = Mapping::new();
         m.insert(Value::String(self.name), Value::Mapping(self.map));
         Ok(Value::Mapping(m))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::value::tagged::{Tag, TaggedValue};
+
+    #[test]
+    fn unexpected_covers_every_variant() {
+        use serde::de::Unexpected;
+        assert!(matches!(Value::Null.unexpected(), Unexpected::Unit));
+        assert!(matches!(
+            Value::Bool(true).unexpected(),
+            Unexpected::Bool(true)
+        ));
+        assert!(matches!(
+            Value::Number(5.into()).unexpected(),
+            Unexpected::Unsigned(5)
+        ));
+        assert!(matches!(
+            Value::String("x".into()).unexpected(),
+            Unexpected::Str("x")
+        ));
+        assert!(matches!(
+            Value::Sequence(vec![]).unexpected(),
+            Unexpected::Seq
+        ));
+        assert!(matches!(
+            Value::Mapping(Mapping::new()).unexpected(),
+            Unexpected::Map
+        ));
+        // Tagged recurses into inner value.
+        let tv = Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!T"),
+            value: Value::Bool(false),
+        }));
+        assert!(matches!(tv.unexpected(), Unexpected::Bool(false)));
+    }
+
+    #[test]
+    fn total_cmp_orders_across_variants() {
+        use std::cmp::Ordering;
+
+        let null = Value::Null;
+        let b = Value::Bool(true);
+        let n = Value::Number(1.into());
+        let s = Value::String("a".into());
+        let seq = Value::Sequence(vec![]);
+        let map = Value::Mapping(Mapping::new());
+        let tagged = Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!T"),
+            value: Value::Null,
+        }));
+
+        // Null < everything else.
+        assert_eq!(total_cmp(&null, &null), Ordering::Equal);
+        assert_eq!(total_cmp(&null, &b), Ordering::Less);
+        assert_eq!(total_cmp(&b, &null), Ordering::Greater);
+
+        // Bool < Number, String, Seq, Map, Tagged.
+        assert_eq!(total_cmp(&b, &n), Ordering::Less);
+        assert_eq!(total_cmp(&n, &b), Ordering::Greater);
+
+        // Bool vs Bool.
+        assert_eq!(
+            total_cmp(&Value::Bool(false), &Value::Bool(true)),
+            Ordering::Less
+        );
+
+        // Number < String.
+        assert_eq!(total_cmp(&n, &s), Ordering::Less);
+        assert_eq!(total_cmp(&s, &n), Ordering::Greater);
+
+        // String vs Seq.
+        assert_eq!(total_cmp(&s, &seq), Ordering::Less);
+        assert_eq!(total_cmp(&seq, &s), Ordering::Greater);
+
+        // String vs String.
+        let t = Value::String("b".into());
+        assert_eq!(total_cmp(&s, &t), Ordering::Less);
+
+        // Sequence vs Sequence.
+        let s1 = Value::Sequence(vec![Value::Number(1.into())]);
+        let s2 = Value::Sequence(vec![Value::Number(2.into())]);
+        assert_eq!(total_cmp(&s1, &s2), Ordering::Less);
+
+        // Sequence vs Map.
+        assert_eq!(total_cmp(&seq, &map), Ordering::Less);
+        assert_eq!(total_cmp(&map, &seq), Ordering::Greater);
+
+        // Mapping vs Mapping.
+        let mut m1 = Mapping::new();
+        m1.insert(Value::String("a".into()), Value::Number(1.into()));
+        let mut m2 = Mapping::new();
+        m2.insert(Value::String("a".into()), Value::Number(2.into()));
+        let mv1 = Value::Mapping(m1);
+        let mv2 = Value::Mapping(m2);
+        assert_eq!(total_cmp(&mv1, &mv2), Ordering::Less);
+
+        // Mapping vs Tagged.
+        assert_eq!(total_cmp(&map, &tagged), Ordering::Less);
+        assert_eq!(total_cmp(&tagged, &map), Ordering::Greater);
+
+        // Tagged vs Tagged — tag first, then inner value.
+        let t1 = Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!A"),
+            value: Value::Null,
+        }));
+        let t2 = Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!B"),
+            value: Value::Null,
+        }));
+        assert_eq!(total_cmp(&t1, &t2), Ordering::Less);
+        let t3 = Value::Tagged(Box::new(TaggedValue {
+            tag: Tag::new("!A"),
+            value: Value::Number(1.into()),
+        }));
+        assert_eq!(total_cmp(&t1, &t3), Ordering::Less);
+    }
+
+    #[test]
+    fn value_visitor_handles_str_none_some_paths() {
+        use serde::de::IntoDeserializer;
+        use serde::Deserialize;
+
+        // `visit_str` — fed via a &str deserializer.
+        let de: serde::de::value::StrDeserializer<
+            serde::de::value::Error,
+        > = "hi".into_deserializer();
+        let v = Value::deserialize(de).unwrap();
+        assert_eq!(v, Value::String("hi".into()));
+
+        // Option None → Value::Null.
+        let none: Option<i32> = None;
+        let v = crate::to_value(none).unwrap();
+        assert!(v.is_null());
+
+        // Option Some → inner value.
+        let some: Option<i32> = Some(7);
+        let v = crate::to_value(some).unwrap();
+        assert_eq!(v.as_i64(), Some(7));
+    }
+
+    #[test]
+    fn tag_string_visitor_rejects_empty() {
+        // visit_string on TagStringVisitor returns an error when
+        // the tag is the empty string.
+        use serde::de::Visitor;
+        let v = crate::value::tagged::TagStringVisitor;
+        let err: Result<_, serde::de::value::Error> =
+            v.visit_string(String::new());
+        assert!(err.is_err(), "empty tag must error");
+    }
+
+    #[test]
+    fn enum_empty_mapping_errors_via_deserialize() {
+        use serde::Deserialize;
+
+        #[derive(Debug, Deserialize)]
+        #[allow(dead_code)]
+        enum E {
+            A,
+        }
+
+        // An empty mapping is not a valid externally-tagged enum.
+        let v = Value::Mapping(Mapping::new());
+        let err = E::deserialize(v).unwrap_err();
+        assert!(
+            format!("{err}").to_lowercase().contains("empty mapping")
+                || format!("{err}").to_lowercase().contains("enum"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn newtype_variant_none_returns_error() {
+        use serde::Deserialize;
+
+        #[derive(Debug, Deserialize)]
+        #[allow(dead_code)]
+        enum E {
+            Wrap(i32),
+        }
+
+        // A mapping {Wrap: null} gets `None` for the inner value
+        // and fails with "expected newtype variant value" only
+        // when the type is not Option-shaped. Here i32 needs a
+        // number, and Value::Null → Option::<i32>::None fails.
+        let mut m = Mapping::new();
+        m.insert(Value::String("Wrap".into()), Value::Null);
+        let err = E::deserialize(Value::Mapping(m)).unwrap_err();
+        assert!(!format!("{err}").is_empty());
     }
 }

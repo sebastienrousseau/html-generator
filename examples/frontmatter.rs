@@ -4,7 +4,8 @@
 //! Front matter extraction: YAML, TOML, and JSON metadata parsing.
 //!
 //! Supports nested structures and arrays via industrial-strength
-//! parsers (serde_yml for YAML, toml crate for TOML).
+//! parsers (the vendored `yaml_safe` crate for YAML, the `toml`
+//! crate for TOML).
 //!
 //! Run: `cargo run --example frontmatter`
 
