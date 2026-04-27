@@ -39,6 +39,17 @@ use std::{fs, path::Path};
 use tokio::task;
 
 /// Maximum allowed file size for minification (10 MB).
+///
+/// `minify_html` rejects files larger than this with a
+/// `MinificationError` before reading them into memory.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::performance::MAX_FILE_SIZE;
+///
+/// assert_eq!(MAX_FILE_SIZE, 10 * 1024 * 1024);
+/// ```
 pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
 
 /// Configuration for HTML minification with optimized defaults.
@@ -162,7 +173,7 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
 
 /// Minifies an HTML string in memory.
 ///
-/// Applies the same minification rules as [`minify_html`] but
+/// Applies the same minification rules as [`minify_html()`] but
 /// operates on an in-memory string instead of a file path.
 ///
 /// # Arguments

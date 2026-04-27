@@ -407,6 +407,19 @@ pub fn generate_table_of_contents(html: &str) -> Result<String> {
 /// # Returns
 ///
 /// * `bool` - Whether the role is valid for the element.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::utils::is_valid_aria_role;
+/// use scraper::{Html, Selector};
+///
+/// let dom = Html::parse_fragment(r#"<a href="/x">link</a>"#);
+/// let sel = Selector::parse("a").unwrap();
+/// let a = dom.select(&sel).next().unwrap();
+/// assert!(is_valid_aria_role("link", &a));
+/// assert!(!is_valid_aria_role("checkbox", &a));
+/// ```
 pub fn is_valid_aria_role(role: &str, element: &ElementRef) -> bool {
     static VALID_ROLES: Lazy<HashMap<&'static str, Vec<&'static str>>> =
         Lazy::new(|| {
@@ -439,6 +452,17 @@ pub fn is_valid_aria_role(role: &str, element: &ElementRef) -> bool {
 /// # Returns
 ///
 /// * `bool` - Whether the language code is valid.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::utils::is_valid_language_code;
+///
+/// assert!(is_valid_language_code("en"));
+/// assert!(is_valid_language_code("en-GB"));
+/// assert!(!is_valid_language_code("EN"));
+/// assert!(!is_valid_language_code("z"));
+/// ```
 pub fn is_valid_language_code(lang: &str) -> bool {
     let parts: Vec<&str> = lang.split('-').collect();
     if parts.is_empty() || parts[0].len() < 2 || parts[0].len() > 3 {

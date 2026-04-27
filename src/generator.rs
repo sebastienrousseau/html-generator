@@ -40,6 +40,15 @@ static BASE_COMRAK_OPTIONS: Lazy<Options<'static>> = Lazy::new(|| {
 });
 
 /// Severity level for a processing diagnostic.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::DiagnosticLevel;
+///
+/// let level = DiagnosticLevel::Warning;
+/// assert_eq!(format!("{level:?}"), "Warning");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiagnosticLevel {
     /// Informational — a step succeeded with notable metrics.
@@ -51,6 +60,20 @@ pub enum DiagnosticLevel {
 }
 
 /// A diagnostic emitted when a post-processing step fails non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::{Diagnostic, DiagnosticLevel};
+///
+/// let d = Diagnostic {
+///     step: "accessibility",
+///     level: DiagnosticLevel::Info,
+///     message: "ARIA attributes added".to_string(),
+/// };
+/// assert_eq!(d.step, "accessibility");
+/// assert!(d.to_string().contains("ARIA attributes added"));
+/// ```
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     /// Which pipeline step produced this diagnostic.
@@ -69,6 +92,17 @@ impl fmt::Display for Diagnostic {
 
 /// The result of [`generate_html_with_diagnostics`]: final HTML plus any
 /// warnings from post-processing steps that failed non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{generator::generate_html_with_diagnostics, HtmlConfig};
+///
+/// let out = generate_html_with_diagnostics("# hello", &HtmlConfig::default()).unwrap();
+/// assert!(out.html.contains("<h1>"));
+/// // diagnostics records what each pipeline step did or skipped:
+/// let _ = out.diagnostics.len();
+/// ```
 #[derive(Debug, Clone)]
 pub struct HtmlOutput {
     /// The generated HTML content.
@@ -104,6 +138,20 @@ static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
 ///
 /// Non-fatal failures in steps 2–5 are silently skipped. Use
 /// [`generate_html_with_diagnostics`] to inspect which steps failed.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{generator::generate_html, HtmlConfig};
+///
+/// let html = generate_html("# Hello", &HtmlConfig::default()).unwrap();
+/// assert!(html.contains("<h1>Hello</h1>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError`] if the core Markdown→HTML
+/// conversion fails (input invalid, exceeds buffer limits, etc.).
 pub fn generate_html(
     markdown: &str,
     config: &crate::HtmlConfig,
@@ -113,6 +161,31 @@ pub fn generate_html(
 
 /// Like [`generate_html`], but returns an [`HtmlOutput`] that includes
 /// diagnostics for any post-processing steps that failed non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{
+///     generator::{generate_html_with_diagnostics, DiagnosticLevel},
+///     HtmlConfig,
+/// };
+///
+/// let out =
+///     generate_html_with_diagnostics("# Hello", &HtmlConfig::default()).unwrap();
+/// assert!(out.html.contains("<h1>"));
+/// // No fatal errors; any diagnostics are informational or warnings.
+/// assert!(
+///     out.diagnostics
+///         .iter()
+///         .all(|d| d.level != DiagnosticLevel::Error)
+/// );
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError`] if the core Markdown→HTML
+/// conversion fails. Non-fatal post-processing failures are recorded
+/// as `Error`-level diagnostics rather than propagated.
 pub fn generate_html_with_diagnostics(
     markdown: &str,
     config: &crate::HtmlConfig,
@@ -312,6 +385,23 @@ fn extract_first_heading_from_doc(
 }
 
 /// Convert Markdown to HTML with specified extensions using `mdx-gen`.
+///
+/// Uses [`crate::HtmlConfig::default`] under the hood; for full control
+/// over the pipeline use [`generate_html`] directly.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::markdown_to_html_with_extensions;
+///
+/// let html = markdown_to_html_with_extensions("**bold**").unwrap();
+/// assert!(html.contains("<strong>bold</strong>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError::MarkdownConversion`] if the
+/// underlying `comrak`/`mdx-gen` parse fails.
 pub fn markdown_to_html_with_extensions(
     markdown: &str,
 ) -> Result<String> {
@@ -401,6 +491,20 @@ fn add_custom_classes(
 }
 
 /// Processes inline Markdown (bold, italics, links, etc.) without block-level syntax.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::process_markdown_inline;
+///
+/// let html = process_markdown_inline("**bold** and *italic*").unwrap();
+/// assert!(html.contains("<strong>bold</strong>"));
+/// assert!(html.contains("<em>italic</em>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns the underlying `mdx-gen` error if Markdown parsing fails.
 pub fn process_markdown_inline(
     content: &str,
 ) -> std::result::Result<String, Box<dyn Error>> {

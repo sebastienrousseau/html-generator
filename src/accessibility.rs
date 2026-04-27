@@ -60,21 +60,67 @@ use scraper::{CaseSensitivity, ElementRef, Html, Selector};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
-/// Constants used throughout the accessibility module
+/// Constants used throughout the accessibility module.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::constants::{
+///     DEFAULT_NAV_ROLE, MAX_HTML_SIZE,
+/// };
+///
+/// assert_eq!(DEFAULT_NAV_ROLE, "navigation");
+/// assert!(MAX_HTML_SIZE > 0);
+/// ```
 pub mod constants {
-    /// Maximum size of HTML input in bytes (1MB)
+    /// Maximum size of HTML input in bytes (1MB).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::constants::MAX_HTML_SIZE;
+    /// assert_eq!(MAX_HTML_SIZE, 1_000_000);
+    /// ```
     pub const MAX_HTML_SIZE: usize = 1_000_000;
 
-    /// Default ARIA role for navigation elements
+    /// Default ARIA role for navigation elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::constants::DEFAULT_NAV_ROLE;
+    /// assert_eq!(DEFAULT_NAV_ROLE, "navigation");
+    /// ```
     pub const DEFAULT_NAV_ROLE: &str = "navigation";
 
-    /// Default ARIA role for buttons
+    /// Default ARIA role for buttons.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::constants::DEFAULT_BUTTON_ROLE;
+    /// assert_eq!(DEFAULT_BUTTON_ROLE, "button");
+    /// ```
     pub const DEFAULT_BUTTON_ROLE: &str = "button";
 
-    /// Default ARIA role for forms
+    /// Default ARIA role for forms.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::constants::DEFAULT_FORM_ROLE;
+    /// assert_eq!(DEFAULT_FORM_ROLE, "form");
+    /// ```
     pub const DEFAULT_FORM_ROLE: &str = "form";
 
-    /// Default ARIA role for inputs
+    /// Default ARIA role for inputs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::constants::DEFAULT_INPUT_ROLE;
+    /// assert_eq!(DEFAULT_INPUT_ROLE, "textbox");
+    /// ```
     pub const DEFAULT_INPUT_ROLE: &str = "textbox";
 }
 
@@ -82,7 +128,15 @@ pub mod constants {
 // static COUNTER: AtomicUsize = AtomicUsize::new(0);
 use constants::{DEFAULT_BUTTON_ROLE, DEFAULT_NAV_ROLE, MAX_HTML_SIZE};
 
-/// WCAG Conformance Levels
+/// WCAG Conformance Levels.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::WcagLevel;
+///
+/// assert_eq!(WcagLevel::AA.to_string(), "AA");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WcagLevel {
     /// Level A: Minimum level of conformance
@@ -98,7 +152,16 @@ pub enum WcagLevel {
     AAA,
 }
 
-/// Types of accessibility issues that can be detected
+/// Types of accessibility issues that can be detected.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::IssueType;
+///
+/// let kind = IssueType::MissingAltText;
+/// assert_eq!(format!("{kind:?}"), "MissingAltText");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IssueType {
     /// Missing alternative text for images
@@ -118,6 +181,18 @@ pub enum IssueType {
 }
 
 /// Enum to represent possible accessibility-related errors.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::Error;
+///
+/// let err = Error::InvalidAriaAttribute {
+///     attribute: "aria-foo".into(),
+///     message: "unknown".into(),
+/// };
+/// assert!(err.to_string().contains("aria-foo"));
+/// ```
 #[derive(Debug, Error)]
 pub enum Error {
     /// Error indicating an invalid ARIA attribute.
@@ -171,9 +246,35 @@ pub enum Error {
 }
 
 /// Result type alias for accessibility operations.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::{Error, Result};
+///
+/// fn check() -> Result<()> {
+///     Err(Error::HtmlTooLarge { size: 100, max_size: 50 })
+/// }
+/// assert!(check().is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Structure representing an accessibility issue found in the HTML
+/// Structure representing an accessibility issue found in the HTML.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::{Issue, IssueType};
+///
+/// let issue = Issue {
+///     issue_type: IssueType::MissingAltText,
+///     message: "img has no alt".into(),
+///     guideline: Some("WCAG 1.1.1".into()),
+///     element: Some("<img src=\"x.png\">".into()),
+///     suggestion: Some("Add an alt attribute".into()),
+/// };
+/// assert_eq!(issue.issue_type, IssueType::MissingAltText);
+/// ```
 #[derive(Debug, Clone)]
 pub struct Issue {
     /// Type of accessibility issue
@@ -348,7 +449,19 @@ static ID_ATTR_REGEX: Lazy<Regex> = Lazy::new(|| {
 // static IMAGE_SELECTOR: Lazy<Selector> = Lazy::new(|| {
 //     Selector::parse("img").expect("Failed to create image selector")
 // });
-/// Configuration for accessibility validation
+/// Configuration for accessibility validation.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::{AccessibilityConfig, WcagLevel};
+///
+/// let cfg = AccessibilityConfig {
+///     wcag_level: WcagLevel::AAA,
+///     ..Default::default()
+/// };
+/// assert_eq!(cfg.wcag_level, WcagLevel::AAA);
+/// ```
 #[derive(Debug, Copy, Clone)]
 pub struct AccessibilityConfig {
     /// WCAG conformance level to validate against
@@ -372,7 +485,19 @@ impl Default for AccessibilityConfig {
     }
 }
 
-/// A comprehensive accessibility check result
+/// A comprehensive accessibility check result.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::{
+///     validate_wcag, AccessibilityConfig,
+/// };
+///
+/// let html = r#"<html lang="en"><body><h1>Hi</h1></body></html>"#;
+/// let report = validate_wcag(html, &AccessibilityConfig::default(), None).unwrap();
+/// assert_eq!(report.issue_count, report.issues.len());
+/// ```
 #[derive(Debug, Clone)]
 pub struct AccessibilityReport {
     /// List of accessibility issues found
@@ -412,6 +537,16 @@ pub struct AccessibilityReport {
 /// * The input HTML is larger than `MAX_HTML_SIZE`
 /// * The HTML cannot be parsed
 /// * There's an error adding ARIA attributes
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::add_aria_attributes;
+///
+/// // Empty buttons get a fallback `aria-label="button"`.
+/// let enhanced = add_aria_attributes("<button></button>", None).unwrap();
+/// assert!(enhanced.contains(r#"aria-label="button""#));
+/// ```
 pub fn add_aria_attributes(
     html: &str,
     config: Option<AccessibilityConfig>,
@@ -613,15 +748,29 @@ pub fn validate_wcag(
     })
 }
 
-/// Converts an accessibility error into the library-wide [`HtmlError`]
-/// so that callers can use `?` across module boundaries without an
-/// explicit `.map_err`.
+/// Converts an accessibility error into the library-wide
+/// [`crate::error::HtmlError`] so callers can use `?` across module
+/// boundaries without an explicit `.map_err`.
 ///
 /// The mapping is lossy on purpose: it collapses structured data such as
 /// HTML fragments and WCAG conformance levels into the
-/// [`HtmlError::Accessibility`] variant's `message` string. If you need
-/// the full structured error, match on [`accessibility::Error`] directly
-/// before converting.
+/// [`crate::error::HtmlError::Accessibility`] variant's `message`
+/// string. If you need the full structured error, match on the
+/// originating [`enum@Error`] directly before converting.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::accessibility::Error;
+/// use html_generator::error::HtmlError;
+///
+/// let acc_err = Error::InvalidAriaAttribute {
+///     attribute: "aria-foo".to_string(),
+///     message: "not a recognised attribute".to_string(),
+/// };
+/// let html_err: HtmlError = acc_err.into();
+/// assert!(matches!(html_err, HtmlError::Accessibility { .. }));
+/// ```
 impl From<Error> for crate::error::HtmlError {
     fn from(err: Error) -> Self {
         use crate::error::ErrorKind as HtmlErrorKind;
@@ -1808,7 +1957,32 @@ fn is_valid_aria_attribute(name: &str, value: &str) -> bool {
 
 /// Helper functions for WCAG validation
 impl AccessibilityReport {
-    /// Check keyboard navigation
+    /// Check keyboard navigation.
+    ///
+    /// Walks all interactive elements (`a`, `button`, `input`, `select`,
+    /// `textarea`, `[tabindex]`) and pushes a `KeyboardNavigation`
+    /// [`Issue`] for negative tabindex values or click handlers without
+    /// keyboard equivalents.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::{AccessibilityReport, Issue};
+    /// use scraper::Html;
+    ///
+    /// let doc = Html::parse_document(
+    ///     r#"<html><body><button tabindex="-1">x</button></body></html>"#,
+    /// );
+    /// let mut issues: Vec<Issue> = Vec::new();
+    /// AccessibilityReport::check_keyboard_navigation(&doc, &mut issues).unwrap();
+    /// assert!(issues.iter().any(|i| i.message.contains("Negative tabindex")));
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::HtmlProcessingError`] if internal selector
+    /// dispatch fails (none of the static selectors used here can
+    /// fail in practice).
     pub fn check_keyboard_navigation(
         document: &Html,
         issues: &mut Vec<Issue>,
@@ -1853,7 +2027,28 @@ impl AccessibilityReport {
         Ok(())
     }
 
-    /// Check language attributes
+    /// Check language attributes.
+    ///
+    /// Verifies that the root `<html>` element carries a `lang` attribute
+    /// and that any element-level `lang="..."` overrides are valid BCP 47
+    /// codes. Each violation is pushed to `issues`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::{AccessibilityReport, Issue};
+    /// use scraper::Html;
+    ///
+    /// let doc = Html::parse_document(r#"<html><body><p>x</p></body></html>"#);
+    /// let mut issues: Vec<Issue> = Vec::new();
+    /// AccessibilityReport::check_language_attributes(&doc, &mut issues).unwrap();
+    /// assert!(issues.iter().any(|i| i.message.contains("Missing language")));
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::HtmlProcessingError`] for internal selector
+    /// dispatch failures (not reachable in practice).
     pub fn check_language_attributes(
         document: &Html,
         issues: &mut Vec<Issue>,
@@ -1898,7 +2093,38 @@ impl AccessibilityReport {
         Ok(())
     }
 
-    /// Check advanced ARIA usage
+    /// Check advanced ARIA usage.
+    ///
+    /// Verifies that any `role="..."` attributes are valid for the
+    /// element they appear on, and that elements with ARIA roles carry
+    /// all required companion properties (e.g. a `slider` requires
+    /// `aria-valuenow`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::accessibility::{AccessibilityReport, Issue};
+    /// use scraper::Html;
+    ///
+    /// // The `aria-label` is what makes the element match the
+    /// // `aria-*` selector that `check_advanced_aria` walks; `slider`
+    /// // requires `aria-valuenow` plus min/max, which are absent here.
+    /// let doc = Html::parse_fragment(
+    ///     r#"<div role="slider" aria-label="vol"></div>"#,
+    /// );
+    /// let mut issues: Vec<Issue> = Vec::new();
+    /// AccessibilityReport::check_advanced_aria(&doc, &mut issues).unwrap();
+    /// assert!(
+    ///     issues
+    ///         .iter()
+    ///         .any(|i| i.message.contains("required ARIA properties"))
+    /// );
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::HtmlProcessingError`] for internal selector
+    /// dispatch failures (not reachable in practice).
     pub fn check_advanced_aria(
         document: &Html,
         issues: &mut Vec<Issue>,
@@ -1944,7 +2170,18 @@ impl AccessibilityReport {
     }
 }
 
-/// Utility functions for accessibility checks
+/// Utility functions for accessibility checks.
+///
+/// All items are `pub(crate)`; the module is `pub` only so its
+/// docstrings render in rustdoc. External callers should use the
+/// crate-level [`crate::utils`] helpers instead.
+///
+/// # Examples
+///
+/// ```
+/// // The crate-level facade for the same checks:
+/// assert!(html_generator::utils::is_valid_language_code("en-GB"));
+/// ```
 pub mod utils {
     use scraper::ElementRef;
     use std::collections::HashMap;

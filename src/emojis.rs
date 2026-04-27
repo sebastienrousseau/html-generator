@@ -44,6 +44,15 @@ static BUNDLED_EMOJI_DATA: &str =
 /// This uses `include_str!` to embed `data/emoji-data.txt` at compile
 /// time, so the data is always available without relying on the
 /// filesystem at runtime.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::emojis::bundled_emoji_sequences;
+///
+/// let map = bundled_emoji_sequences();
+/// assert!(!map.is_empty(), "bundled emoji map should ship populated");
+/// ```
 pub fn bundled_emoji_sequences() -> HashMap<String, String> {
     parse_emoji_sequences(BUNDLED_EMOJI_DATA)
 }
@@ -63,6 +72,16 @@ pub fn bundled_emoji_sequences() -> HashMap<String, String> {
 ///
 /// Lines starting with `#` or empty lines are ignored. Comments after a
 /// `#` are parsed to extract descriptive labels.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::emojis::parse_emoji_sequences;
+///
+/// let raw = "26A1 ; emoji ; L1 ; none ; a j # V4.0 (⚡) HIGH VOLTAGE SIGN\n";
+/// let map = parse_emoji_sequences(raw);
+/// assert_eq!(map.get("⚡"), Some(&"high-voltage-sign".to_string()));
+/// ```
 pub fn parse_emoji_sequences(
     contents: &str,
 ) -> HashMap<String, String> {
@@ -142,6 +161,18 @@ pub fn parse_emoji_sequences(
 /// # Errors
 ///
 /// Returns an error if the file cannot be read.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::emojis::load_emoji_sequences;
+/// use std::io::Write;
+///
+/// let mut file = tempfile::NamedTempFile::new().unwrap();
+/// writeln!(file, "26A1 ; emoji ; L1 ; none ; a j # V4.0 (⚡) HIGH VOLTAGE SIGN").unwrap();
+/// let map = load_emoji_sequences(file.path()).unwrap();
+/// assert_eq!(map.get("⚡"), Some(&"high-voltage-sign".to_string()));
+/// ```
 pub fn load_emoji_sequences<P: AsRef<Path>>(
     filepath: P,
 ) -> Result<HashMap<String, String>, std::io::Error> {

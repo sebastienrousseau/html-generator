@@ -10,6 +10,15 @@ use std::io;
 use thiserror::Error;
 
 /// Enum to represent various errors that can occur during HTML generation, processing, or optimization.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::HtmlError;
+///
+/// let err = HtmlError::InvalidInput("empty document".into());
+/// assert!(err.to_string().contains("Invalid input"));
+/// ```
 #[derive(Error, Debug)]
 pub enum HtmlError {
     /// Error that occurs when a regular expression fails to compile.
@@ -156,6 +165,14 @@ pub enum HtmlError {
 }
 
 /// Types of SEO-related errors
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::SeoErrorKind;
+///
+/// assert_eq!(SeoErrorKind::MissingTitle.to_string(), "Missing title");
+/// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SeoErrorKind {
     /// Missing required meta tags
@@ -173,6 +190,17 @@ pub enum SeoErrorKind {
 }
 
 /// Types of accessibility-related errors
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::ErrorKind;
+///
+/// assert_eq!(
+///     ErrorKind::MissingAriaAttributes.to_string(),
+///     "Missing ARIA attributes"
+/// );
+/// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
     /// Missing ARIA attributes
@@ -236,7 +264,16 @@ impl std::fmt::Display for SeoErrorKind {
 }
 
 impl HtmlError {
-    /// Creates a new InvalidInput error
+    /// Creates a new `InvalidInput` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::invalid_input("empty document", None);
+    /// assert!(matches!(err, HtmlError::InvalidInput(_)));
+    /// ```
     pub fn invalid_input(
         message: impl Into<String>,
         _input: Option<String>,
@@ -244,12 +281,30 @@ impl HtmlError {
         Self::InvalidInput(message.into())
     }
 
-    /// Creates a new InputTooLarge error
+    /// Creates a new `InputTooLarge` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::input_too_large(1_048_576);
+    /// assert!(matches!(err, HtmlError::InputTooLarge(1_048_576)));
+    /// ```
     pub fn input_too_large(size: usize) -> Self {
         Self::InputTooLarge(size)
     }
 
-    /// Creates a new Seo error
+    /// Creates a new `Seo` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::{HtmlError, SeoErrorKind};
+    ///
+    /// let err = HtmlError::seo(SeoErrorKind::MissingTitle, "no <h1>", None);
+    /// assert!(matches!(err, HtmlError::Seo { .. }));
+    /// ```
     pub fn seo(
         kind: SeoErrorKind,
         message: impl Into<String>,
@@ -262,7 +317,20 @@ impl HtmlError {
         }
     }
 
-    /// Creates a new Accessibility error
+    /// Creates a new `Accessibility` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::{ErrorKind, HtmlError};
+    ///
+    /// let err = HtmlError::accessibility(
+    ///     ErrorKind::MissingAriaAttributes,
+    ///     "button without aria-label",
+    ///     Some("WCAG 4.1.2".into()),
+    /// );
+    /// assert!(matches!(err, HtmlError::Accessibility { .. }));
+    /// ```
     pub fn accessibility(
         kind: ErrorKind,
         message: impl Into<String>,
@@ -275,7 +343,16 @@ impl HtmlError {
         }
     }
 
-    /// Creates a new MarkdownConversion error
+    /// Creates a new `MarkdownConversion` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::markdown_conversion("comrak failed", None);
+    /// assert!(matches!(err, HtmlError::MarkdownConversion { .. }));
+    /// ```
     pub fn markdown_conversion(
         message: impl Into<String>,
         source: Option<io::Error>,
@@ -291,6 +368,22 @@ impl HtmlError {
 ///
 /// This type alias makes it more convenient to work with Results throughout the library,
 /// reducing boilerplate and improving readability.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::{HtmlError, Result};
+///
+/// fn parse(input: &str) -> Result<usize> {
+///     if input.is_empty() {
+///         return Err(HtmlError::InvalidInput("empty".into()));
+///     }
+///     Ok(input.len())
+/// }
+///
+/// assert_eq!(parse("hi").unwrap(), 2);
+/// assert!(parse("").is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
 #[cfg(test)]

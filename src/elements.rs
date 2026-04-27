@@ -28,6 +28,20 @@ use std::collections::HashMap;
 ///
 /// Represents a self-contained composition in a document, such as a
 /// blog post, news article, or forum post.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::elements::{Article, SemanticElement};
+///
+/// let html = Article::new()
+///     .id("post-1")
+///     .aria_label("Latest post")
+///     .child("<h1>Title</h1>")
+///     .build();
+/// assert!(html.starts_with("<article"));
+/// assert!(html.contains(r#"id="post-1""#));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Article {
     id: Option<String>,
@@ -42,6 +56,16 @@ pub struct Article {
 ///
 /// Represents a standalone section of a document, typically with a
 /// heading.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::elements::{Section, SemanticElement};
+///
+/// let html = Section::new().id("intro").child("<h2>Intro</h2>").build();
+/// assert!(html.contains("<section"));
+/// assert!(html.contains(r#"id="intro""#));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Section {
     id: Option<String>,
@@ -56,6 +80,19 @@ pub struct Section {
 ///
 /// Represents a navigation section containing links to other pages or
 /// sections within the page.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::elements::{Nav, SemanticElement};
+///
+/// let html = Nav::new()
+///     .aria_label("Primary")
+///     .child(r#"<a href="/">Home</a>"#)
+///     .build();
+/// assert!(html.contains("<nav"));
+/// assert!(html.contains(r#"aria-label="Primary""#));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Nav {
     id: Option<String>,
@@ -70,6 +107,19 @@ pub struct Nav {
 ///
 /// Represents content tangentially related to the surrounding content,
 /// such as sidebars, pull quotes, or advertising.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::elements::{Aside, SemanticElement};
+///
+/// let html = Aside::new()
+///     .class("related")
+///     .child("<p>See also</p>")
+///     .build();
+/// assert!(html.contains("<aside"));
+/// assert!(html.contains(r#"class="related""#));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct Aside {
     id: Option<String>,
@@ -113,8 +163,35 @@ pub struct Template {
 // ─── Shared builder trait ──────────────────────────────────────────
 
 /// Trait implemented by all semantic element builders.
+///
+/// Each of [`Article`], [`Section`], [`Nav`], and [`Aside`] expose the
+/// same fluent setters via a shared macro implementation; this trait
+/// is the polymorphic seam used when callers want to render any of
+/// them through a single API.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::elements::{Article, SemanticElement};
+///
+/// fn render<E: SemanticElement>(e: &E) -> String {
+///     e.build()
+/// }
+///
+/// let html = render(&Article::new().id("a").child("<p>x</p>"));
+/// assert!(html.contains("<article"));
+/// ```
 pub trait SemanticElement {
     /// Render the element to an HTML string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::{Section, SemanticElement};
+    ///
+    /// let html = Section::new().child("<h2>Hi</h2>").build();
+    /// assert!(html.contains("<section"));
+    /// ```
     fn build(&self) -> String;
 }
 
@@ -124,12 +201,30 @@ macro_rules! impl_element_builder {
     ($type:ident, $tag:expr, $role:expr) => {
         impl $type {
             /// Creates a new builder with default values.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().build();
+            /// assert!(html.contains("<article"));
+            /// ```
             #[must_use]
             pub fn new() -> Self {
                 Self::default()
             }
 
             /// Sets the `id` attribute.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().id("post-1").build();
+            /// assert!(html.contains(r#"id="post-1""#));
+            /// ```
             #[must_use]
             pub fn id(mut self, id: &str) -> Self {
                 self.id = Some(id.to_string());
@@ -137,6 +232,15 @@ macro_rules! impl_element_builder {
             }
 
             /// Sets the `class` attribute.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().class("post").build();
+            /// assert!(html.contains(r#"class="post""#));
+            /// ```
             #[must_use]
             pub fn class(mut self, class: &str) -> Self {
                 self.class = Some(class.to_string());
@@ -144,6 +248,15 @@ macro_rules! impl_element_builder {
             }
 
             /// Sets the `aria-label` attribute.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().aria_label("Latest post").build();
+            /// assert!(html.contains(r#"aria-label="Latest post""#));
+            /// ```
             #[must_use]
             pub fn aria_label(mut self, label: &str) -> Self {
                 self.aria_label = Some(label.to_string());
@@ -151,6 +264,15 @@ macro_rules! impl_element_builder {
             }
 
             /// Sets the `aria-labelledby` attribute.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().aria_labelledby("title-1").build();
+            /// assert!(html.contains(r#"aria-labelledby="title-1""#));
+            /// ```
             #[must_use]
             pub fn aria_labelledby(mut self, id: &str) -> Self {
                 self.aria_labelledby = Some(id.to_string());
@@ -158,6 +280,15 @@ macro_rules! impl_element_builder {
             }
 
             /// Adds a custom attribute.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().attr("data-id", "42").build();
+            /// assert!(html.contains(r#"data-id="42""#));
+            /// ```
             #[must_use]
             pub fn attr(mut self, key: &str, value: &str) -> Self {
                 let _ = self
@@ -167,6 +298,15 @@ macro_rules! impl_element_builder {
             }
 
             /// Appends child HTML content.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().child("<p>Body</p>").build();
+            /// assert!(html.contains("<p>Body</p>"));
+            /// ```
             #[must_use]
             pub fn child(mut self, html: &str) -> Self {
                 self.children.push(html.to_string());
@@ -174,6 +314,17 @@ macro_rules! impl_element_builder {
             }
 
             /// Appends multiple child HTML content strings.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new()
+            ///     .children(&["<h1>T</h1>", "<p>B</p>"])
+            ///     .build();
+            /// assert!(html.contains("<h1>T</h1><p>B</p>"));
+            /// ```
             #[must_use]
             pub fn children(mut self, items: &[&str]) -> Self {
                 for item in items {
@@ -183,6 +334,16 @@ macro_rules! impl_element_builder {
             }
 
             /// Renders the element to an HTML string.
+            ///
+            /// # Examples
+            ///
+            /// ```
+            /// use html_generator::elements::{Article, SemanticElement};
+            ///
+            /// let html = Article::new().id("a").build();
+            /// assert!(html.starts_with("<article"));
+            /// assert!(html.ends_with("</article>"));
+            /// ```
             #[must_use]
             pub fn build(&self) -> String {
                 let mut parts = Vec::new();
@@ -250,12 +411,31 @@ impl_element_builder!(Aside, "aside", "complementary");
 
 impl Template {
     /// Creates a new empty template.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().build();
+    /// assert!(html.is_empty());
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a navigation section.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().nav("Primary", "<a href='/'>Home</a>").build();
+    /// assert!(html.contains("<nav"));
+    /// assert!(html.contains(r#"aria-label="Primary""#));
+    /// ```
     #[must_use]
     pub fn nav(mut self, label: &str, content: &str) -> Self {
         self.nav =
@@ -264,6 +444,15 @@ impl Template {
     }
 
     /// Adds a header section.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().header("<h1>Site</h1>").build();
+    /// assert!(html.contains("<header><h1>Site</h1></header>"));
+    /// ```
     #[must_use]
     pub fn header(mut self, content: &str) -> Self {
         self.header = Some(format!("<header>{content}</header>"));
@@ -271,6 +460,16 @@ impl Template {
     }
 
     /// Adds the main content area.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().main_content("<p>Body</p>").build();
+    /// assert!(html.contains("<main"));
+    /// assert!(html.contains(r#"role="main""#));
+    /// ```
     #[must_use]
     pub fn main_content(mut self, content: &str) -> Self {
         self.main =
@@ -279,6 +478,16 @@ impl Template {
     }
 
     /// Adds a section to the template.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().section("Intro", "<p>Hi</p>").build();
+    /// assert!(html.contains("<section"));
+    /// assert!(html.contains(r#"aria-label="Intro""#));
+    /// ```
     #[must_use]
     pub fn section(mut self, label: &str, content: &str) -> Self {
         self.sections.push(
@@ -288,6 +497,15 @@ impl Template {
     }
 
     /// Adds an aside section.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().aside("Related", "<p>links</p>").build();
+    /// assert!(html.contains("<aside"));
+    /// ```
     #[must_use]
     pub fn aside(mut self, label: &str, content: &str) -> Self {
         self.aside =
@@ -296,6 +514,16 @@ impl Template {
     }
 
     /// Adds a footer section.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new().footer("&copy; 2026").build();
+    /// assert!(html.contains("<footer"));
+    /// assert!(html.contains(r#"role="contentinfo""#));
+    /// ```
     #[must_use]
     pub fn footer(mut self, content: &str) -> Self {
         self.footer = Some(format!(
@@ -305,6 +533,19 @@ impl Template {
     }
 
     /// Renders the full template to an HTML string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::elements::Template;
+    ///
+    /// let html = Template::new()
+    ///     .nav("N", "<ul></ul>")
+    ///     .main_content("<p>x</p>")
+    ///     .build();
+    /// assert!(html.contains("<nav"));
+    /// assert!(html.contains("<main"));
+    /// ```
     #[must_use]
     pub fn build(&self) -> String {
         let mut parts = Vec::new();

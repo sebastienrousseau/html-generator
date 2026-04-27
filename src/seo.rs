@@ -71,6 +71,19 @@ static PARAGRAPH_SELECTOR: Lazy<Selector> = Lazy::new(|| {
 });
 
 /// Configuration options for structured data generation.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::seo::StructuredDataConfig;
+///
+/// let cfg = StructuredDataConfig {
+///     page_type: "Article".into(),
+///     additional_types: vec!["NewsArticle".into()],
+///     additional_data: None,
+/// };
+/// assert_eq!(cfg.page_type, "Article");
+/// ```
 #[derive(Debug, Clone)]
 pub struct StructuredDataConfig {
     /// Additional key-value pairs to include in the structured data
@@ -114,6 +127,20 @@ impl StructuredDataConfig {
 }
 
 /// Builder for constructing meta tags.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::seo::MetaTagsBuilder;
+///
+/// let tags = MetaTagsBuilder::new()
+///     .with_title("My Page")
+///     .with_description("An example page")
+///     .build()
+///     .unwrap();
+/// assert!(tags.contains(r#"name="title""#));
+/// assert!(tags.contains(r#"name="description""#));
+/// ```
 #[derive(Debug, Default)]
 pub struct MetaTagsBuilder {
     /// Title for the meta tags
@@ -128,6 +155,14 @@ pub struct MetaTagsBuilder {
 
 impl MetaTagsBuilder {
     /// Creates a new `MetaTagsBuilder` with default values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let _ = MetaTagsBuilder::new();
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -139,6 +174,19 @@ impl MetaTagsBuilder {
     }
 
     /// Sets the title for the meta tags.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let tags = MetaTagsBuilder::new()
+    ///     .with_title("Home")
+    ///     .with_description("welcome")
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(tags.contains(r#"content="Home""#));
+    /// ```
     #[must_use]
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
@@ -146,6 +194,19 @@ impl MetaTagsBuilder {
     }
 
     /// Sets the description for the meta tags.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let tags = MetaTagsBuilder::new()
+    ///     .with_title("t")
+    ///     .with_description("an example description")
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(tags.contains("an example description"));
+    /// ```
     #[must_use]
     pub fn with_description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
@@ -153,6 +214,20 @@ impl MetaTagsBuilder {
     }
 
     /// Adds an additional meta tag.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let tags = MetaTagsBuilder::new()
+    ///     .with_title("t")
+    ///     .with_description("d")
+    ///     .add_meta_tag("author", "Jane Doe")
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(tags.contains(r#"name="author" content="Jane Doe""#));
+    /// ```
     #[must_use]
     pub fn add_meta_tag(
         mut self,
@@ -164,6 +239,24 @@ impl MetaTagsBuilder {
     }
 
     /// Adds multiple meta tags at once.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let extra = vec![
+    ///     ("author".to_string(), "Jane".to_string()),
+    ///     ("robots".to_string(), "index,follow".to_string()),
+    /// ];
+    /// let tags = MetaTagsBuilder::new()
+    ///     .with_title("t")
+    ///     .with_description("d")
+    ///     .add_meta_tags(extra)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(tags.contains(r#"name="robots""#));
+    /// ```
     #[must_use]
     pub fn add_meta_tags<I>(mut self, tags: I) -> Self
     where
@@ -178,6 +271,19 @@ impl MetaTagsBuilder {
     /// # Errors
     ///
     /// Returns an error if required fields (title or description) are missing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::seo::MetaTagsBuilder;
+    ///
+    /// let tags = MetaTagsBuilder::new()
+    ///     .with_title("Home")
+    ///     .with_description("welcome")
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(tags.starts_with("<meta"));
+    /// ```
     pub fn build(self) -> Result<String> {
         let title = self.title.ok_or_else(|| {
             HtmlError::seo(
@@ -379,6 +485,24 @@ pub fn generate_structured_data(
 ///
 /// This avoids redundant parsing when the pipeline has already parsed
 /// the HTML for other steps.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::seo::generate_structured_data_from_doc;
+/// use scraper::Html;
+///
+/// let doc = Html::parse_document(
+///     "<html><head><title>Hi</title></head><body><p>Body</p></body></html>",
+/// );
+/// let json_ld = generate_structured_data_from_doc(&doc, None).unwrap();
+/// assert!(json_ld.contains("application/ld+json"));
+/// ```
+///
+/// # Errors
+///
+/// Same as [`generate_structured_data`]: missing title/description,
+/// failed config validation, or JSON serialization failure.
 pub fn generate_structured_data_from_doc(
     document: &Html,
     config: Option<StructuredDataConfig>,

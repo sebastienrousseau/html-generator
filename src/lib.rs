@@ -56,23 +56,77 @@ pub use utils::{
 ///
 /// This module contains configuration values and limits that help ensure
 /// secure and efficient operation of the library.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::constants::{DEFAULT_LANGUAGE, DEFAULT_MAX_INPUT_SIZE};
+///
+/// assert_eq!(DEFAULT_LANGUAGE, "en-GB");
+/// assert!(DEFAULT_MAX_INPUT_SIZE > 0);
+/// ```
 pub mod constants {
-    /// Maximum allowed input size (5MB) to prevent denial of service attacks
+    /// Maximum allowed input size (5MB) to prevent denial of service attacks.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_MAX_INPUT_SIZE;
+    /// assert_eq!(DEFAULT_MAX_INPUT_SIZE, 5 * 1024 * 1024);
+    /// ```
     pub const DEFAULT_MAX_INPUT_SIZE: usize = 5 * 1024 * 1024;
 
-    /// Minimum required input size (1KB) for meaningful processing
+    /// Minimum required input size (1KB) for meaningful processing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::MIN_INPUT_SIZE;
+    /// assert_eq!(MIN_INPUT_SIZE, 1024);
+    /// ```
     pub const MIN_INPUT_SIZE: usize = 1024;
 
-    /// Default language code for HTML generation (British English)
+    /// Default language code for HTML generation (British English).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_LANGUAGE;
+    /// assert_eq!(DEFAULT_LANGUAGE, "en-GB");
+    /// ```
     pub const DEFAULT_LANGUAGE: &str = "en-GB";
 
-    /// Default syntax highlighting theme (github)
+    /// Default syntax highlighting theme (`github`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_SYNTAX_THEME;
+    /// assert_eq!(DEFAULT_SYNTAX_THEME, "github");
+    /// ```
     pub const DEFAULT_SYNTAX_THEME: &str = "github";
 
-    /// Maximum file path length
+    /// Maximum file path length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::MAX_PATH_LENGTH;
+    /// assert_eq!(MAX_PATH_LENGTH, 4096);
+    /// ```
     pub const MAX_PATH_LENGTH: usize = 4096;
 
-    /// Regular expression pattern for validating language codes
+    /// Regular expression pattern for validating language codes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::LANGUAGE_CODE_PATTERN;
+    /// use regex::Regex;
+    ///
+    /// let re = Regex::new(LANGUAGE_CODE_PATTERN).unwrap();
+    /// assert!(re.is_match("en-GB"));
+    /// ```
     pub const LANGUAGE_CODE_PATTERN: &str = r"^[a-z]{2}-[A-Z]{2}$";
 
     /// Verify invariants at compile time
@@ -80,7 +134,18 @@ pub mod constants {
     const _: () = assert!(MAX_PATH_LENGTH > 0);
 }
 
-/// Result type alias for library operations
+/// Result type alias for library operations.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{error::HtmlError, Result};
+///
+/// fn run() -> Result<()> {
+///     Err(HtmlError::InvalidInput("demo".into()))
+/// }
+/// assert!(run().is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
 /// Legacy configuration type — use [`HtmlConfig`] directly instead.
@@ -120,6 +185,15 @@ impl From<MarkdownConfig> for HtmlConfig {
 }
 
 /// Errors that can occur during configuration.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::ConfigError;
+///
+/// let err = ConfigError::InvalidLanguageCode("xx".into());
+/// assert!(err.to_string().contains("Invalid language code"));
+/// ```
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ConfigError {
@@ -249,6 +323,16 @@ impl fmt::Display for OutputDestination {
 ///
 /// Controls various aspects of the HTML generation process including
 /// syntax highlighting, accessibility features, and output formatting.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::HtmlConfig;
+///
+/// let cfg = HtmlConfig::default();
+/// assert!(cfg.add_aria_attributes);
+/// assert_eq!(cfg.language, "en-GB");
+/// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HtmlConfig {
     /// Enable syntax highlighting for code blocks
@@ -374,6 +458,21 @@ impl HtmlConfig {
     ///
     /// Returns `Ok(())` if the configuration is valid, or an appropriate
     /// error if validation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfig;
+    ///
+    /// let cfg = HtmlConfig::default();
+    /// cfg.validate().unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HtmlError::InvalidInput`] if `language`
+    /// is not a valid BCP 47 code or `max_input_size` is below
+    /// [`constants::MIN_INPUT_SIZE`].
     pub fn validate(&self) -> Result<()> {
         if self.max_input_size < constants::MIN_INPUT_SIZE {
             return Err(HtmlError::InvalidInput(format!(
@@ -456,6 +555,19 @@ impl HtmlConfig {
 ///
 /// Provides a fluent interface for creating and customizing HTML
 /// configuration options.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::HtmlConfigBuilder;
+///
+/// let cfg = HtmlConfigBuilder::new()
+///     .with_language("en-GB")
+///     .with_full_document(true)
+///     .build()
+///     .unwrap();
+/// assert!(cfg.generate_full_document);
+/// ```
 #[derive(Debug, Default)]
 pub struct HtmlConfigBuilder {
     config: HtmlConfig,
@@ -463,6 +575,14 @@ pub struct HtmlConfigBuilder {
 
 impl HtmlConfigBuilder {
     /// Creates a new `HtmlConfigBuilder` with default options.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let _ = HtmlConfigBuilder::new();
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
@@ -473,6 +593,18 @@ impl HtmlConfigBuilder {
     ///
     /// * `enable` - Whether to enable syntax highlighting
     /// * `theme` - Optional theme name for syntax highlighting
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_syntax_highlighting(true, Some("monokai".into()))
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.syntax_theme.as_deref(), Some("monokai"));
+    /// ```
     #[must_use]
     pub fn with_syntax_highlighting(
         mut self,
@@ -491,6 +623,18 @@ impl HtmlConfigBuilder {
     }
 
     /// Sets the language for generated content.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_language("fr-FR")
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.language, "fr-FR");
+    /// ```
     #[must_use]
     pub fn with_language(
         mut self,
@@ -504,6 +648,18 @@ impl HtmlConfigBuilder {
     ///
     /// When enabled alongside `allow_unsafe_html`, dangerous elements
     /// are stripped while safe tags are preserved.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_sanitization(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.sanitize_html);
+    /// ```
     #[must_use]
     pub fn with_sanitization(mut self, enable: bool) -> Self {
         self.config.sanitize_html = enable;
@@ -514,6 +670,18 @@ impl HtmlConfigBuilder {
     ///
     /// When enabled, the output is wrapped in `<!DOCTYPE html>` with
     /// `<head>` (containing meta/JSON-LD) and `<body>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_full_document(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.generate_full_document);
+    /// ```
     #[must_use]
     pub fn with_full_document(mut self, enable: bool) -> Self {
         self.config.generate_full_document = enable;
@@ -521,6 +689,18 @@ impl HtmlConfigBuilder {
     }
 
     /// Sets the maximum buffer size for file I/O operations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_max_buffer_size(8 * 1024 * 1024)
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.max_buffer_size, 8 * 1024 * 1024);
+    /// ```
     #[must_use]
     pub fn with_max_buffer_size(mut self, size: usize) -> Self {
         self.config.max_buffer_size = size;
@@ -528,6 +708,24 @@ impl HtmlConfigBuilder {
     }
 
     /// Builds the configuration, validating all settings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_language("en-GB")
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.language, "en-GB");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns the first [`crate::error::HtmlError::InvalidInput`]
+    /// produced by [`HtmlConfig::validate`] (e.g. an unknown language
+    /// code or a `max_input_size` below the minimum).
     pub fn build(self) -> Result<HtmlConfig> {
         self.config.validate()?;
         Ok(self.config)
