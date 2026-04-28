@@ -42,9 +42,13 @@ jobs:
   # would only surface when a downstream user tries `wasm-pack build`.
   # We build with `--no-default-features --features wasm,math` because
   # the default `mdx-gen` pipeline doesn't compile to wasm32 (tokio
-  # transitive). Just `cargo build` — running the smoke tests requires
-  # `wasm-pack` and a JS runtime, which is heavier than this gate
-  # warrants.
+  # transitive).
+  #
+  # The `wasm-pack test --node` step actually runs the four smoke
+  # tests in `tests/wasm_smoke.rs` against a real Node runtime, so
+  # this verifies the wasm-bindgen contract end-to-end (JS-callable
+  # exports, JsValue error propagation, JSON-options decode), not
+  # just that the crate compiles.
   wasm-build:
     runs-on: ubuntu-latest
     steps:
@@ -53,10 +57,18 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build for wasm32-unknown-unknown
         run: |
           cargo build --target wasm32-unknown-unknown \
             --no-default-features --features wasm,math
+      - name: Run wasm smoke tests
+        run: |
+          wasm-pack test --node --no-default-features --features wasm,math
 
   security:
     uses: sebastienrousseau/pipelines/.github/workflows/security.yml@main
