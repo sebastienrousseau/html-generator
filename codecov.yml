@@ -40,6 +40,12 @@ ignore:
   - "examples/**"
   - "build.rs"
   - "src/yaml/**"
+  # `src/wasm.rs` is `#[cfg(feature = "wasm")]`-gated wasm-bindgen
+  # surface — only reachable via `wasm32-unknown-unknown`. Native
+  # tarpaulin cannot enter the function bodies. The CI's
+  # `wasm-build` job runs `wasm-pack test --node` against
+  # `tests/wasm_smoke.rs` which is the real coverage for this file.
+  - "src/wasm.rs"
 
 # Don't post a PR comment for every push — the check-runs are
 # sufficient and the comment thread on a long-lived branch

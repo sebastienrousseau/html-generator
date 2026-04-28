@@ -29,9 +29,16 @@ jobs:
       # implementation kept verbatim from upstream; its branches are
       # exercised indirectly through front-matter tests and counting
       # its ~2 700 lines against the patch denominator drags the
-      # metric without measuring our changes. The codecov.yml
-      # `ignore` list mirrors this glob.
-      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs,src/yaml/*'
+      # metric without measuring our changes. `src/wasm.rs` is
+      # `#[cfg(feature = "wasm")]`-gated and its bodies are only
+      # reachable through a `wasm32-unknown-unknown` target; the
+      # native tarpaulin run cannot reach them at all and would
+      # otherwise count every body as uncovered. Smoke tests in
+      # `tests/wasm_smoke.rs` (run under `wasm-pack test --node` in
+      # the dedicated `wasm-build` job) provide the actual coverage
+      # for that module. The codecov.yml `ignore` list mirrors this
+      # glob.
+      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs,src/yaml/*,src/wasm.rs'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
