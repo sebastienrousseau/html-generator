@@ -879,6 +879,10 @@ author: Jane Doe
     }
 
     /// Test customization of Options.
+    ///
+    /// Native-only: drives `mdx_gen::{MarkdownOptions, process_markdown}`
+    /// which are not available on the wasm32 build path.
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_markdown_to_html_with_custom_comrak_options() {
         let markdown = "^^Superscript^^\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Row 1    | Row 2    |";
@@ -1194,6 +1198,12 @@ This is a note with a custom class.
     }
 
     /// Test invalid image syntax.
+    ///
+    /// Native-only: `process_images_with_classes` lives in the
+    /// `#[cfg(not(target_arch = "wasm32"))]` half of this module
+    /// because the WASM build path bypasses `mdx-gen`'s extension
+    /// helpers entirely.
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_invalid_image_syntax() {
         let markdown = "![Image with missing URL]()";

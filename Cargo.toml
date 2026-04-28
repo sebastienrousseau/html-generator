@@ -117,17 +117,22 @@ version_check = "0.9.5"
 # -----------------------------------------------------------------------------
 
 [dev-dependencies]
-# Dependencies required for testing and development.
-criterion = "0.8"
-tempfile = "3.27.0"
+# Dependencies required for testing and development. `tempfile` is
+# referenced from `#[cfg(test)]` modules in `src/`, so it has to be
+# available for the wasm32 test build too — fortunately it is
+# wasm-friendly.
 test-case = "3.3.1"
+tempfile = "3.27.0"
+
+# Native-only dev-deps: `criterion` pulls in `rayon`, which doesn't
+# compile to `wasm32-unknown-unknown` (the `wasm-pack test --node`
+# CI gate would fail on its `cargo build --tests` step otherwise).
+# The competitor-bench engines are likewise native-only.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = "0.8"
 # Comparative-bench dependencies — competitor markdown engines
 # benchmarked side-by-side in `benches/competitors.rs`. Pinned to
-# major versions stable on crates.io as of v0.0.5. `markdown-it`
-# was previously included but its transitive `idna 0.3` carries
-# GHSA-h97m-ww89-6jmq which the upstream Dependency Review action
-# rejects with no allowlist input; the comrak + pulldown-cmark
-# pair gives the same "fast pure parser" anchor for the README.
+# major versions stable on crates.io as of v0.0.5.
 comrak = "0.50"
 pulldown-cmark = "0.13"
 
