@@ -35,6 +35,29 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # Smoke-test the `wasm32-unknown-unknown` build path. The native CI
+  # job above runs `cargo test --all-features` which doesn't exercise
+  # any `cfg(target_arch = "wasm32")` branches; without this gate, an
+  # `mdx-gen` upgrade or a transitive dep that drops `wasm32` support
+  # would only surface when a downstream user tries `wasm-pack build`.
+  # We build with `--no-default-features --features wasm,math` because
+  # the default `mdx-gen` pipeline doesn't compile to wasm32 (tokio
+  # transitive). Just `cargo build` — running the smoke tests requires
+  # `wasm-pack` and a JS runtime, which is heavier than this gate
+  # warrants.
+  wasm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Build for wasm32-unknown-unknown
+        run: |
+          cargo build --target wasm32-unknown-unknown \
+            --no-default-features --features wasm,math
+
   security:
     uses: sebastienrousseau/pipelines/.github/workflows/security.yml@main
     with:
