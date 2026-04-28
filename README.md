@@ -382,11 +382,11 @@ M-series, criterion `--quick`, `[profile.bench]` with `opt-level = 3`
 | `pulldown_cmark` (parse only) | **45 µs** | Pull-parser, no post-processing. Fastest plain CommonMark in Rust. |
 | `comrak` (parse only) | **172 µs** | The CommonMark/GFM parser this crate wraps. |
 | `html_generator` (full pipeline) | **2.09 ms** | Parse + ARIA injection + TOC + JSON-LD + minification. |
-| `markdown_it` (parse + extras) | **4.71 ms** | JS markdown-it port, plugin-extensible. |
 
 Pure parsers will always be faster — they don't do ARIA, JSON-LD, TOC, or
-minification. `html-generator` does all four in one pass and is still
-2.25× faster than `markdown-it`. Reproduce with:
+minification. `html-generator` does all four in one pass; the ~2 ms
+overhead is what buys WCAG-compliant output without a downstream
+post-processing layer. Reproduce with:
 
 ```bash
 cargo bench --bench competitors

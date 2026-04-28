@@ -53,13 +53,7 @@ skip-tree = []
 #   syntect (via comrak/mdx-gen), no direct replacement available.
 # RUSTSEC-2024-0320 (yaml-rust):  unmaintained — transitive dep of
 #   syntect (via comrak/mdx-gen), no direct replacement available.
-# RUSTSEC-2024-0421 (idna 0.3) and RUSTSEC-2024-0388 (derivative 2.2):
-#   Transitive deps of `markdown-it`, a `[dev-dependencies]` entry
-#   used only by `benches/competitors.rs` for comparative throughput
-#   numbers. Never compiled into the distributed crate.
 ignore = [
     "RUSTSEC-2025-0141",
     "RUSTSEC-2024-0320",
-    "RUSTSEC-2024-0421",
-    "RUSTSEC-2024-0388",
 ]

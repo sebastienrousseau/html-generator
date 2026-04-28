@@ -38,13 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   --features wasm`.
 - **Comparative benchmarks.** New `benches/competitors.rs` runs the
   same realistic 8 KB blog-post payload through `html-generator`,
-  `comrak`, `pulldown-cmark`, and `markdown-it` so the README can
-  cite measured numbers, not estimates. Numbers (Apple M-series,
-  `cargo bench --bench competitors --quick`):
+  `comrak`, and `pulldown-cmark` so the README can cite measured
+  numbers, not estimates. Numbers (Apple M-series, `cargo bench
+  --bench competitors --quick`):
     * `pulldown-cmark` parse only: **45 µs**
     * `comrak` parse only: **172 µs**
     * `html-generator` full pipeline: **2.09 ms**
-    * `markdown-it` parse + extras: **4.71 ms**
   Pure parsers are faster but produce raw HTML you still need to
   post-process; the html-generator number includes ARIA, TOC,
   JSON-LD, and minification in one pass.

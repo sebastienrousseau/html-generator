@@ -19,8 +19,6 @@
 //!   layers we add on top.
 //! * `pulldown-cmark` — a pull-parser tuned for raw throughput; the
 //!   "fastest plain Markdown engine in Rust" benchmark anchor.
-//! * `markdown-it` — Rust port of the JS `markdown-it` library; widely
-//!   used by SSGs that need plugin extensibility.
 //!
 //! Run with `cargo bench --bench competitors`.
 
@@ -121,22 +119,10 @@ fn bench_pulldown_cmark(c: &mut Criterion) {
     });
 }
 
-fn bench_markdown_it(c: &mut Criterion) {
-    let md = payload_plain();
-    let mut parser = markdown_it::MarkdownIt::new();
-    markdown_it::plugins::cmark::add(&mut parser);
-    markdown_it::plugins::extra::add(&mut parser);
-    let _ = c
-        .bench_function("competitors/markdown_it_with_extras", |b| {
-            b.iter(|| parser.parse(black_box(&md)).render())
-        });
-}
-
 criterion_group!(
     competitors,
     bench_html_generator,
     bench_comrak,
-    bench_pulldown_cmark,
-    bench_markdown_it
+    bench_pulldown_cmark
 );
 criterion_main!(competitors);
