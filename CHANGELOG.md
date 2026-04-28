@@ -27,15 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `generateHtmlFullDocument`, `generateHtmlWithOptions`. Build with
   `cargo build --target wasm32-unknown-unknown --features wasm
   --no-default-features` or `wasm-pack build --target web --features
-  wasm --no-default-features`. The WASM build path delegates to
-  `comrak` directly because `mdx-gen` pulls in `tokio` (which pulls
-  in `mio`) unconditionally and `tokio` doesn't compile to
-  `wasm32-unknown-unknown`. Trade-off: WASM loses `mdx-gen`'s
-  `:::class` blocks, image-class syntax, and `syntect` syntax
-  highlighting; everything else (CommonMark + GFM, ARIA, TOC,
-  JSON-LD, math, mermaid) renders identically. Smoke tests live in
-  `tests/wasm_smoke.rs` and run under `wasm-pack test --node
-  --features wasm`.
+  wasm --no-default-features`. `[lib] crate-type` set to
+  `["cdylib", "rlib"]` so wasm-pack produces a usable bundle.
+  `[package.metadata.wasm-pack.profile.release]` passes
+  `--enable-bulk-memory --enable-nontrapping-float-to-int` to
+  wasm-opt because current rustc emits those instructions and the
+  bundled wasm-opt rejects them by default. The WASM build path
+  delegates to `comrak` directly because `mdx-gen` pulls in `tokio`
+  (which pulls in `mio`) unconditionally and `tokio` doesn't
+  compile to `wasm32-unknown-unknown`. Trade-off: WASM loses
+  `mdx-gen`'s `:::class` blocks, image-class syntax, and `syntect`
+  syntax highlighting; everything else (CommonMark + GFM, ARIA,
+  TOC, JSON-LD, math, mermaid) renders identically. Measured
+  shipping size after `wasm-opt -Os`: **5.8 MB raw / 2.0 MB
+  gzipped** with math, **5.7 MB / 1.96 MB** without. Smoke tests
+  live in `tests/wasm_smoke.rs` and run under `wasm-pack test
+  --node --features wasm`; CI's `wasm-build` job exercises this on
+  every push.
 - **Comparative benchmarks.** New `benches/competitors.rs` runs the
   same realistic 8 KB blog-post payload through `html-generator`,
   `comrak`, and `pulldown-cmark` so the README can cite measured

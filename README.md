@@ -487,6 +487,22 @@ From Cloudflare Workers / Vercel Edge: use `wasm-pack build --target
 bundler` and import the generated module from your worker entry point.
 The JS-side API is identical to the browser case.
 
+### Bundle size
+
+Measured `wasm-pack build --release --target web` output, post
+`wasm-opt -Os`:
+
+| Feature set | `.wasm` raw | `.wasm` gzipped |
+| :--- | ---: | ---: |
+| `--features wasm,math` | 5.8 MB | **2.0 MB** |
+| `--features wasm` (no math) | 5.7 MB | **1.96 MB** |
+
+The `math` feature adds ~40 KB gzipped. Both bundles fit comfortably
+in Cloudflare Workers' paid plan (10 MB compressed); the free plan
+(1 MB compressed) requires further trimming — the `ammonia`,
+`minify-html`, and `scraper`-on-`html5ever` deps account for the bulk
+of the binary.
+
 Smoke tests live in [`tests/wasm_smoke.rs`](tests/wasm_smoke.rs) and run
 under `wasm-pack test --node --no-default-features --features wasm,math`.
 The CI's `wasm-build` job exercises this exact command on every push.

@@ -58,10 +58,17 @@ include = [
 # Library Information
 # -----------------------------------------------------------------------------
 
-# The library file that contains the main logic for the binary.
+# The library file that contains the main logic.
+#
+# `cdylib` is required so `wasm-pack build` produces a usable
+# `html_generator_bg.wasm` + `html_generator.js` JS-importable
+# bundle. `rlib` is kept so this crate can still be a regular Rust
+# dependency. Native builds use `rlib` only — the `cdylib` artifact
+# is only emitted when targeting `wasm32-*`.
 [lib]
 name = "html_generator"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 # -----------------------------------------------------------------------------
 # Dependencies
@@ -246,6 +253,17 @@ harness = false
 all-features = true                         # Build documentation with all features enabled
 rustdoc-args = ["--cfg", "docsrs"]          # Arguments passed to `rustdoc` when building the documentation
 targets = ["x86_64-unknown-linux-gnu"]      # Default target platform for the docs
+
+# wasm-pack post-processing for `wasm-pack build --release ...`. The
+# `--enable-bulk-memory` and `--enable-nontrapping-float-to-int`
+# flags are required because current rustc emits those wasm
+# instructions and the wasm-opt bundled with wasm-pack is older than
+# the spec extensions needed to validate them. Without this metadata
+# the bulk-memory `memory.copy` instructions that the compiler
+# inlines fail wasm-opt validation. `-Os` keeps the size focus
+# (typically shrinks the bindgen-processed `.wasm` 3–5×).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 # -----------------------------------------------------------------------------
 # Linting Configuration
