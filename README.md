@@ -321,6 +321,8 @@ let config = HtmlConfig {
     max_buffer_size: 16 * 1024 * 1024,      // 16MB I/O buffer
     language: "en-GB".into(),               // Content language (used in html lang attr)
     encoding: "utf-8".into(),               // File I/O encoding
+    enable_math: false,                     // LaTeX → MathML for $..$ / $$..$$
+    enable_diagrams: false,                 // Mermaid passthrough for ```mermaid blocks
 };
 ```
 
@@ -354,6 +356,7 @@ let config = HtmlConfig::builder()
 | `headers` | Custom ID and class generators for heading elements |
 | `custom_syntax` | Triple-colon blocks (`:::warning`) and image classes |
 | `emojis` | Bundled emoji data, emoji-to-ARIA-label mapping |
+| `math_and_diagrams` | LaTeX → MathML and `\u{60}\u{60}\u{60}mermaid` passthrough |
 | `async` | Asynchronous generation via tokio (requires `--features async`) |
 
 Run any example:
@@ -362,8 +365,101 @@ Run any example:
 cargo run --example hello
 cargo run --example pipeline
 cargo run --example accessibility
+cargo run --example math_and_diagrams
 cargo run --example async --features async
 ```
+
+---
+
+## Performance
+
+Comparative throughput on the same realistic 8 KB blog payload (Apple
+M-series, criterion `--quick`, `[profile.bench]` with `opt-level = 3`
++ fat LTO):
+
+| Engine | Time / iter | What it does |
+| :--- | ---: | :--- |
+| `pulldown_cmark` (parse only) | **45 µs** | Pull-parser, no post-processing. Fastest plain CommonMark in Rust. |
+| `comrak` (parse only) | **172 µs** | The CommonMark/GFM parser this crate wraps. |
+| `html_generator` (full pipeline) | **2.09 ms** | Parse + ARIA injection + TOC + JSON-LD + minification. |
+| `markdown_it` (parse + extras) | **4.71 ms** | JS markdown-it port, plugin-extensible. |
+
+Pure parsers will always be faster — they don't do ARIA, JSON-LD, TOC, or
+minification. `html-generator` does all four in one pass and is still
+2.25× faster than `markdown-it`. Reproduce with:
+
+```bash
+cargo bench --bench competitors
+```
+
+---
+
+## Math and diagrams
+
+Two opt-in post-processors turn ordinary Markdown into rich technical
+documentation without client-side JavaScript for math:
+
+```rust
+use html_generator::{generate_html, HtmlConfig};
+
+let md = r"
+# Pythagoras
+
+In a right triangle, $a^2 + b^2 = c^2$.
+
+```mermaid
+graph LR
+    A --> B
+```";
+let cfg = HtmlConfig {
+    enable_math: true,        // $..$ and $$..$$ → <math> MathML
+    enable_diagrams: true,    // ```mermaid → <pre class="mermaid">
+    ..HtmlConfig::default()
+};
+let html = generate_html(md, &cfg)?;
+# Ok::<(), html_generator::error::HtmlError>(())
+```
+
+* **Math** — server-side LaTeX → MathML via `pulldown-latex` (gated
+  behind the `math` feature, on by default). Browsers render MathML
+  natively, so no client-side bundle is required. Parse errors are
+  encoded inline as `<merror>` markers rather than crashing the build.
+* **Diagrams** — `\u{60}\u{60}\u{60}mermaid` fenced blocks become
+  `<pre class="mermaid">…</pre>` so the standard mermaid.js loader picks
+  them up. Drop a single
+  `<script type="module">import mermaid from "https://…/mermaid.esm.mjs"; mermaid.initialize({startOnLoad:true});</script>`
+  in your page and you're done.
+
+---
+
+## WebAssembly
+
+The same pipeline runs in Cloudflare Workers, Vercel Edge, browsers, and
+Node — without changing API:
+
+```bash
+cargo build --release --target wasm32-unknown-unknown \
+  --features wasm --no-default-features
+# or, to publish an npm bundle:
+wasm-pack build --target web --features wasm --no-default-features
+```
+
+Three JS-friendly entry points are exposed via `wasm-bindgen`:
+
+| JS name | Description |
+| :--- | :--- |
+| `generateHtml(markdown)` | Render Markdown to an accessible HTML fragment with default config. |
+| `generateHtmlFullDocument(markdown)` | Same but wrapped in `<!DOCTYPE html><html>…</html>`. |
+| `generateHtmlWithOptions(markdown, optionsJson)` | Pass a JSON object configuring `add_aria_attributes`, `generate_toc`, `enable_math`, `enable_diagrams`, etc. |
+
+WASM builds drop `mdx-gen`'s `:::class`, image-class, and `syntect`
+syntax highlighting (the underlying `tokio`/`onig` C dependencies do not
+compile to `wasm32-unknown-unknown`); CommonMark + GFM (tables,
+strikethrough, autolinks, tasklists, superscript) plus the full ARIA /
+TOC / JSON-LD / math / mermaid post-processing layer renders identically.
+
+Smoke tests live in [`tests/wasm_smoke.rs`](tests/wasm_smoke.rs) and run
+under `wasm-pack test --node --features wasm`.
 
 ---
 

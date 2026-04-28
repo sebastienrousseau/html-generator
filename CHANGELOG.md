@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.5] — Unreleased
 
+### Added (capability)
+
+- **Server-side LaTeX → MathML.** New `enable_math` config flag and
+  `html_generator::math::convert_math` post-processor convert `$..$`
+  and `$$..$$` spans to native `<math>` elements via
+  `pulldown-latex`. Pure server-side; browsers render MathML without
+  JS. Parse errors are encoded inline as `<merror>` markers rather
+  than failing the build. Gated behind the `math` feature (on by
+  default; turn off with `--no-default-features` for a smaller binary).
+- **Mermaid diagram passthrough.** New `enable_diagrams` config flag
+  and `html_generator::math::rewrite_mermaid_blocks` post-processor
+  rewrite `\u{60}\u{60}\u{60}mermaid` fenced blocks from
+  `<pre><code class="language-mermaid">` to `<pre class="mermaid">`
+  so the standard client-side mermaid.js bundle picks them up. No
+  server-side rendering — diagram source flows through verbatim.
+- **WebAssembly target.** New `wasm` feature exposes three
+  JS-friendly entry points via `wasm-bindgen`: `generateHtml`,
+  `generateHtmlFullDocument`, `generateHtmlWithOptions`. Build with
+  `cargo build --target wasm32-unknown-unknown --features wasm
+  --no-default-features` or `wasm-pack build --target web --features
+  wasm --no-default-features`. The WASM build path delegates to
+  `comrak` directly because `mdx-gen` pulls in `tokio` (which pulls
+  in `mio`) unconditionally and `tokio` doesn't compile to
+  `wasm32-unknown-unknown`. Trade-off: WASM loses `mdx-gen`'s
+  `:::class` blocks, image-class syntax, and `syntect` syntax
+  highlighting; everything else (CommonMark + GFM, ARIA, TOC,
+  JSON-LD, math, mermaid) renders identically. Smoke tests live in
+  `tests/wasm_smoke.rs` and run under `wasm-pack test --node
+  --features wasm`.
+- **Comparative benchmarks.** New `benches/competitors.rs` runs the
+  same realistic 8 KB blog-post payload through `html-generator`,
+  `comrak`, `pulldown-cmark`, and `markdown-it` so the README can
+  cite measured numbers, not estimates. Numbers (Apple M-series,
+  `cargo bench --bench competitors --quick`):
+    * `pulldown-cmark` parse only: **45 µs**
+    * `comrak` parse only: **172 µs**
+    * `html-generator` full pipeline: **2.09 ms**
+    * `markdown-it` parse + extras: **4.71 ms**
+  Pure parsers are faster but produce raw HTML you still need to
+  post-process; the html-generator number includes ARIA, TOC,
+  JSON-LD, and minification in one pass.
+
+### Examples
+
+- New `examples/math_and_diagrams.rs` covers four cases: inline +
+  display LaTeX, currency-style `$5` left untouched, mermaid block
+  rewrite, and both at once.
+
+
+
 The first release after the public `0.0.4` ship on crates.io. Everything
 below is hardening on top of the published `0.0.4` and is **not** yet
 on the registry — `cargo install html-generator` continues to resolve

@@ -26,9 +26,15 @@ pub mod elements;
 pub mod emojis;
 pub mod error;
 pub mod generator;
+pub mod math;
 pub mod performance;
 pub mod seo;
 pub mod utils;
+
+// WebAssembly bindings — compiled in only when the crate is built
+// with `--features wasm`.
+#[cfg(feature = "wasm")]
+pub mod wasm;
 
 // Inlined private YAML serde implementation (upstream:
 // `/Users/seb/Code/Public/Rust/yaml_safe`). Kept private so the
@@ -407,6 +413,26 @@ pub struct HtmlConfig {
     /// This field is used by [`markdown_file_to_html`] when reading
     /// or writing files. In-memory functions ignore it.
     pub encoding: String,
+
+    /// Render `$..$` and `$$..$$` LaTeX math spans to inline MathML.
+    ///
+    /// Pure server-side: no client-side JavaScript bundle required,
+    /// browsers render MathML natively. Powered by `pulldown-latex`
+    /// behind the `math` feature (on by default). When `false`, math
+    /// spans are passed through as-is.
+    pub enable_math: bool,
+
+    /// Rewrite `\u{60}\u{60}\u{60}mermaid` fenced code blocks for client-side
+    /// mermaid.js.
+    ///
+    /// The CommonMark engine emits these as
+    /// `<pre><code class="language-mermaid">…</code></pre>`. With this
+    /// flag on, the post-processing step rewrites them to
+    /// `<pre class="mermaid">…</pre>` so the standard mermaid.js
+    /// loader picks them up. The page must still include
+    /// `<script type="module">…mermaid.initialize…</script>` for the
+    /// diagrams to actually render.
+    pub enable_diagrams: bool,
 }
 
 impl Default for HtmlConfig {
@@ -427,6 +453,8 @@ impl Default for HtmlConfig {
             generate_full_document: false,
             max_buffer_size: 16 * 1024 * 1024,
             encoding: String::from("utf-8"),
+            enable_math: false,
+            enable_diagrams: false,
         }
     }
 }
@@ -704,6 +732,54 @@ impl HtmlConfigBuilder {
     #[must_use]
     pub fn with_max_buffer_size(mut self, size: usize) -> Self {
         self.config.max_buffer_size = size;
+        self
+    }
+
+    /// Enables or disables server-side LaTeX → MathML rendering.
+    ///
+    /// When enabled, `$..$` and `$$..$$` spans in the rendered HTML
+    /// are replaced with `<math>…</math>` elements. Browsers render
+    /// MathML natively, so no client-side JS is needed. Requires
+    /// the `math` feature (on by default).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_math(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.enable_math);
+    /// ```
+    #[must_use]
+    pub fn with_math(mut self, enable: bool) -> Self {
+        self.config.enable_math = enable;
+        self
+    }
+
+    /// Enables or disables Mermaid diagram passthrough.
+    ///
+    /// When enabled, `\u{60}\u{60}\u{60}mermaid` fenced code blocks are rewritten
+    /// from `<pre><code class="language-mermaid">` to
+    /// `<pre class="mermaid">` so client-side mermaid.js renders
+    /// them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_diagrams(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.enable_diagrams);
+    /// ```
+    #[must_use]
+    pub fn with_diagrams(mut self, enable: bool) -> Self {
+        self.config.enable_diagrams = enable;
         self
     }
 

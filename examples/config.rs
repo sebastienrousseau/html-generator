@@ -102,6 +102,8 @@ fn main() {
             language: "de-DE".into(),
             max_buffer_size: 8 * 1024 * 1024,
             encoding: "utf-8".into(),
+            enable_math: false,
+            enable_diagrams: false,
         };
         vec![
             format!("language = {}", config.language),

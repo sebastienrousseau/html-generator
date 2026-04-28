@@ -72,9 +72,9 @@ path = "src/lib.rs"
 ammonia = "4"
 indexmap = "2"
 log = "0.4"
-mdx-gen = "0.0.2"
 minify-html = "0.18"
 once_cell = "1.21.4"
+pulldown-latex = { version = "0.7", optional = true }
 regex = "1.12.3"
 scraper = "0.26.0"
 serde = { version = "1", features = ["derive"] }
@@ -82,6 +82,27 @@ serde_json = "1.0.149"
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"], optional = true }
 toml = "0.8"
+# WASM bindings (gated behind the `wasm` feature). `js-sys` is
+# pulled in only on `wasm32` targets where it is needed for any
+# `getrandom`/timing fallbacks downstream crates require.
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+# Native targets get the full `mdx-gen` pipeline (custom blocks,
+# enhanced tables, optional syntax highlighting via `syntect`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mdx-gen = "0.0.2"
+
+# WASM targets: bypass `mdx-gen` and use `comrak` directly. `mdx-gen`
+# pulls in `tokio` (which pulls in `mio`) unconditionally, neither
+# of which compile to `wasm32-unknown-unknown`. The trade-off on
+# WASM is loss of `mdx-gen`'s `:::class` blocks, image-class syntax,
+# and `syntect` syntax highlighting; the core CommonMark/GFM
+# pipeline is identical because `mdx-gen` itself wraps `comrak`.
+# `getrandom` needs `wasm_js` so transitive uses compile.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+comrak = { version = "0.50", default-features = false }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # -----------------------------------------------------------------------------
 # Build Dependencies
@@ -100,6 +121,17 @@ version_check = "0.9.5"
 criterion = "0.8"
 tempfile = "3.27.0"
 test-case = "3.3.1"
+# Comparative-bench dependencies — competitor markdown engines
+# benchmarked side-by-side in `benches/competitors.rs`. Pinned to
+# major versions stable on crates.io as of v0.0.5.
+comrak = "0.50"
+pulldown-cmark = "0.13"
+markdown-it = "0.6"
+
+# WASM headless test harness — only used when the `wasm` feature
+# is enabled and the target is `wasm32`.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 
 # -----------------------------------------------------------------------------
@@ -108,8 +140,20 @@ test-case = "3.3.1"
 
 [features]
 # Features that can be enabled or disabled.
-default = []
+default = ["math"]
 async = ["dep:tokio"]
+# Server-side LaTeX → MathML rendering for `$..$` and `$$..$$`
+# spans. Pulled in by default because pure-Rust + zero-runtime-JS;
+# disable with `--no-default-features` if you want a smaller binary
+# and will render math client-side instead.
+math = ["dep:pulldown-latex"]
+# WebAssembly bindings via `wasm-bindgen`. Exposes
+# `generate_html_wasm` for use from JavaScript (Workers, browsers,
+# Node). Build with `cargo build --target wasm32-unknown-unknown
+# --features wasm` or `wasm-pack build`. Time/file-IO paths are
+# gated out for `wasm32` targets — only the in-memory rendering
+# pipeline is exposed.
+wasm = ["dep:wasm-bindgen", "dep:js-sys"]
 
 # -----------------------------------------------------------------------------
 # Examples -  cargo run --example <name>
@@ -168,12 +212,23 @@ path = "examples/custom_syntax.rs"
 name = "emojis"
 path = "examples/emojis.rs"
 
+[[example]]
+name = "math_and_diagrams"
+path = "examples/math_and_diagrams.rs"
+
 # -----------------------------------------------------------------------------
 # Criterion Benchmark
 # -----------------------------------------------------------------------------
 [[bench]]                         # Benchmarking configuration.
 name = "html_benchmark"           # Name of the benchmark.
 harness = false                   # Disable the default benchmark harness.
+
+# Competitor comparison: same realistic 8 KB blog payload run through
+# html-generator and three popular CommonMark crates so the README's
+# performance section can cite measured numbers, not estimates.
+[[bench]]
+name = "competitors"
+harness = false
 
 # -----------------------------------------------------------------------------
 # Documentation Configuration

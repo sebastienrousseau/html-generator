@@ -7,19 +7,25 @@
 //! using the `mdx-gen` library. It supports various Markdown extensions
 //! and custom configuration options.
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::error::HtmlError;
 use crate::{
     accessibility::add_aria_attributes,
-    error::HtmlError,
     extract_front_matter,
     performance::minify_html_string,
     seo::{escape_html, generate_structured_data_from_doc},
     utils::generate_table_of_contents,
     Result,
 };
+#[cfg(target_arch = "wasm32")]
+use comrak::Options;
 use log::warn;
+#[cfg(not(target_arch = "wasm32"))]
 use mdx_gen::{process_markdown, MarkdownOptions, Options};
 use once_cell::sync::Lazy;
+#[cfg(not(target_arch = "wasm32"))]
 use regex::Regex;
+#[cfg(not(target_arch = "wasm32"))]
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
@@ -112,13 +118,19 @@ pub struct HtmlOutput {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Regex matching triple-colon custom class blocks.
+/// Regex matching triple-colon custom class blocks. The static is
+/// only consulted by the native `markdown_to_html_impl` path; on
+/// `wasm32` we delegate directly to comrak and the helpers below
+/// are dead code.
+#[cfg(not(target_arch = "wasm32"))]
 static CUSTOM_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r":::(\w+)\n([\s\S]*?)\n:::")
         .expect("static CUSTOM_CLASS_REGEX must compile")
 });
 
 /// Regex matching image-with-class syntax: `![alt](url).class="cls"`.
+/// Native-only; see `CUSTOM_CLASS_REGEX` above.
+#[cfg(not(target_arch = "wasm32"))]
 static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#)
         .expect("static IMAGE_CLASS_REGEX must compile")
@@ -250,6 +262,38 @@ pub fn generate_html_with_diagnostics(
                 warn!("{d}");
                 diagnostics.push(d);
             }
+        }
+    }
+
+    // Step 4b: Math — convert $..$ / $$..$$ to inline MathML.
+    // Infallible: pulldown-latex encodes parse errors inline as
+    // `<merror>` elements rather than returning Err, so the
+    // pipeline never has to skip this step.
+    #[cfg(feature = "math")]
+    if config.enable_math {
+        let before_len = html.len();
+        html = crate::math::convert_math(&html);
+        if html.len() != before_len {
+            diagnostics.push(Diagnostic {
+                step: "math",
+                level: DiagnosticLevel::Info,
+                message: "LaTeX math rendered to MathML".to_string(),
+            });
+        }
+    }
+
+    // Step 4c: Diagrams — rewrite mermaid fenced blocks for client-side mermaid.js
+    if config.enable_diagrams {
+        let before_len = html.len();
+        html = crate::math::rewrite_mermaid_blocks(&html);
+        if html.len() != before_len {
+            diagnostics.push(Diagnostic {
+                step: "diagrams",
+                level: DiagnosticLevel::Info,
+                message:
+                    "Mermaid blocks rewritten for client-side rendering"
+                        .to_string(),
+            });
         }
     }
 
@@ -408,6 +452,7 @@ pub fn markdown_to_html_with_extensions(
     markdown_to_html_impl(markdown, &crate::HtmlConfig::default())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn markdown_to_html_impl(
     markdown: &str,
     config: &crate::HtmlConfig,
@@ -445,6 +490,33 @@ fn markdown_to_html_impl(
     )
 }
 
+/// WASM-target Markdown → HTML.
+///
+/// Bypasses `mdx-gen` (which pulls in `tokio` unconditionally and
+/// therefore does not compile to `wasm32-unknown-unknown`) and calls
+/// `comrak` directly with the same extension flags that `mdx-gen`
+/// would have set. Custom classes (`:::warning`), image-class
+/// syntax, and `syntect` syntax highlighting are not available in
+/// this build path; everything else (CommonMark + GFM tables,
+/// strikethrough, autolinks, tasklists, superscript) renders
+/// identically to the native pipeline.
+#[cfg(target_arch = "wasm32")]
+fn markdown_to_html_impl(
+    markdown: &str,
+    config: &crate::HtmlConfig,
+) -> Result<String> {
+    let content_without_front_matter = extract_front_matter(markdown)
+        .unwrap_or_else(|_| markdown.to_string());
+
+    let mut opts = BASE_COMRAK_OPTIONS.clone();
+    opts.render.r#unsafe = config.allow_unsafe_html;
+
+    Ok(comrak::markdown_to_html(
+        &content_without_front_matter,
+        &opts,
+    ))
+}
+
 /// Re-parse inline Markdown for triple-colon blocks, e.g.:
 ///
 /// ```markdown
@@ -460,6 +532,7 @@ fn markdown_to_html_impl(
 ///
 /// # Example
 /// ...
+#[cfg(not(target_arch = "wasm32"))]
 fn add_custom_classes(
     markdown: &str,
     allow_unsafe_html: bool,
@@ -511,6 +584,7 @@ pub fn process_markdown_inline(
     process_markdown_inline_impl(content, false)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn process_markdown_inline_impl(
     content: &str,
     allow_unsafe_html: bool,
@@ -525,8 +599,21 @@ fn process_markdown_inline_impl(
     Ok(process_markdown(content, &options)?)
 }
 
+/// WASM-target inline Markdown rendering. See the `markdown_to_html_impl`
+/// WASM variant for the rationale (no `mdx-gen` on `wasm32`).
+#[cfg(target_arch = "wasm32")]
+fn process_markdown_inline_impl(
+    content: &str,
+    allow_unsafe_html: bool,
+) -> std::result::Result<String, Box<dyn Error>> {
+    let mut opts = BASE_COMRAK_OPTIONS.clone();
+    opts.render.r#unsafe = allow_unsafe_html;
+    Ok(comrak::markdown_to_html(content, &opts))
+}
+
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
+#[cfg(not(target_arch = "wasm32"))]
 fn process_images_with_classes(markdown: &str) -> Cow<'_, str> {
     // Borrowed-Cow when the document has no `![alt](url).class="x"`
     // construct — i.e. every typical document.
