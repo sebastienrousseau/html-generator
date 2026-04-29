@@ -87,4 +87,9 @@ jobs:
     uses: sebastienrousseau/pipelines/.github/workflows/docs.yml@main
     with:
       type: rust
-      redirect-crate: html-generator
+      # Use the lib's identifier form (underscore), not the crate
+      # name (hyphen). rustdoc emits `target/doc/html_generator/`,
+      # so the root index.html redirect must point at the same
+      # path or every visit to `https://doc.html-generator.co/`
+      # produces a 404.
+      redirect-crate: html_generator
