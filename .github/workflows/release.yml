@@ -1,0 +1,52 @@
+name: Release
+
+# Triggered by signed tag pushes that match `v*` (e.g. `v0.0.5`).
+# Delegates to `sebastienrousseau/pipelines/.github/workflows/release.yml@main`,
+# which handles:
+#   1. Cross-platform release-binary builds (Linux/macOS/Windows × x86_64/aarch64)
+#   2. Draft GitHub Release creation with the binaries attached
+#   3. SLSA build-provenance attestation
+#   4. SPDX-JSON SBOM upload
+#   5. `cargo publish` to crates.io
+#
+# The `CRATES_TOKEN` repo secret must be set under
+# Settings → Secrets and variables → Actions for the publish step
+# to succeed. Without it, the publish step errors and the rest of
+# the release artifacts (binaries, SBOM, attestations) still ship.
+#
+# Re-running the workflow on the same tag re-publishes — crates.io
+# rejects re-uploads of an existing version, so this is safe.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: sebastienrousseau/pipelines/.github/workflows/release.yml@main
+    permissions:
+      contents: write       # create / upload to GitHub Release
+      id-token: write       # SLSA provenance attestation
+      attestations: write   # SBOM + provenance writes
+    with:
+      language: rust
+      # Build a representative cross-platform matrix. The tarballs
+      # are attached to the GitHub Release; the actual crate bits
+      # users install via `cargo install` come from crates.io.
+      rust-targets: |
+        [
+          {"target":"x86_64-unknown-linux-gnu","os":"ubuntu-latest"},
+          {"target":"aarch64-unknown-linux-gnu","os":"ubuntu-latest"},
+          {"target":"x86_64-apple-darwin","os":"macos-latest"},
+          {"target":"aarch64-apple-darwin","os":"macos-latest"},
+          {"target":"x86_64-pc-windows-msvc","os":"windows-latest"}
+        ]
+    secrets:
+      CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
