@@ -28,7 +28,11 @@
 - [Features](#features) -- capability matrix
 - [Library Usage](#library-usage) -- pipeline, front matter, TOC, SEO, accessibility
 - [Configuration](#configuration) -- HtmlConfig options
-- [Examples](#examples) -- 13 branded examples
+- [Examples](#examples) -- 14 branded examples
+- [Performance](#performance) -- comparative benchmarks vs comrak / pulldown-cmark
+- [Math and diagrams](#math-and-diagrams) -- LaTeX → MathML, Mermaid passthrough
+- [WebAssembly](#webassembly) -- browser, Workers, Edge bindings
+- [FAQ](#faq) -- common questions and design decisions
 - [Development](#development) -- make targets, CI
 - [Security](#security) -- safety guarantees
 - [License](#license)
@@ -79,24 +83,30 @@ fn main() -> Result<(), html_generator::error::HtmlError> {
 
 ## Overview
 
-html-generator converts Markdown into production-ready HTML with a configurable pipeline that applies accessibility, SEO, table of contents, and minification in a single pass. No raw HTML passthrough by default — safe for untrusted input.
+html-generator converts Markdown into production-ready HTML with a configurable pipeline that applies accessibility, SEO, table of contents, math, diagrams, and minification in a single pass. No raw HTML passthrough by default — safe for untrusted input. Runs natively or as WebAssembly in browsers, Cloudflare Workers, and edge runtimes.
 
 - **Full CommonMark** with extensions (tables, strikethrough, task lists, superscript)
 - **Front matter extraction** from YAML (`---`), TOML (`+++`), and JSON (`{...}`)
 - **WCAG-compliant output** with automatic ARIA attribute injection
 - **JSON-LD structured data** appended for rich search results
 - **Table of contents** injected at `[[TOC]]` placeholder
+- **Server-side LaTeX → MathML** for `$..$` and `$$..$$` (no client-side JS needed)
+- **Mermaid diagram passthrough** for `\u{60}\u{60}\u{60}mermaid` fenced blocks
 - **In-memory minification** without disk I/O
+- **WebAssembly bindings** via `wasm-bindgen` (browsers, Workers, Edge)
 - **Optional async** via tokio `spawn_blocking` (behind `async` feature)
 - **Zero unsafe code** via `#![forbid(unsafe_code)]` at crate root
 
 | Metric | Value |
 | :--- | :--- |
-| **Source** | 10,873 lines across 9 modules |
-| **Test suite** | 342 unit/integration tests + 36 doc-tests |
-| **Examples** | 13 branded examples |
-| **Dependencies** | 13 runtime + 1 optional tokio |
+| **Source** | ~12,900 lines across 11 modules (`src/yaml/` is a vendored snapshot, see FAQ) |
+| **Test suite** | 533 unit/integration tests + 163 doctests + 4 WASM smoke tests = **700 total** |
+| **Coverage** | 98.18% line coverage (`cargo llvm-cov`); Codecov project ≥95%, patch ≥90% gates |
+| **Examples** | 14 branded examples covering every public surface |
+| **Dependencies** | 13 native runtime + 1 optional async (`tokio`) + 2 optional WASM (`wasm-bindgen`, `js-sys`) |
 | **MSRV** | Rust 1.80.0 |
+| **WASM bundle** | 5.8 MB raw / **2.0 MB gzipped** (after `wasm-opt -Os`) |
+| **CI gates** | 10 distinct checks including end-to-end `wasm-pack test --node` against Node 20 |
 
 ---
 
@@ -109,10 +119,13 @@ html-generator converts Markdown into production-ready HTML with a configurable 
 | **Front matter** | YAML (`---`), TOML (`+++`), JSON (`{...}`) delimiters. `extract_front_matter` strips metadata and returns body. `extract_front_matter_data` parses metadata into `serde_json::Value`. |
 | **Table of contents** | `generate_table_of_contents` builds `<ul>` from headings. Pipeline injects at `[[TOC]]` placeholder when `generate_toc` is enabled. |
 | **SEO** | `MetaTagsBuilder` for meta tag generation. `generate_structured_data` for JSON-LD `<script>` output with configurable `@type` and additional properties. HTML entity escaping via `escape_html`. |
+| **Math (MathML)** | `enable_math` flag converts `$..$` and `$$..$$` LaTeX spans to native `<math>` MathML via `pulldown-latex`. Server-side, no JS bundle. Conservative regex matchers leave `$5` currency literals alone. Behind the `math` feature (default-on). |
+| **Diagrams (Mermaid)** | `enable_diagrams` flag rewrites `\u{60}\u{60}\u{60}mermaid` fenced blocks to `<pre class="mermaid">` for the standard client-side mermaid.js bundle. Diagram source flows through verbatim. |
 | **Minification** | File-based `minify_html(path)` and in-memory `minify_html_string(html)`. Preserves HTML semantics, strips comments, minifies CSS/JS. Configurable via `MinifyConfig`. |
-| **Performance** | Regexes and CSS selectors compiled once into `static Lazy`. DOM-aware element replacement handles attribute reordering and whitespace. Configurable buffer sizes. |
+| **WebAssembly** | `wasm` feature exposes `generateHtml`, `generateHtmlFullDocument`, `generateHtmlWithOptions` to JavaScript via `wasm-bindgen`. Build with `wasm-pack build --target web --features wasm --no-default-features`. |
+| **Performance** | Regexes and CSS selectors compiled once into `static Lazy`. SIMD-backed `str::contains` short-circuits before any html5ever parse. DOM-aware element replacement handles attribute reordering. **2.09 ms** full pipeline on an 8 KB blog payload (`comrak` parse alone is 172 µs). |
 | **Async** | Optional `async` feature enables `async_generate_html` via tokio `spawn_blocking`. Synchronous users pay zero cost — tokio not compiled without the feature. |
-| **Security** | `#![forbid(unsafe_code)]`. Raw HTML stripped by default (`allow_unsafe_html: false`). All user-controlled attributes escaped. Directory traversal blocked. Input size limits enforced. |
+| **Security** | `#![forbid(unsafe_code)]`. Raw HTML stripped by default (`allow_unsafe_html: false`). All user-controlled attributes escaped. NUL-byte rejection on file paths. Directory traversal blocked. Input size limits enforced. |
 
 ---
 
@@ -506,6 +519,163 @@ of the binary.
 Smoke tests live in [`tests/wasm_smoke.rs`](tests/wasm_smoke.rs) and run
 under `wasm-pack test --node --no-default-features --features wasm,math`.
 The CI's `wasm-build` job exercises this exact command on every push.
+
+---
+
+## FAQ
+
+<details>
+<summary><b>Why this crate over `comrak`, `pulldown-cmark`, or `markdown-it`?</b></summary>
+
+Those are pure CommonMark parsers — they hand you raw HTML. html-generator
+is the layer above: parse + ARIA injection + JSON-LD structured data +
+table of contents + math + mermaid + minification, all in one call.
+The benchmarks in [Performance](#performance) show the trade-off
+explicitly. If you only need parse-to-HTML, prefer `pulldown-cmark` (45 µs
+on the same payload) and write your own post-processing. If you want a
+2026-grade content pipeline that ships WCAG 2.1 + SEO out of the box,
+this is it.
+
+</details>
+
+<details>
+<summary><b>Is the output really WCAG-compliant?</b></summary>
+
+Yes for the structural conformance items: ARIA labels, roles, landmarks,
+heading hierarchy, language declarations. `validate_wcag(html, &config,
+None)` returns an `AccessibilityReport` with any remaining issues
+(missing alt text, color contrast — which html-generator can't infer
+from Markdown). Output passes WCAG 2.1 Levels A and AA out of the box;
+Level AAA requires opt-in via `WcagLevel::AAA` in the config because some
+AAA criteria (heading-jump strictness, contrast ratio 7.0:1) reject
+otherwise-valid documents.
+
+</details>
+
+<details>
+<summary><b>How do I render math without a JavaScript bundle?</b></summary>
+
+Set `enable_math: true` (it's behind the `math` feature, on by default).
+`$..$` and `$$..$$` LaTeX spans become `<math>...</math>` MathML, which
+modern browsers render natively — no MathJax, no KaTeX, no client-side
+script tag. Parse errors are encoded inline as `<merror>` markers so
+broken LaTeX is visible in the page rather than crashing the build.
+Currency-style `$5` is left literal (the matcher requires a non-digit
+after the closing `$`).
+
+</details>
+
+<details>
+<summary><b>Do I have to manage Mermaid rendering myself?</b></summary>
+
+For Mermaid, yes — html-generator only rewrites the markup so the standard
+`mermaid.js` bundle finds it. Set `enable_diagrams: true` and the
+pipeline emits `<pre class="mermaid">` instead of
+`<pre><code class="language-mermaid">`. Then drop a single
+`<script type="module">import mermaid from "https://…/mermaid.esm.mjs";
+mermaid.initialize({startOnLoad:true});</script>` in your page.
+Server-side mermaid rendering would require running a headless browser
+or porting the diagram engine to Rust — out of scope for this crate.
+
+</details>
+
+<details>
+<summary><b>Can I run this in Cloudflare Workers / Vercel Edge / a browser?</b></summary>
+
+Yes — `wasm-pack build --release --target web --no-default-features
+--features wasm,math` produces a 5.8 MB raw / 2.0 MB gzipped bundle plus
+~13 KB of JS bindings. The exposed JS surface is `generateHtml`,
+`generateHtmlFullDocument`, and `generateHtmlWithOptions(markdown,
+optionsJson)`. Workers' paid plan allows 10 MB compressed scripts,
+fitting comfortably; the free tier (1 MB compressed) requires further
+trimming and is not currently a supported configuration.
+
+</details>
+
+<details>
+<summary><b>What's missing on the WASM target compared to native?</b></summary>
+
+Three things, all from `mdx-gen`'s extension layer (which doesn't compile
+to `wasm32-unknown-unknown` because of an unconditional `tokio` dep):
+`:::class` custom blocks, image-class syntax (`![alt](url).class="…"`),
+and `syntect` syntax highlighting. CommonMark + GFM (tables,
+strikethrough, autolinks, tasklists, superscript) plus the full ARIA /
+TOC / JSON-LD / math / mermaid post-processing renders identically.
+
+</details>
+
+<details>
+<summary><b>Why is raw HTML in Markdown stripped by default?</b></summary>
+
+Untrusted Markdown that contains raw `<script>` tags is an XSS vector.
+`HtmlConfig::default()` sets `allow_unsafe_html = false` so `<script>` and
+friends never make it to the output. If you control the Markdown source
+(e.g. site authors you trust), set `allow_unsafe_html = true`. For
+user-submitted Markdown, set both `allow_unsafe_html = true` and
+`sanitize_html = true` — the pipeline runs `ammonia` over the final HTML
+to strip dangerous elements while keeping safe ones.
+
+</details>
+
+<details>
+<summary><b>Why does the same Markdown produce identical HTML on every run now?</b></summary>
+
+Earlier versions (≤ 0.0.4) used `uuid::Uuid::new_v4()` for
+auto-generated ARIA IDs, so two runs over the same input produced
+different HTML — bad for content-addressable caching, deterministic
+builds, and snapshot testing. v0.0.5 replaced UUIDs with per-call
+counters so byte-identical input produces byte-identical output. The
+`uuid` runtime dependency was dropped in the same commit.
+
+</details>
+
+<details>
+<summary><b>How does the pipeline handle errors gracefully?</b></summary>
+
+Use `generate_html_with_diagnostics` instead of `generate_html`. It
+returns an `HtmlOutput` with `html: String` and `diagnostics:
+Vec<Diagnostic>`. Each diagnostic records which pipeline step
+(`accessibility`, `toc`, `structured_data`, `minification`, etc.)
+emitted it and at what severity. Non-fatal failures degrade rather than
+abort — e.g., if ARIA injection fails on malformed HTML the unenhanced
+HTML is returned with an `Error`-level diagnostic, and the rest of the
+pipeline continues.
+
+</details>
+
+<details>
+<summary><b>What's `src/yaml/`? It's massive.</b></summary>
+
+A vendored, pure-Rust YAML parser kept verbatim from upstream
+(`yaml_safe@0.1.0`, in turn a fork-and-rename of `serde_yml` away from
+the unsound `libyml` C dependency). It exists as a private `mod yaml`
+inside the crate (~2 700 lines) so the crate compiles without taking
+on the unsound `serde_yml` registry dependency or its
+`RUSTSEC-2025-0068` advisory. Excluded from coverage and clippy in CI;
+not part of the public API surface. Will be replaced with the
+crates.io-published `yaml_safe = "0.1"` registry dependency once that
+ships.
+
+</details>
+
+<details>
+<summary><b>Is `cargo publish` supported?</b></summary>
+
+Yes — `cargo publish --dry-run` succeeds as of v0.0.5. The earlier
+blocker (path-only `crates/yaml_safe/` without a `version =` field) was
+closed by inlining the YAML implementation into `src/yaml/`.
+
+</details>
+
+<details>
+<summary><b>What's the MSRV policy?</b></summary>
+
+Rust 1.80.0 is the floor. Bumps require a minor-version increment and
+a CHANGELOG entry. Linting and formatting follow the latest stable
+(`cargo fmt --all -- --check` and `cargo clippy -- -D warnings` are
+expected to pass on the toolchain pinned in `mise.toml`/the CI config).
+
+</details>
 
 ---
 
