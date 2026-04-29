@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! # Markdown to HTML Conversion Tests
 //!
 //! This module contains integration tests for converting Markdown content and files into HTML
@@ -220,6 +221,31 @@ mod tests {
         );
 
         cleanup_test_dir(&input_dir);
+        Ok(())
+    }
+
+    /// Regression test for the v0.0.4 non-determinism bug: the default
+    /// pipeline injected `Uuid::new_v4()` into ARIA ids, so the same
+    /// Markdown produced different bytes on every call.
+    ///
+    /// See `CHANGELOG` / review report from 2026-04-24.
+    #[test]
+    fn test_pipeline_is_deterministic(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let markdown = "# Title\n\n<form>\n<input name=\"x\">\n</form>\n\n<div class=\"modal\"><p>body</p></div>";
+        let config = html_generator::HtmlConfig {
+            add_aria_attributes: true,
+            generate_toc: true,
+            generate_structured_data: true,
+            allow_unsafe_html: true,
+            ..Default::default()
+        };
+        let a = html_generator::generate_html(markdown, &config)?;
+        let b = html_generator::generate_html(markdown, &config)?;
+        assert_eq!(
+            a, b,
+            "identical input must produce byte-identical output"
+        );
         Ok(())
     }
 

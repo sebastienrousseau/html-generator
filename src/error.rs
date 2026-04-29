@@ -10,6 +10,15 @@ use std::io;
 use thiserror::Error;
 
 /// Enum to represent various errors that can occur during HTML generation, processing, or optimization.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::HtmlError;
+///
+/// let err = HtmlError::InvalidInput("empty document".into());
+/// assert!(err.to_string().contains("Invalid input"));
+/// ```
 #[derive(Error, Debug)]
 pub enum HtmlError {
     /// Error that occurs when a regular expression fails to compile.
@@ -51,18 +60,6 @@ pub enum HtmlError {
     MarkdownConversion {
         /// The error message
         message: String,
-        /// The source error, if available
-        #[source]
-        source: Option<io::Error>,
-    },
-
-    /// Errors that occur during HTML minification.
-    #[error("HTML minification failed: {message}")]
-    Minification {
-        /// The error message
-        message: String,
-        /// The source error, if available
-        size: Option<usize>,
         /// The source error, if available
         #[source]
         source: Option<io::Error>,
@@ -168,6 +165,14 @@ pub enum HtmlError {
 }
 
 /// Types of SEO-related errors
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::SeoErrorKind;
+///
+/// assert_eq!(SeoErrorKind::MissingTitle.to_string(), "Missing title");
+/// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SeoErrorKind {
     /// Missing required meta tags
@@ -185,6 +190,17 @@ pub enum SeoErrorKind {
 }
 
 /// Types of accessibility-related errors
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::ErrorKind;
+///
+/// assert_eq!(
+///     ErrorKind::MissingAriaAttributes.to_string(),
+///     "Missing ARIA attributes"
+/// );
+/// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ErrorKind {
     /// Missing ARIA attributes
@@ -248,7 +264,16 @@ impl std::fmt::Display for SeoErrorKind {
 }
 
 impl HtmlError {
-    /// Creates a new InvalidInput error
+    /// Creates a new `InvalidInput` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::invalid_input("empty document", None);
+    /// assert!(matches!(err, HtmlError::InvalidInput(_)));
+    /// ```
     pub fn invalid_input(
         message: impl Into<String>,
         _input: Option<String>,
@@ -256,12 +281,30 @@ impl HtmlError {
         Self::InvalidInput(message.into())
     }
 
-    /// Creates a new InputTooLarge error
+    /// Creates a new `InputTooLarge` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::input_too_large(1_048_576);
+    /// assert!(matches!(err, HtmlError::InputTooLarge(1_048_576)));
+    /// ```
     pub fn input_too_large(size: usize) -> Self {
         Self::InputTooLarge(size)
     }
 
-    /// Creates a new Seo error
+    /// Creates a new `Seo` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::{HtmlError, SeoErrorKind};
+    ///
+    /// let err = HtmlError::seo(SeoErrorKind::MissingTitle, "no <h1>", None);
+    /// assert!(matches!(err, HtmlError::Seo { .. }));
+    /// ```
     pub fn seo(
         kind: SeoErrorKind,
         message: impl Into<String>,
@@ -274,7 +317,20 @@ impl HtmlError {
         }
     }
 
-    /// Creates a new Accessibility error
+    /// Creates a new `Accessibility` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::{ErrorKind, HtmlError};
+    ///
+    /// let err = HtmlError::accessibility(
+    ///     ErrorKind::MissingAriaAttributes,
+    ///     "button without aria-label",
+    ///     Some("WCAG 4.1.2".into()),
+    /// );
+    /// assert!(matches!(err, HtmlError::Accessibility { .. }));
+    /// ```
     pub fn accessibility(
         kind: ErrorKind,
         message: impl Into<String>,
@@ -287,7 +343,16 @@ impl HtmlError {
         }
     }
 
-    /// Creates a new MarkdownConversion error
+    /// Creates a new `MarkdownConversion` error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::error::HtmlError;
+    ///
+    /// let err = HtmlError::markdown_conversion("comrak failed", None);
+    /// assert!(matches!(err, HtmlError::MarkdownConversion { .. }));
+    /// ```
     pub fn markdown_conversion(
         message: impl Into<String>,
         source: Option<io::Error>,
@@ -303,6 +368,22 @@ impl HtmlError {
 ///
 /// This type alias makes it more convenient to work with Results throughout the library,
 /// reducing boilerplate and improving readability.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::error::{HtmlError, Result};
+///
+/// fn parse(input: &str) -> Result<usize> {
+///     if input.is_empty() {
+///         return Err(HtmlError::InvalidInput("empty".into()));
+///     }
+///     Ok(input.len())
+/// }
+///
+/// assert_eq!(parse("hi").unwrap(), 2);
+/// assert!(parse("").is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
 #[cfg(test)]
@@ -379,8 +460,7 @@ mod tests {
 
         #[test]
         fn test_markdown_conversion_with_source() {
-            let source =
-                io::Error::new(io::ErrorKind::Other, "source error");
+            let source = io::Error::other("source error");
             let error = HtmlError::markdown_conversion(
                 "Conversion failed",
                 Some(source),
@@ -397,21 +477,6 @@ mod tests {
                 None,
             );
             assert!(error.to_string().contains("Conversion failed"));
-        }
-
-        #[test]
-        fn test_minification_with_size_and_source() {
-            let error = HtmlError::Minification {
-                message: "Too large".to_string(),
-                size: Some(1024),
-                source: Some(io::Error::new(
-                    io::ErrorKind::Other,
-                    "IO error",
-                )),
-            };
-            assert!(error
-                .to_string()
-                .contains("HTML minification failed"));
         }
     }
 
@@ -558,10 +623,8 @@ mod tests {
 
         #[test]
         fn test_template_rendering_error() {
-            let source_error = Box::new(io::Error::new(
-                io::ErrorKind::Other,
-                "render failed",
-            ));
+            let source_error =
+                Box::new(io::Error::other("render failed"));
             let error = HtmlError::TemplateRendering {
                 message: "Template error".to_string(),
                 source: source_error,

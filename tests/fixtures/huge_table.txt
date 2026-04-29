@@ -1,0 +1,54 @@
+# Performance: Large Table
+
+| Row | Col A | Col B | Col C | Col D | Col E |
+|-----|-------|-------|-------|-------|-------|
+| 1 | Alpha | Bravo | Charlie | Delta | Echo |
+| 2 | Alpha | Bravo | Charlie | Delta | Echo |
+| 3 | Alpha | Bravo | Charlie | Delta | Echo |
+| 4 | Alpha | Bravo | Charlie | Delta | Echo |
+| 5 | Alpha | Bravo | Charlie | Delta | Echo |
+| 6 | Alpha | Bravo | Charlie | Delta | Echo |
+| 7 | Alpha | Bravo | Charlie | Delta | Echo |
+| 8 | Alpha | Bravo | Charlie | Delta | Echo |
+| 9 | Alpha | Bravo | Charlie | Delta | Echo |
+| 10 | Alpha | Bravo | Charlie | Delta | Echo |
+| 11 | Alpha | Bravo | Charlie | Delta | Echo |
+| 12 | Alpha | Bravo | Charlie | Delta | Echo |
+| 13 | Alpha | Bravo | Charlie | Delta | Echo |
+| 14 | Alpha | Bravo | Charlie | Delta | Echo |
+| 15 | Alpha | Bravo | Charlie | Delta | Echo |
+| 16 | Alpha | Bravo | Charlie | Delta | Echo |
+| 17 | Alpha | Bravo | Charlie | Delta | Echo |
+| 18 | Alpha | Bravo | Charlie | Delta | Echo |
+| 19 | Alpha | Bravo | Charlie | Delta | Echo |
+| 20 | Alpha | Bravo | Charlie | Delta | Echo |
+| 21 | Alpha | Bravo | Charlie | Delta | Echo |
+| 22 | Alpha | Bravo | Charlie | Delta | Echo |
+| 23 | Alpha | Bravo | Charlie | Delta | Echo |
+| 24 | Alpha | Bravo | Charlie | Delta | Echo |
+| 25 | Alpha | Bravo | Charlie | Delta | Echo |
+| 26 | Alpha | Bravo | Charlie | Delta | Echo |
+| 27 | Alpha | Bravo | Charlie | Delta | Echo |
+| 28 | Alpha | Bravo | Charlie | Delta | Echo |
+| 29 | Alpha | Bravo | Charlie | Delta | Echo |
+| 30 | Alpha | Bravo | Charlie | Delta | Echo |
+| 31 | Alpha | Bravo | Charlie | Delta | Echo |
+| 32 | Alpha | Bravo | Charlie | Delta | Echo |
+| 33 | Alpha | Bravo | Charlie | Delta | Echo |
+| 34 | Alpha | Bravo | Charlie | Delta | Echo |
+| 35 | Alpha | Bravo | Charlie | Delta | Echo |
+| 36 | Alpha | Bravo | Charlie | Delta | Echo |
+| 37 | Alpha | Bravo | Charlie | Delta | Echo |
+| 38 | Alpha | Bravo | Charlie | Delta | Echo |
+| 39 | Alpha | Bravo | Charlie | Delta | Echo |
+| 40 | Alpha | Bravo | Charlie | Delta | Echo |
+| 41 | Alpha | Bravo | Charlie | Delta | Echo |
+| 42 | Alpha | Bravo | Charlie | Delta | Echo |
+| 43 | Alpha | Bravo | Charlie | Delta | Echo |
+| 44 | Alpha | Bravo | Charlie | Delta | Echo |
+| 45 | Alpha | Bravo | Charlie | Delta | Echo |
+| 46 | Alpha | Bravo | Charlie | Delta | Echo |
+| 47 | Alpha | Bravo | Charlie | Delta | Echo |
+| 48 | Alpha | Bravo | Charlie | Delta | Echo |
+| 49 | Alpha | Bravo | Charlie | Delta | Echo |
+| 50 | Alpha | Bravo | Charlie | Delta | Echo |

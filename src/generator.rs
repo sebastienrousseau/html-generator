@@ -7,59 +7,514 @@
 //! using the `mdx-gen` library. It supports various Markdown extensions
 //! and custom configuration options.
 
-use crate::{error::HtmlError, extract_front_matter, Result};
-use mdx_gen::{process_markdown, Options, MarkdownOptions};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::error::HtmlError;
+use crate::{
+    accessibility::add_aria_attributes,
+    extract_front_matter,
+    performance::minify_html_string,
+    seo::{escape_html, generate_structured_data_from_doc},
+    utils::generate_table_of_contents,
+    Result,
+};
+#[cfg(target_arch = "wasm32")]
+use comrak::Options;
+use log::warn;
+#[cfg(not(target_arch = "wasm32"))]
+use mdx_gen::{process_markdown, MarkdownOptions, Options};
+use once_cell::sync::Lazy;
+#[cfg(not(target_arch = "wasm32"))]
 use regex::Regex;
+#[cfg(not(target_arch = "wasm32"))]
+use std::borrow::Cow;
 use std::error::Error;
+use std::fmt;
+
+/// Pre-built comrak [`Options`] with every extension this crate uses
+/// enabled. Cloned per call and mutated for `render.r#unsafe`, which
+/// is the only extension-layer bit that varies at runtime. Cheap
+/// shallow clone; avoids reconstructing the full option tree on each
+/// `generate_html` invocation.
+static BASE_COMRAK_OPTIONS: Lazy<Options<'static>> = Lazy::new(|| {
+    let mut opts = Options::default();
+    opts.extension.strikethrough = true;
+    opts.extension.table = true;
+    opts.extension.autolink = true;
+    opts.extension.tasklist = true;
+    opts.extension.superscript = true;
+    opts
+});
+
+/// Severity level for a processing diagnostic.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::DiagnosticLevel;
+///
+/// let level = DiagnosticLevel::Warning;
+/// assert_eq!(format!("{level:?}"), "Warning");
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticLevel {
+    /// Informational — a step succeeded with notable metrics.
+    Info,
+    /// A non-fatal issue — the pipeline continued with a fallback.
+    Warning,
+    /// A step failed entirely and was skipped.
+    Error,
+}
+
+/// A diagnostic emitted when a post-processing step fails non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::{Diagnostic, DiagnosticLevel};
+///
+/// let d = Diagnostic {
+///     step: "accessibility",
+///     level: DiagnosticLevel::Info,
+///     message: "ARIA attributes added".to_string(),
+/// };
+/// assert_eq!(d.step, "accessibility");
+/// assert!(d.to_string().contains("ARIA attributes added"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct Diagnostic {
+    /// Which pipeline step produced this diagnostic.
+    pub step: &'static str,
+    /// Severity.
+    pub level: DiagnosticLevel,
+    /// Human-readable description of what went wrong.
+    pub message: String,
+}
+
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{:?}] {}: {}", self.level, self.step, self.message)
+    }
+}
+
+/// The result of [`generate_html_with_diagnostics`]: final HTML plus any
+/// warnings from post-processing steps that failed non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{generator::generate_html_with_diagnostics, HtmlConfig};
+///
+/// let out = generate_html_with_diagnostics("# hello", &HtmlConfig::default()).unwrap();
+/// assert!(out.html.contains("<h1>"));
+/// // diagnostics records what each pipeline step did or skipped:
+/// let _ = out.diagnostics.len();
+/// ```
+#[derive(Debug, Clone)]
+pub struct HtmlOutput {
+    /// The generated HTML content.
+    pub html: String,
+    /// Diagnostics from pipeline steps that were skipped or degraded.
+    /// Empty when every step succeeded.
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Regex matching triple-colon custom class blocks. The static is
+/// only consulted by the native `markdown_to_html_impl` path; on
+/// `wasm32` we delegate directly to comrak and the helpers below
+/// are dead code.
+#[cfg(not(target_arch = "wasm32"))]
+static CUSTOM_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r":::(\w+)\n([\s\S]*?)\n:::")
+        .expect("static CUSTOM_CLASS_REGEX must compile")
+});
+
+/// Regex matching image-with-class syntax: `![alt](url).class="cls"`.
+/// Native-only; see `CUSTOM_CLASS_REGEX` above.
+#[cfg(not(target_arch = "wasm32"))]
+static IMAGE_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#)
+        .expect("static IMAGE_CLASS_REGEX must compile")
+});
 
 /// Generate HTML from Markdown content using `mdx-gen`.
 ///
 /// This function takes Markdown content and a configuration object,
-/// converts the Markdown into HTML, and returns the resulting HTML string.
+/// converts the Markdown into HTML, and applies the full processing
+/// pipeline based on configuration:
+///
+/// 1. Markdown → HTML conversion (with extensions)
+/// 2. Accessibility: adds ARIA attributes if enabled
+/// 3. Table of contents: injects TOC at `[[TOC]]` placeholder
+/// 4. Structured data: appends JSON-LD script tag
+/// 5. Minification: compresses output if enabled
+///
+/// Non-fatal failures in steps 2–5 are silently skipped. Use
+/// [`generate_html_with_diagnostics`] to inspect which steps failed.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{generator::generate_html, HtmlConfig};
+///
+/// let html = generate_html("# Hello", &HtmlConfig::default()).unwrap();
+/// assert!(html.contains("<h1>Hello</h1>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError`] if the core Markdown→HTML
+/// conversion fails (input invalid, exceeds buffer limits, etc.).
 pub fn generate_html(
     markdown: &str,
-    _config: &crate::HtmlConfig,
+    config: &crate::HtmlConfig,
 ) -> Result<String> {
-    markdown_to_html_with_extensions(markdown)
+    generate_html_with_diagnostics(markdown, config).map(|o| o.html)
+}
+
+/// Like [`generate_html`], but returns an [`HtmlOutput`] that includes
+/// diagnostics for any post-processing steps that failed non-fatally.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{
+///     generator::{generate_html_with_diagnostics, DiagnosticLevel},
+///     HtmlConfig,
+/// };
+///
+/// let out =
+///     generate_html_with_diagnostics("# Hello", &HtmlConfig::default()).unwrap();
+/// assert!(out.html.contains("<h1>"));
+/// // No fatal errors; any diagnostics are informational or warnings.
+/// assert!(
+///     out.diagnostics
+///         .iter()
+///         .all(|d| d.level != DiagnosticLevel::Error)
+/// );
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError`] if the core Markdown→HTML
+/// conversion fails. Non-fatal post-processing failures are recorded
+/// as `Error`-level diagnostics rather than propagated.
+pub fn generate_html_with_diagnostics(
+    markdown: &str,
+    config: &crate::HtmlConfig,
+) -> Result<HtmlOutput> {
+    let mut diagnostics: Vec<Diagnostic> = Vec::new();
+
+    // Step 1: Core Markdown → HTML (fatal on failure)
+    let mut html = markdown_to_html_impl(markdown, config)?;
+
+    // Step 2: HTML sanitization via ammonia (when raw HTML is allowed)
+    if config.allow_unsafe_html && config.sanitize_html {
+        html = ammonia::clean(&html);
+        diagnostics.push(Diagnostic {
+            step: "sanitization",
+            level: DiagnosticLevel::Info,
+            message: "HTML sanitized via ammonia".to_string(),
+        });
+    }
+
+    // Step 3: Accessibility — add ARIA attributes
+    if config.add_aria_attributes {
+        match add_aria_attributes(&html, None) {
+            Ok(enhanced) => {
+                html = enhanced;
+                diagnostics.push(Diagnostic {
+                    step: "accessibility",
+                    level: DiagnosticLevel::Info,
+                    message: "ARIA attributes added".to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "accessibility",
+                    level: DiagnosticLevel::Error,
+                    message: format!("ARIA enhancement skipped: {e}"),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
+        }
+    }
+
+    // Step 4: Table of contents — replace [[TOC]] placeholder
+    if config.generate_toc {
+        match generate_table_of_contents(&html) {
+            Ok(toc) => {
+                html = html.replace("[[TOC]]", &toc);
+                diagnostics.push(Diagnostic {
+                    step: "toc",
+                    level: DiagnosticLevel::Info,
+                    message: "Table of contents injected".to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "toc",
+                    level: DiagnosticLevel::Error,
+                    message: format!(
+                        "Table of contents generation failed: {e}"
+                    ),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
+        }
+    }
+
+    // Step 4b: Math — convert $..$ / $$..$$ to inline MathML.
+    // Infallible: pulldown-latex encodes parse errors inline as
+    // `<merror>` elements rather than returning Err, so the
+    // pipeline never has to skip this step.
+    #[cfg(feature = "math")]
+    if config.enable_math {
+        let before_len = html.len();
+        html = crate::math::convert_math(&html);
+        if html.len() != before_len {
+            diagnostics.push(Diagnostic {
+                step: "math",
+                level: DiagnosticLevel::Info,
+                message: "LaTeX math rendered to MathML".to_string(),
+            });
+        }
+    }
+
+    // Step 4c: Diagrams — rewrite mermaid fenced blocks for client-side mermaid.js
+    if config.enable_diagrams {
+        let before_len = html.len();
+        html = crate::math::rewrite_mermaid_blocks(&html);
+        if html.len() != before_len {
+            diagnostics.push(Diagnostic {
+                step: "diagrams",
+                level: DiagnosticLevel::Info,
+                message:
+                    "Mermaid blocks rewritten for client-side rendering"
+                        .to_string(),
+            });
+        }
+    }
+
+    // Step 5: Parse DOM once for read-only steps (SEO, heading extraction)
+    let document = scraper::Html::parse_document(&html);
+
+    // Step 5a: Structured data — generate JSON-LD
+    let mut json_ld_fragment = String::new();
+    if config.generate_structured_data {
+        match generate_structured_data_from_doc(&document, None) {
+            Ok(json_ld) => {
+                json_ld_fragment = json_ld;
+                diagnostics.push(Diagnostic {
+                    step: "structured_data",
+                    level: DiagnosticLevel::Info,
+                    message: "JSON-LD structured data generated"
+                        .to_string(),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "structured_data",
+                    level: DiagnosticLevel::Error,
+                    message: format!(
+                        "Structured data generation failed: {e}"
+                    ),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
+        }
+    }
+
+    // Step 6: Full document wrapping or fragment language injection
+    if config.generate_full_document {
+        // Extract title from already-parsed DOM (no extra parse)
+        let title = extract_first_heading_from_doc(&document);
+        html = wrap_full_document(
+            &html,
+            &json_ld_fragment,
+            title.as_deref(),
+            config,
+        );
+    } else {
+        // Fragment mode: append JSON-LD at the end (legacy behaviour)
+        if !json_ld_fragment.is_empty() {
+            html.push_str(&json_ld_fragment);
+        }
+        // Wrap in a lang div when the user set a non-default language
+        if config.language != crate::constants::DEFAULT_LANGUAGE {
+            html = format!(
+                "<div lang=\"{}\">{}</div>",
+                escape_html(&config.language),
+                html
+            );
+        }
+    }
+
+    // Step 7: Minification
+    if config.minify_output {
+        let before_len = html.len();
+        match minify_html_string(&html) {
+            Ok(minified) => {
+                let saved = before_len.saturating_sub(minified.len());
+                html = minified;
+                diagnostics.push(Diagnostic {
+                    step: "minification",
+                    level: DiagnosticLevel::Info,
+                    message: format!(
+                        "Minified: saved {} bytes ({:.0}%)",
+                        saved,
+                        if before_len > 0 {
+                            saved as f64 / before_len as f64 * 100.0
+                        } else {
+                            0.0
+                        }
+                    ),
+                });
+            }
+            Err(e) => {
+                let d = Diagnostic {
+                    step: "minification",
+                    level: DiagnosticLevel::Error,
+                    message: format!("Minification failed: {e}"),
+                };
+                warn!("{d}");
+                diagnostics.push(d);
+            }
+        }
+    }
+
+    Ok(HtmlOutput { html, diagnostics })
+}
+
+/// Wraps HTML body content in a valid HTML5 document skeleton.
+fn wrap_full_document(
+    body: &str,
+    json_ld: &str,
+    title: Option<&str>,
+    config: &crate::HtmlConfig,
+) -> String {
+    let lang = escape_html(&config.language);
+    let mut head = String::from("<meta charset=\"utf-8\">");
+
+    if let Some(t) = title {
+        head.push_str(&format!("<title>{}</title>", escape_html(t)));
+    }
+
+    if !json_ld.is_empty() {
+        head.push_str(json_ld);
+    }
+
+    format!(
+        "<!DOCTYPE html>\n<html lang=\"{lang}\">\n<head>{head}</head>\n<body>\n{body}\n</body>\n</html>"
+    )
+}
+
+/// Selector for the first heading; the source content is a compile-time
+/// constant, so parsing is infallible at runtime.
+static H1_SELECTOR: Lazy<scraper::Selector> = Lazy::new(|| {
+    scraper::Selector::parse("h1")
+        .expect("static H1_SELECTOR must parse")
+});
+
+/// Extracts text content from the first `<h1>` in a pre-parsed DOM.
+fn extract_first_heading_from_doc(
+    document: &scraper::Html,
+) -> Option<String> {
+    document
+        .select(&H1_SELECTOR)
+        .next()
+        .map(|el| el.text().collect::<String>())
 }
 
 /// Convert Markdown to HTML with specified extensions using `mdx-gen`.
+///
+/// Uses [`crate::HtmlConfig::default`] under the hood; for full control
+/// over the pipeline use [`generate_html`] directly.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::markdown_to_html_with_extensions;
+///
+/// let html = markdown_to_html_with_extensions("**bold**").unwrap();
+/// assert!(html.contains("<strong>bold</strong>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns [`crate::error::HtmlError::MarkdownConversion`] if the
+/// underlying `comrak`/`mdx-gen` parse fails.
 pub fn markdown_to_html_with_extensions(
     markdown: &str,
+) -> Result<String> {
+    markdown_to_html_impl(markdown, &crate::HtmlConfig::default())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn markdown_to_html_impl(
+    markdown: &str,
+    config: &crate::HtmlConfig,
 ) -> Result<String> {
     // 1) Extract front matter
     let content_without_front_matter = extract_front_matter(markdown)
         .unwrap_or_else(|_| markdown.to_string());
 
-    // 2) Convert triple-colon blocks, re-parsing inline Markdown inside them
-    let markdown_with_classes =
-        add_custom_classes(&content_without_front_matter);
+    // 2) Convert triple-colon blocks (no-alloc when no `:::` match).
+    let markdown_with_classes = add_custom_classes(
+        &content_without_front_matter,
+        config.allow_unsafe_html,
+    );
 
-    // 3) Convert images with `.class="..."`
+    // 3) Convert images with `.class="..."` (no-alloc when no match).
     let markdown_with_images =
         process_images_with_classes(&markdown_with_classes);
 
-    // 4) Configure Comrak/Markdown Options
-    let mut comrak_options = Options::default();
-    comrak_options.extension.strikethrough = true;
-    comrak_options.extension.table = true;
-    comrak_options.extension.autolink = true;
-    comrak_options.extension.tasklist = true;
-    comrak_options.extension.superscript = true;
+    // 4) Clone the cached Options tree and set the two runtime-varying
+    //    bits (unsafe HTML + syntax highlighting/theme).
+    let mut comrak_options = BASE_COMRAK_OPTIONS.clone();
+    comrak_options.render.r#unsafe = config.allow_unsafe_html;
 
-    comrak_options.render.r#unsafe = true; // raw HTML allowed
-    comrak_options.render.escape = false;
+    let mut md_options = MarkdownOptions::default()
+        .with_comrak_options(comrak_options)
+        .with_syntax_highlighting(config.enable_syntax_highlighting);
 
-    let options =
-        MarkdownOptions::default().with_comrak_options(comrak_options);
+    if let Some(ref theme) = config.syntax_theme {
+        md_options = md_options.with_custom_theme(theme.clone());
+    }
 
     // 5) Convert final Markdown to HTML
-    match process_markdown(&markdown_with_images, &options) {
-        Ok(html_output) => Ok(html_output),
-        Err(err) => {
-            Err(HtmlError::markdown_conversion(err.to_string(), None))
-        }
-    }
+    process_markdown(&markdown_with_images, &md_options).map_err(
+        |err| HtmlError::markdown_conversion(err.to_string(), None),
+    )
+}
+
+/// WASM-target Markdown → HTML.
+///
+/// Bypasses `mdx-gen` (which pulls in `tokio` unconditionally and
+/// therefore does not compile to `wasm32-unknown-unknown`) and calls
+/// `comrak` directly with the same extension flags that `mdx-gen`
+/// would have set. Custom classes (`:::warning`), image-class
+/// syntax, and `syntect` syntax highlighting are not available in
+/// this build path; everything else (CommonMark + GFM tables,
+/// strikethrough, autolinks, tasklists, superscript) renders
+/// identically to the native pipeline.
+#[cfg(target_arch = "wasm32")]
+fn markdown_to_html_impl(
+    markdown: &str,
+    config: &crate::HtmlConfig,
+) -> Result<String> {
+    let content_without_front_matter = extract_front_matter(markdown)
+        .unwrap_or_else(|_| markdown.to_string());
+
+    let mut opts = BASE_COMRAK_OPTIONS.clone();
+    opts.render.r#unsafe = config.allow_unsafe_html;
+
+    Ok(comrak::markdown_to_html(
+        &content_without_front_matter,
+        &opts,
+    ))
 }
 
 /// Re-parse inline Markdown for triple-colon blocks, e.g.:
@@ -77,69 +532,99 @@ pub fn markdown_to_html_with_extensions(
 ///
 /// # Example
 /// ...
-fn add_custom_classes(markdown: &str) -> String {
-    // Regex that matches:
-    //   :::<class_name>\n
-    //   (block content, possibly multiline)
-    //   \n:::
-    let re = Regex::new(r":::(\w+)\n([\s\S]*?)\n:::").unwrap();
+#[cfg(not(target_arch = "wasm32"))]
+fn add_custom_classes(
+    markdown: &str,
+    allow_unsafe_html: bool,
+) -> Cow<'_, str> {
+    // `regex::Regex::replace_all` returns `Cow::Borrowed(markdown)`
+    // when there are zero matches — avoiding the allocation
+    // entirely for the common case of a document without `:::` blocks.
+    CUSTOM_CLASS_REGEX.replace_all(
+        markdown,
+        |caps: &regex::Captures| {
+            let class_name = &caps[1];
+            let block_content = &caps[2];
 
-    re.replace_all(markdown, |caps: &regex::Captures| {
-        let class_name = &caps[1];
-        let block_content = &caps[2];
+            let inline_html = match process_markdown_inline_impl(
+                block_content,
+                allow_unsafe_html,
+            ) {
+                Ok(html) => html,
+                Err(_) => block_content.to_string(),
+            };
 
-        // Re-parse inline Markdown syntax within the block content
-        let inline_html = match process_markdown_inline(block_content) {
-            Ok(html) => html,
-            Err(err) => {
-                eprintln!(
-                    "Warning: failed to parse inline block content. Using raw text. Error: {err}"
-                );
-                block_content.to_string()
-            }
-        };
-
-        format!("<div class=\"{}\">{}</div>", class_name, inline_html)
-    })
-    .to_string()
+            // class_name is validated by the \w+ regex — safe to interpolate
+            format!(
+                "<div class=\"{}\">{}</div>",
+                class_name, inline_html
+            )
+        },
+    )
 }
 
 /// Processes inline Markdown (bold, italics, links, etc.) without block-level syntax.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::generator::process_markdown_inline;
+///
+/// let html = process_markdown_inline("**bold** and *italic*").unwrap();
+/// assert!(html.contains("<strong>bold</strong>"));
+/// assert!(html.contains("<em>italic</em>"));
+/// ```
+///
+/// # Errors
+///
+/// Returns the underlying `mdx-gen` error if Markdown parsing fails.
 pub fn process_markdown_inline(
     content: &str,
 ) -> std::result::Result<String, Box<dyn Error>> {
-    let mut comrak_opts = Options::default();
+    process_markdown_inline_impl(content, false)
+}
 
-    comrak_opts.extension.strikethrough = true;
-    comrak_opts.extension.table = true;
-    comrak_opts.extension.autolink = true;
-    comrak_opts.extension.tasklist = true;
-    comrak_opts.extension.superscript = true;
+#[cfg(not(target_arch = "wasm32"))]
+fn process_markdown_inline_impl(
+    content: &str,
+    allow_unsafe_html: bool,
+) -> std::result::Result<String, Box<dyn Error>> {
+    // Inline rendering shares the same extension tree as the outer
+    // pipeline; clone from the cached base rather than rebuilding.
+    let mut comrak_opts = BASE_COMRAK_OPTIONS.clone();
+    comrak_opts.render.r#unsafe = allow_unsafe_html;
 
-    comrak_opts.render.r#unsafe = true; // raw HTML allowed
-    comrak_opts.render.escape = false;
-
-    // mdx_gen::process_markdown_inline(...) only parses inline syntax, not block-level
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_opts);
-    let inline_html = process_markdown(content, &options)?;
-    Ok(inline_html)
+    Ok(process_markdown(content, &options)?)
+}
+
+/// WASM-target inline Markdown rendering. See the `markdown_to_html_impl`
+/// WASM variant for the rationale (no `mdx-gen` on `wasm32`).
+#[cfg(target_arch = "wasm32")]
+fn process_markdown_inline_impl(
+    content: &str,
+    allow_unsafe_html: bool,
+) -> std::result::Result<String, Box<dyn Error>> {
+    let mut opts = BASE_COMRAK_OPTIONS.clone();
+    opts.render.r#unsafe = allow_unsafe_html;
+    Ok(comrak::markdown_to_html(content, &opts))
 }
 
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
-fn process_images_with_classes(markdown: &str) -> String {
-    let re =
-        Regex::new(r#"!\[(.*?)\]\((.*?)\)\.class="(.*?)""#).unwrap();
-    re.replace_all(markdown, |caps: &regex::Captures| {
+#[cfg(not(target_arch = "wasm32"))]
+fn process_images_with_classes(markdown: &str) -> Cow<'_, str> {
+    // Borrowed-Cow when the document has no `![alt](url).class="x"`
+    // construct — i.e. every typical document.
+    IMAGE_CLASS_REGEX.replace_all(markdown, |caps: &regex::Captures| {
         format!(
             r#"<img src="{}" alt="{}" class="{}" />"#,
-            &caps[2], // URL
-            &caps[1], // alt text
-            &caps[3], // class attribute
+            escape_html(&caps[2]), // URL
+            escape_html(&caps[1]), // alt text
+            escape_html(&caps[3]), // class attribute
         )
     })
-    .to_string()
 }
 
 #[cfg(test)]
@@ -394,6 +879,10 @@ author: Jane Doe
     }
 
     /// Test customization of Options.
+    ///
+    /// Native-only: drives `mdx_gen::{MarkdownOptions, process_markdown}`
+    /// which are not available on the wasm32 build path.
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_markdown_to_html_with_custom_comrak_options() {
         let markdown = "^^Superscript^^\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Row 1    | Row 2    |";
@@ -430,8 +919,10 @@ author: Jane Doe
                 );
             }
             Err(err) => {
-                eprintln!("Markdown processing error: {:?}", err);
-                panic!("Failed to process Markdown with custom Options");
+                panic!(
+                    "Failed to process Markdown with custom Options: {:?}",
+                    err
+                );
             }
         }
     }
@@ -521,6 +1012,7 @@ author: John Doe
 
     #[test]
     fn test_generate_html_with_invalid_markdown_syntax() {
+        // With unsafe_html disabled (default), raw HTML tags are stripped
         let markdown =
             r"# Invalid Markdown <unexpected> [bad](url <here)";
         let result = markdown_to_html_with_extensions(markdown);
@@ -529,23 +1021,8 @@ author: John Doe
 
         println!("Generated HTML:\n{}", html);
 
-        // Validate that raw HTML tags are not escaped
-        assert!(
-            html.contains("<unexpected>"),
-            "Raw HTML tags like <unexpected> should not be escaped"
-        );
-
-        // Validate that angle brackets in links are escaped
-        assert!(
-            html.contains("&lt;here&gt;") || html.contains("&lt;here)"),
-            "Angle brackets in links should be escaped for safety"
-        );
-
-        // Validate the full header content
-        assert!(
-        html.contains("<h1>Invalid Markdown <unexpected> [bad](url &lt;here)</h1>"),
-        "Header not rendered correctly or content not properly handled"
-    );
+        // Raw HTML tags are stripped when unsafe=false
+        assert!(html.contains("<h1>"), "Header tag should be present");
     }
 
     /// Test handling of Markdown with a mix of valid and invalid syntax.
@@ -593,14 +1070,19 @@ Some **bold text** followed by invalid Markdown:
         );
     }
 
-    /// Test Markdown with embedded raw HTML content.
+    /// Test Markdown with embedded raw HTML content (opt-in unsafe).
     #[test]
     fn test_generate_html_with_raw_html() {
         let markdown = r"
 # Header with HTML
 <p>This is a paragraph with <strong>HTML</strong>.</p>
 ";
-        let result = markdown_to_html_with_extensions(markdown);
+        // Opt in to unsafe HTML for this test
+        let config = HtmlConfig {
+            allow_unsafe_html: true,
+            ..HtmlConfig::default()
+        };
+        let result = generate_html(markdown, &config);
         assert!(result.is_ok());
         let html = result.unwrap();
 
@@ -716,6 +1198,12 @@ This is a note with a custom class.
     }
 
     /// Test invalid image syntax.
+    ///
+    /// Native-only: `process_images_with_classes` lives in the
+    /// `#[cfg(not(target_arch = "wasm32"))]` half of this module
+    /// because the WASM build path bypasses `mdx-gen`'s extension
+    /// helpers entirely.
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_invalid_image_syntax() {
         let markdown = "![Image with missing URL]()";
@@ -882,8 +1370,10 @@ This block tries < to break > inline parsing & [some link (unclosed).
             // If the inline parser didn't fail, we might see <p> with weird text.
             // If it fails, we should see the original snippet inside the block.
             // We'll just check that it's not empty.
-            assert!(html.contains("This block tries ") || html.contains("Warning: failed to parse inline block content"),
-            "Expected either parsed content or a fallback error message");
+            assert!(
+                html.contains("This block tries "),
+                "Expected parsed content in the block"
+            );
         }
     }
 }

@@ -1,5 +1,5 @@
 <!-- markdownlint-disable MD033 MD041 -->
-<img src="https://kura.pro/html-generator/images/logos/html-generator.svg"
+<img src="https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg"
 alt="HTML Generator logo" height="66" align="right" />
 <!-- markdownlint-enable MD033 MD041 -->
 
@@ -39,7 +39,7 @@ HTML Generator is a high-performance Rust library for transforming Markdown into
 [crates-badge]: https://img.shields.io/crates/v/html-generator.svg?style=for-the-badge&color=fc8d62&logo=rust
 [docs-badge]: https://img.shields.io/badge/docs.rs-html--generator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
 [github-badge]: https://img.shields.io/badge/github-sebastienrousseau/html--generator-8da0cb?style=for-the-badge&labelColor=555555&logo=github
-[libs-badge]: https://img.shields.io/badge/lib.rs-v0.0.3-orange.svg?style=for-the-badge
+[libs-badge]: https://img.shields.io/badge/lib.rs-v0.0.5-orange.svg?style=for-the-badge
 [made-with-rust]: https://img.shields.io/badge/rust-f04041?style=for-the-badge&labelColor=c0282d&logo=rust
 
 ## Changelog

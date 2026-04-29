@@ -1,0 +1,90 @@
+name: CI
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: sebastienrousseau/pipelines/.github/workflows/rust-ci.yml@main
+    with:
+      rust-version: 'stable'
+      run-coverage: true
+      # `cargo-features: ''` (the default) already means `--all-features`
+      # in the reusable workflow; the previous `all-features: true` was
+      # an undeclared input and caused `startup_failure` on every push.
+      #
+      # Coverage is reported on the library (`src/**`) only. Tarpaulin
+      # otherwise instruments every .rs in the workspace — including
+      # integration tests, benches, examples, and the build script —
+      # and treats unexecuted branches in *those* files as uncovered
+      # project lines, which depresses the percentage and makes the
+      # codecov/patch + codecov/project gates flap on every PR that
+      # adds tests.
+      # The inlined `src/yaml/` module is a vendored YAML serde
+      # implementation kept verbatim from upstream; its branches are
+      # exercised indirectly through front-matter tests and counting
+      # its ~2 700 lines against the patch denominator drags the
+      # metric without measuring our changes. `src/wasm.rs` is
+      # `#[cfg(feature = "wasm")]`-gated and its bodies are only
+      # reachable through a `wasm32-unknown-unknown` target; the
+      # native tarpaulin run cannot reach them at all and would
+      # otherwise count every body as uncovered. Smoke tests in
+      # `tests/wasm_smoke.rs` (run under `wasm-pack test --node` in
+      # the dedicated `wasm-build` job) provide the actual coverage
+      # for that module. The codecov.yml `ignore` list mirrors this
+      # glob.
+      coverage-exclude: 'tests/*,benches/*,examples/*,build.rs,src/yaml/*,src/wasm.rs'
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Smoke-test the `wasm32-unknown-unknown` build path. The native CI
+  # job above runs `cargo test --all-features` which doesn't exercise
+  # any `cfg(target_arch = "wasm32")` branches; without this gate, an
+  # `mdx-gen` upgrade or a transitive dep that drops `wasm32` support
+  # would only surface when a downstream user tries `wasm-pack build`.
+  # We build with `--no-default-features --features wasm,math` because
+  # the default `mdx-gen` pipeline doesn't compile to wasm32 (tokio
+  # transitive).
+  #
+  # The `wasm-pack test --node` step actually runs the four smoke
+  # tests in `tests/wasm_smoke.rs` against a real Node runtime, so
+  # this verifies the wasm-bindgen contract end-to-end (JS-callable
+  # exports, JsValue error propagation, JSON-options decode), not
+  # just that the crate compiles.
+  wasm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build for wasm32-unknown-unknown
+        run: |
+          cargo build --target wasm32-unknown-unknown \
+            --no-default-features --features wasm,math
+      - name: Run wasm smoke tests
+        run: |
+          wasm-pack test --node --no-default-features --features wasm,math
+
+  security:
+    uses: sebastienrousseau/pipelines/.github/workflows/security.yml@main
+    with:
+      language: rust
+
+  docs:
+    if: github.ref == 'refs/heads/main'
+    uses: sebastienrousseau/pipelines/.github/workflows/docs.yml@main
+    with:
+      type: rust
+      redirect-crate: html-generator

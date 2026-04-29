@@ -32,16 +32,25 @@
 //! ```
 
 use crate::{HtmlError, Result};
-use comrak::{markdown_to_html, Options};
 use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
+
+#[cfg(feature = "async")]
 use tokio::task;
 
 /// Maximum allowed file size for minification (10 MB).
+///
+/// `minify_html` rejects files larger than this with a
+/// `MinificationError` before reading them into memory.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::performance::MAX_FILE_SIZE;
+///
+/// assert_eq!(MAX_FILE_SIZE, 10 * 1024 * 1024);
+/// ```
 pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
-
-/// Initial capacity for string buffers (1 KB).
-const INITIAL_HTML_CAPACITY: usize = 1024;
 
 /// Configuration for HTML minification with optimized defaults.
 ///
@@ -134,28 +143,77 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
     }
 
     let content = fs::read_to_string(file_path).map_err(|e| {
-        if e.to_string().contains("stream did not contain valid UTF-8")
+        // After the size check above, the overwhelmingly common failure
+        // is a non-UTF-8 input file; other I/O faults (permissions
+        // flipping mid-call, etc.) are exceedingly rare but we keep
+        // a single clear message that covers both cases.
+        let kind = if e
+            .to_string()
+            .contains("stream did not contain valid UTF-8")
         {
-            HtmlError::MinificationError(format!(
-                "Invalid UTF-8 in input file '{}': {e}",
-                file_path.display()
-            ))
+            "Invalid UTF-8 in input file"
         } else {
-            HtmlError::MinificationError(format!(
-                "Failed to read file '{}': {e}",
-                file_path.display()
-            ))
-        }
+            "Failed to read file"
+        };
+        HtmlError::MinificationError(format!(
+            "{kind} '{}': {e}",
+            file_path.display()
+        ))
     })?;
 
     let config = MinifyConfig::default();
     let minified = minify(content.as_bytes(), &config.cfg);
 
-    String::from_utf8(minified).map_err(|e| {
-        HtmlError::MinificationError(format!(
-            "Invalid UTF-8 in minified content: {e}"
-        ))
-    })
+    // `minify-html` produces valid UTF-8 whenever the input is valid
+    // UTF-8 (guaranteed here because `content` is a `String`), so the
+    // fallible decode path is provably unreachable — use `lossy` to
+    // skip the dead `Err` arm.
+    Ok(String::from_utf8_lossy(&minified).into_owned())
+}
+
+/// Minifies an HTML string in memory.
+///
+/// Applies the same minification rules as [`minify_html()`] but
+/// operates on an in-memory string instead of a file path.
+///
+/// # Arguments
+///
+/// * `html` - The HTML content to minify
+///
+/// # Returns
+///
+/// Returns the minified HTML content as a string if successful.
+///
+/// # Errors
+///
+/// Returns [`HtmlError`] if:
+/// - The input exceeds [`MAX_FILE_SIZE`]
+/// - The minified output is not valid UTF-8
+///
+/// # Examples
+///
+/// ```
+/// # use html_generator::performance::minify_html_string;
+/// # fn example() -> Result<(), html_generator::error::HtmlError> {
+/// let html = "<html>  <body>  <p>Hello</p>  </body>  </html>";
+/// let minified = minify_html_string(html)?;
+/// assert_eq!(minified, "<html><body><p>Hello</p></body></html>");
+/// # Ok(())
+/// # }
+/// ```
+pub fn minify_html_string(html: &str) -> Result<String> {
+    if html.len() > MAX_FILE_SIZE {
+        return Err(HtmlError::MinificationError(format!(
+            "Input size {} bytes exceeds maximum of {MAX_FILE_SIZE} bytes",
+            html.len()
+        )));
+    }
+
+    let config = MinifyConfig::default();
+    let minified = minify(html.as_bytes(), &config.cfg);
+
+    // See `minify_html`: the decode cannot fail for UTF-8 input.
+    Ok(String::from_utf8_lossy(&minified).into_owned())
 }
 
 /// Asynchronously generates HTML from Markdown content.
@@ -179,69 +237,28 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
 ///
 /// # Examples
 ///
+/// ```ignore
+/// use html_generator::performance::async_generate_html;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), html_generator::error::HtmlError> {
+///     let markdown = "# Hello\n\nThis is a test.";
+///     let html = async_generate_html(markdown).await?;
+///     println!("Generated HTML length: {}", html.len());
+///     Ok(())
+/// }
 /// ```
-/// # use html_generator::performance::async_generate_html;
-/// #
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), html_generator::error::HtmlError> {
-/// let markdown = "# Hello\n\nThis is a test.";
-/// let html = async_generate_html(markdown).await?;
-/// println!("Generated HTML length: {}", html.len());
-/// # Ok(())
-/// # }
-/// ```
+#[cfg(feature = "async")]
 pub async fn async_generate_html(markdown: &str) -> Result<String> {
-    // Optimize string allocation based on content size
-    let markdown = if markdown.len() < INITIAL_HTML_CAPACITY {
-        markdown.to_string()
-    } else {
-        // Pre-allocate for larger content
-        let mut string = String::with_capacity(markdown.len());
-        string.push_str(markdown);
-        string
-    };
-
+    let markdown = markdown.to_string();
     task::spawn_blocking(move || {
-        let options = Options::default();
-        Ok(markdown_to_html(&markdown, &options))
+        crate::generator::markdown_to_html_with_extensions(&markdown)
     })
     .await
     .map_err(|e| HtmlError::MarkdownConversion {
         message: format!("Asynchronous HTML generation failed: {e}"),
-        source: Some(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            e.to_string(),
-        )),
+        source: Some(std::io::Error::other(e.to_string())),
     })?
-}
-
-/// Synchronously generates HTML from Markdown content.
-///
-/// Provides a simple, synchronous interface for Markdown to HTML conversion
-/// when asynchronous processing isn't required.
-///
-/// # Arguments
-///
-/// * `markdown` - Markdown content to convert to HTML
-///
-/// # Returns
-///
-/// Returns the generated HTML content if successful.
-///
-/// # Examples
-///
-/// ```
-/// # use html_generator::performance::generate_html;
-/// # fn example() -> Result<(), html_generator::error::HtmlError> {
-/// let markdown = "# Hello\n\nThis is a test.";
-/// let html = generate_html(markdown)?;
-/// println!("Generated HTML length: {}", html.len());
-/// # Ok(())
-/// # }
-/// ```
-#[inline]
-pub fn generate_html(markdown: &str) -> Result<String> {
-    Ok(markdown_to_html(markdown, &Options::default()))
 }
 
 #[cfg(test)]
@@ -350,6 +367,29 @@ mod tests {
         }
 
         #[test]
+        fn test_minify_non_utf8_failure_path_via_directory_path() {
+            // Pointing `minify_html` at a directory exercises the
+            // non-UTF-8 *fallback* arm in the read-error mapping —
+            // `fs::read_to_string` on a directory fails with
+            // "Is a directory" (or platform-equivalent), which does
+            // not match the UTF-8 substring and so routes to the
+            // "Failed to read file" branch.
+            let dir =
+                tempdir().expect("Failed to create temp directory");
+            let result = minify_html(dir.path());
+            assert!(matches!(
+                result,
+                Err(HtmlError::MinificationError(_))
+            ));
+            let err_msg = result.unwrap_err().to_string();
+            assert!(
+                err_msg.contains("Failed to read file"),
+                "expected 'Failed to read file' branch, got: {err_msg}"
+            );
+            drop(dir);
+        }
+
+        #[test]
         fn test_minify_utf8_content() {
             let html = "<html><body><p>Test 你好 🦀</p></body></html>";
             let (dir, file_path) = create_test_file(html);
@@ -363,6 +403,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "async")]
     mod async_generate_html_tests {
         use super::*;
 
@@ -394,37 +435,6 @@ mod tests {
         }
     }
 
-    mod generate_html_tests {
-        use super::*;
-
-        #[test]
-        fn test_sync_generate_html() {
-            let markdown = "# Test\n\nThis is a test.";
-            let result = generate_html(markdown);
-            assert!(result.is_ok());
-            let html = result.unwrap();
-            assert!(html.contains("<h1>Test</h1>"));
-            assert!(html.contains("<p>This is a test.</p>"));
-        }
-
-        #[test]
-        fn test_sync_generate_html_empty() {
-            let result = generate_html("");
-            assert!(result.is_ok());
-            assert!(result.unwrap().is_empty());
-        }
-
-        #[test]
-        fn test_sync_generate_html_large_content() {
-            let large_markdown =
-                "# Test\n\n".to_string() + &"Content\n".repeat(10_000);
-            let result = generate_html(&large_markdown);
-            assert!(result.is_ok());
-            let html = result.unwrap();
-            assert!(html.contains("<h1>Test</h1>"));
-        }
-    }
-
     mod additional_tests {
         use super::*;
         use std::fs::File;
@@ -447,6 +457,31 @@ mod tests {
             let mut config = MinifyConfig::default();
             config.cfg.keep_comments = true;
             assert!(config.cfg.keep_comments);
+        }
+
+        /// Exercises the private `Debug` impl for MinifyConfig, which
+        /// is unreachable from outside the module and so would
+        /// otherwise show up as uncovered.
+        #[test]
+        fn test_minify_config_debug_impl() {
+            let config = MinifyConfig::default();
+            let rendered = format!("{config:?}");
+            assert!(rendered.contains("MinifyConfig"));
+            assert!(rendered.contains("minify_css"));
+        }
+
+        /// `minify_html` must surface a `MinificationError` when the
+        /// source file cannot be read as UTF-8.
+        #[test]
+        fn test_minify_html_rejects_non_utf8_path_content() {
+            let dir = tempdir().expect("failed to create temp dir");
+            let file_path = dir.path().join("non-utf8.html");
+            let mut f = File::create(&file_path).expect("create file");
+            f.write_all(&[0xFF, 0xFE, 0xFD, 0xFC])
+                .expect("write bytes");
+            drop(f);
+            let err = minify_html(&file_path).unwrap_err();
+            assert!(matches!(err, HtmlError::MinificationError(_)));
         }
 
         /// Test for uncommon HTML structures in minify_html.
@@ -484,6 +519,7 @@ mod tests {
         }
 
         /// Test for extremely large Markdown content in async_generate_html.
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_extremely_large() {
             let large_markdown = "# Large Content
@@ -498,19 +534,7 @@ mod tests {
             assert!(html.contains("<h1>Large Content</h1>"));
         }
 
-        /// Test for very small Markdown content in generate_html.
-        #[test]
-        fn test_generate_html_very_small() {
-            let markdown = "A";
-            let result = generate_html(markdown);
-            assert!(result.is_ok());
-            assert_eq!(
-                result.unwrap(),
-                "<p>A</p>
-"
-            );
-        }
-
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_spawn_blocking_failure() {
             use tokio::task;
@@ -533,10 +557,7 @@ mod tests {
                     message: format!(
                         "Asynchronous HTML generation failed: {e}"
                     ),
-                    source: Some(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        e.to_string(),
-                    )),
+                    source: Some(std::io::Error::other(e.to_string())),
                 }),
                 Ok(_) => panic!("Expected a simulated failure"),
             };
@@ -607,6 +628,7 @@ mod tests {
             drop(dir);
         }
 
+        #[cfg(feature = "async")]
         #[tokio::test]
         async fn test_async_generate_html_with_special_characters() {
             let markdown =

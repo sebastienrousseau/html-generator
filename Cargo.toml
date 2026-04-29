@@ -4,9 +4,9 @@
 
 [package]
 name = "html-generator"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
-rust-version = "1.56.0"
+rust-version = "1.80.0"
 license = "MIT OR Apache-2.0"
 description = """
 A robust Rust library designed for transforming Markdown into SEO-optimized, accessible HTML. Featuring front matter extraction, custom header processing, table of contents generation, and performance optimization for web projects of any scale.
@@ -16,6 +16,7 @@ documentation = "https://doc.html-generator.co/html_generator/"
 repository = "https://github.com/sebastienrousseau/html-generator"
 readme = "README.md"
 build = "build.rs"
+autoexamples = false
 
 # -----------------------------------------------------------------------------
 # Crate Configuration
@@ -47,6 +48,7 @@ include = [
     "/benches/**",
     "/build.rs",
     "/Cargo.toml",
+    "/data/**",
     "/examples/**",
     "/README.md",
     "/src/**",
@@ -56,10 +58,17 @@ include = [
 # Library Information
 # -----------------------------------------------------------------------------
 
-# The library file that contains the main logic for the binary.
+# The library file that contains the main logic.
+#
+# `cdylib` is required so `wasm-pack build` produces a usable
+# `html_generator_bg.wasm` + `html_generator.js` JS-importable
+# bundle. `rlib` is kept so this crate can still be a regular Rust
+# dependency. Native builds use `rlib` only — the `cdylib` artifact
+# is only emitted when targeting `wasm32-*`.
 [lib]
 name = "html_generator"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 # -----------------------------------------------------------------------------
 # Dependencies
@@ -67,20 +76,40 @@ path = "src/lib.rs"
 
 [dependencies]
 # Dependencies required for building and running the project.
-cfg = "0.9.0"
-comrak = { version = "0.50", features = ["syntect"] }
-lazy_static = "1.5.0"
-log = "0.4.29"
-mdx-gen = "0.0.2"
+ammonia = "4"
+indexmap = "2"
+log = "0.4"
 minify-html = "0.18"
 once_cell = "1.21.4"
+pulldown-latex = { version = "0.7", optional = true }
 regex = "1.12.3"
-scraper = "0.22.0"
+scraper = "0.26.0"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.149"
-tempfile = "3.27.0"
 thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["full"] }
-uuid = { version = "1.22.0", features = ["v4"] }
+tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"], optional = true }
+toml = "0.8"
+# WASM bindings (gated behind the `wasm` feature). `js-sys` is
+# pulled in only on `wasm32` targets where it is needed for any
+# `getrandom`/timing fallbacks downstream crates require.
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+# Native targets get the full `mdx-gen` pipeline (custom blocks,
+# enhanced tables, optional syntax highlighting via `syntect`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mdx-gen = "0.0.2"
+
+# WASM targets: bypass `mdx-gen` and use `comrak` directly. `mdx-gen`
+# pulls in `tokio` (which pulls in `mio`) unconditionally, neither
+# of which compile to `wasm32-unknown-unknown`. The trade-off on
+# WASM is loss of `mdx-gen`'s `:::class` blocks, image-class syntax,
+# and `syntect` syntax highlighting; the core CommonMark/GFM
+# pipeline is identical because `mdx-gen` itself wraps `comrak`.
+# `getrandom` needs `wasm_js` so transitive uses compile.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+comrak = { version = "0.50", default-features = false }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # -----------------------------------------------------------------------------
 # Build Dependencies
@@ -95,9 +124,29 @@ version_check = "0.9.5"
 # -----------------------------------------------------------------------------
 
 [dev-dependencies]
-# Dependencies required for testing and development.
-criterion = "0.5.1"
+# Dependencies required for testing and development. `tempfile` is
+# referenced from `#[cfg(test)]` modules in `src/`, so it has to be
+# available for the wasm32 test build too — fortunately it is
+# wasm-friendly.
 test-case = "3.3.1"
+tempfile = "3.27.0"
+
+# Native-only dev-deps: `criterion` pulls in `rayon`, which doesn't
+# compile to `wasm32-unknown-unknown` (the `wasm-pack test --node`
+# CI gate would fail on its `cargo build --tests` step otherwise).
+# The competitor-bench engines are likewise native-only.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = "0.8"
+# Comparative-bench dependencies — competitor markdown engines
+# benchmarked side-by-side in `benches/competitors.rs`. Pinned to
+# major versions stable on crates.io as of v0.0.5.
+comrak = "0.50"
+pulldown-cmark = "0.13"
+
+# WASM headless test harness — only used when the `wasm` feature
+# is enabled and the target is `wasm32`.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 
 # -----------------------------------------------------------------------------
@@ -106,60 +155,81 @@ test-case = "3.3.1"
 
 [features]
 # Features that can be enabled or disabled.
-default = []
-async = []
+default = ["math"]
+async = ["dep:tokio"]
+# Server-side LaTeX → MathML rendering for `$..$` and `$$..$$`
+# spans. Pulled in by default because pure-Rust + zero-runtime-JS;
+# disable with `--no-default-features` if you want a smaller binary
+# and will render math client-side instead.
+math = ["dep:pulldown-latex"]
+# WebAssembly bindings via `wasm-bindgen`. Exposes
+# `generate_html_wasm` for use from JavaScript (Workers, browsers,
+# Node). Build with `cargo build --target wasm32-unknown-unknown
+# --features wasm` or `wasm-pack build`. Time/file-IO paths are
+# gated out for `wasm32` targets — only the in-memory rendering
+# pipeline is exposed.
+wasm = ["dep:wasm-bindgen", "dep:js-sys"]
 
 # -----------------------------------------------------------------------------
 # Examples -  cargo run --example <name>
 # -----------------------------------------------------------------------------
 
 [[example]]
+name = "hello"
+path = "examples/hello.rs"
+
+[[example]]
+name = "pipeline"
+path = "examples/pipeline.rs"
+
+[[example]]
+name = "frontmatter"
+path = "examples/frontmatter.rs"
+
+[[example]]
 name = "accessibility"
-path = "examples/accessibility_example.rs"
-
-[[example]]
-name = "aria"
-path = "examples/aria_elements_example.rs"
-
-[[example]]
-name = "basic"
-path = "examples/basic_example.rs"
-
-[[example]]
-name = "comprehensive"
-path = "examples/comprehensive_example.rs"
-
-[[example]]
-name = "custom"
-path = "examples/custom_config_example.rs"
-
-[[example]]
-name = "error"
-path = "examples/error_example.rs"
-
-[[example]]
-name = "generator"
-path = "examples/generator_example.rs"
-
-[[example]]
-name = "lib"
-path = "examples/lib_example.rs"
-
-[[example]]
-name = "performance"
-path = "examples/performance_example.rs"
+path = "examples/accessibility.rs"
 
 [[example]]
 name = "seo"
-path = "examples/seo_example.rs"
+path = "examples/seo.rs"
 
 [[example]]
-name = "style"
-path = "examples/style_example.rs"
+name = "toc"
+path = "examples/toc.rs"
 
 [[example]]
-name = "utils"
-path = "examples/utils_example.rs"
+name = "minify"
+path = "examples/minify.rs"
+
+[[example]]
+name = "errors"
+path = "examples/errors.rs"
+
+[[example]]
+name = "config"
+path = "examples/config.rs"
+
+[[example]]
+name = "headers"
+path = "examples/headers.rs"
+
+[[example]]
+name = "async"
+path = "examples/async.rs"
+required-features = ["async"]
+
+[[example]]
+name = "custom_syntax"
+path = "examples/custom_syntax.rs"
+
+[[example]]
+name = "emojis"
+path = "examples/emojis.rs"
+
+[[example]]
+name = "math_and_diagrams"
+path = "examples/math_and_diagrams.rs"
 
 # -----------------------------------------------------------------------------
 # Criterion Benchmark
@@ -167,6 +237,13 @@ path = "examples/utils_example.rs"
 [[bench]]                         # Benchmarking configuration.
 name = "html_benchmark"           # Name of the benchmark.
 harness = false                   # Disable the default benchmark harness.
+
+# Competitor comparison: same realistic 8 KB blog payload run through
+# html-generator and three popular CommonMark crates so the README's
+# performance section can cite measured numbers, not estimates.
+[[bench]]
+name = "competitors"
+harness = false
 
 # -----------------------------------------------------------------------------
 # Documentation Configuration
@@ -177,6 +254,17 @@ all-features = true                         # Build documentation with all featu
 rustdoc-args = ["--cfg", "docsrs"]          # Arguments passed to `rustdoc` when building the documentation
 targets = ["x86_64-unknown-linux-gnu"]      # Default target platform for the docs
 
+# wasm-pack post-processing for `wasm-pack build --release ...`. The
+# `--enable-bulk-memory` and `--enable-nontrapping-float-to-int`
+# flags are required because current rustc emits those wasm
+# instructions and the wasm-opt bundled with wasm-pack is older than
+# the spec extensions needed to validate them. Without this metadata
+# the bulk-memory `memory.copy` instructions that the compiler
+# inlines fail wasm-opt validation. `-Os` keeps the size focus
+# (typically shrinks the bindgen-processed `.wasm` 3–5×).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
 # -----------------------------------------------------------------------------
 # Linting Configuration
 # -----------------------------------------------------------------------------
@@ -185,7 +273,7 @@ targets = ["x86_64-unknown-linux-gnu"]      # Default target platform for the do
 
 ## Warnings
 missing_copy_implementations = "warn"       # Warn if types can implement `Copy` but don’t
-missing_docs = "warn"                       # Warn if public items lack documentation
+missing_docs = "deny"                       # Deny missing docs on public items — every item ships with `# Examples`.
 unstable_features = "warn"                  # Warn on the usage of unstable features
 unused_extern_crates = "warn"               # Warn about unused external crates
 unused_results = "warn"                     # Warn if a result type is unused (e.g., errors ignored)
@@ -196,7 +284,7 @@ elided_lifetimes_in_paths = "allow"         # Allow lifetimes to be elided in pa
 non_camel_case_types = "allow"              # Allow non-camel-case types
 non_upper_case_globals = "allow"            # Allow non-uppercase global variables
 trivial_bounds = "allow"                    # Allow trivial bounds in trait definitions
-unsafe_code = "allow"                       # Allow the usage of unsafe code blocks
+unsafe_code = "forbid"                      # Forbid the usage of unsafe code blocks
 
 ## Forbidden
 missing_debug_implementations = "forbid"    # Forbid missing `Debug` implementations
@@ -212,7 +300,6 @@ future_incompatible = { level = "deny", priority = -1 } # Handle future compatib
 keyword_idents = { level = "deny", priority = -1 }      # Deny usage of keywords as identifiers
 macro_use_extern_crate = "deny"             # Deny macro use of `extern crate`
 meta_variable_misuse = "deny"               # Deny misuse of meta variables in macros
-missing_fragment_specifier = "deny"         # Deny missing fragment specifiers in macros
 noop_method_call = "deny"                   # Deny method calls that have no effect
 rust_2018_idioms = { level = "deny", priority = -1 }    # Enforce Rust 2018 idioms
 rust_2021_compatibility = { level = "deny", priority = -1 } # Enforce Rust 2021 compatibility
@@ -299,3 +386,22 @@ opt-level = 0                               # No optimizations in test builds
 overflow-checks = true                      # Enable overflow checks for tests
 rpath = false                               # Disable rpath generation
 strip = false                               # Do not strip symbols in test builds
+
+# -----------------------------------------------------------------------------
+# Bench Profile — overrides release defaults for criterion measurements.
+# -----------------------------------------------------------------------------
+# Criterion inherits `profile.release` by default; `opt-level = "z"` there
+# optimises for binary size at the cost of throughput. Bench numbers must
+# reflect realistic release performance, so pin the speed-focused knobs
+# here.
+[profile.bench]
+# `panic` is intentionally omitted: cargo ignores `panic` for the bench
+# profile because benchmarks rely on unwinding for reporting.
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = 3
+overflow-checks = false
+strip = "symbols"

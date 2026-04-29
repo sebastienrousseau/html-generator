@@ -1,0 +1,15 @@
+---
+title: Front Matter Edge Cases
+description: A page with many metadata fields
+author: Jane Doe
+date: 2025-04-21
+lang: en-GB
+draft: false
+empty_value:
+spaced_value:   lots of spaces
+colon_in_value: http://example.com:8080/path
+quoted: "value with: colon"
+---
+# Content After Front Matter
+
+This document tests various front matter edge cases.

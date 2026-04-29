@@ -1,0 +1,21 @@
+# Full Document Test
+
+## Overview
+
+This fixture verifies that the full HTML5 document wrapper works correctly.
+
+The output should include:
+- `<!DOCTYPE html>`
+- `<html lang="en-GB">`
+- `<head>` with `<meta charset="utf-8">` and `<title>`
+- `<body>` wrapping the content
+
+## Section Two
+
+Paragraph with **bold**, *italic*, and `inline code`.
+
+### Subsection
+
+- Item one
+- Item two
+- Item three

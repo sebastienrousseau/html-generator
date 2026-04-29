@@ -1,10 +1,10 @@
+#![forbid(unsafe_code)]
 // Copyright © 2025 HTML Generator. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-
 #![doc = include_str!("../README.md")]
 #![doc(
-    html_favicon_url = "https://kura.pro/html-generator/images/favicon.ico",
-    html_logo_url = "https://kura.pro/html-generator/images/logos/html-generator.svg",
+    html_favicon_url = "https://cloudcdn.pro/html-generator/v1/favicon.ico",
+    html_logo_url = "https://cloudcdn.pro/html-generator/v1/logos/html-generator.svg",
     html_root_url = "https://docs.rs/html-generator"
 )]
 #![crate_name = "html_generator"]
@@ -22,43 +22,117 @@ const MAX_BUFFER_SIZE: usize = 16 * 1024 * 1024;
 
 // Re-export public modules
 pub mod accessibility;
+pub mod elements;
 pub mod emojis;
 pub mod error;
 pub mod generator;
+pub mod math;
 pub mod performance;
 pub mod seo;
 pub mod utils;
+
+// WebAssembly bindings — compiled in only when the crate is built
+// with `--features wasm`.
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+// Inlined private YAML serde implementation (upstream:
+// `/Users/seb/Code/Public/Rust/yaml_safe`). Kept private so the
+// crate's external surface is unchanged.
+mod yaml;
 
 // Re-export primary types and functions for convenience
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};
 pub use emojis::load_emoji_sequences;
-pub use generator::generate_html;
-pub use performance::{async_generate_html, minify_html};
+pub use generator::{
+    generate_html, generate_html_with_diagnostics, Diagnostic,
+    DiagnosticLevel, HtmlOutput,
+};
+#[cfg(feature = "async")]
+pub use performance::async_generate_html;
+pub use performance::{minify_html, minify_html_string};
 pub use seo::{generate_meta_tags, generate_structured_data};
-pub use utils::{extract_front_matter, format_header_with_id_class};
+pub use utils::{
+    extract_front_matter, extract_front_matter_data,
+    format_header_with_id_class,
+};
 
 /// Common constants used throughout the library.
 ///
 /// This module contains configuration values and limits that help ensure
 /// secure and efficient operation of the library.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::constants::{DEFAULT_LANGUAGE, DEFAULT_MAX_INPUT_SIZE};
+///
+/// assert_eq!(DEFAULT_LANGUAGE, "en-GB");
+/// assert!(DEFAULT_MAX_INPUT_SIZE > 0);
+/// ```
 pub mod constants {
-    /// Maximum allowed input size (5MB) to prevent denial of service attacks
+    /// Maximum allowed input size (5MB) to prevent denial of service attacks.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_MAX_INPUT_SIZE;
+    /// assert_eq!(DEFAULT_MAX_INPUT_SIZE, 5 * 1024 * 1024);
+    /// ```
     pub const DEFAULT_MAX_INPUT_SIZE: usize = 5 * 1024 * 1024;
 
-    /// Minimum required input size (1KB) for meaningful processing
+    /// Minimum required input size (1KB) for meaningful processing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::MIN_INPUT_SIZE;
+    /// assert_eq!(MIN_INPUT_SIZE, 1024);
+    /// ```
     pub const MIN_INPUT_SIZE: usize = 1024;
 
-    /// Default language code for HTML generation (British English)
+    /// Default language code for HTML generation (British English).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_LANGUAGE;
+    /// assert_eq!(DEFAULT_LANGUAGE, "en-GB");
+    /// ```
     pub const DEFAULT_LANGUAGE: &str = "en-GB";
 
-    /// Default syntax highlighting theme (github)
+    /// Default syntax highlighting theme (`github`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::DEFAULT_SYNTAX_THEME;
+    /// assert_eq!(DEFAULT_SYNTAX_THEME, "github");
+    /// ```
     pub const DEFAULT_SYNTAX_THEME: &str = "github";
 
-    /// Maximum file path length
+    /// Maximum file path length.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::MAX_PATH_LENGTH;
+    /// assert_eq!(MAX_PATH_LENGTH, 4096);
+    /// ```
     pub const MAX_PATH_LENGTH: usize = 4096;
 
-    /// Regular expression pattern for validating language codes
+    /// Regular expression pattern for validating language codes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::constants::LANGUAGE_CODE_PATTERN;
+    /// use regex::Regex;
+    ///
+    /// let re = Regex::new(LANGUAGE_CODE_PATTERN).unwrap();
+    /// assert!(re.is_match("en-GB"));
+    /// ```
     pub const LANGUAGE_CODE_PATTERN: &str = r"^[a-z]{2}-[A-Z]{2}$";
 
     /// Verify invariants at compile time
@@ -66,13 +140,28 @@ pub mod constants {
     const _: () = assert!(MAX_PATH_LENGTH > 0);
 }
 
-/// Result type alias for library operations
+/// Result type alias for library operations.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::{error::HtmlError, Result};
+///
+/// fn run() -> Result<()> {
+///     Err(HtmlError::InvalidInput("demo".into()))
+/// }
+/// assert!(run().is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, HtmlError>;
 
-/// Configuration options for Markdown to HTML conversion.
+/// Legacy configuration type — use [`HtmlConfig`] directly instead.
 ///
-/// This struct holds settings that control how Markdown content is processed
-/// and converted to HTML.
+/// This type is kept for backward compatibility. The `encoding` field
+/// has been moved into `HtmlConfig` itself.
+#[deprecated(
+    since = "0.0.4",
+    note = "use HtmlConfig directly — encoding is now a field on HtmlConfig"
+)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct MarkdownConfig {
     /// The encoding to use for input/output (defaults to "utf-8")
@@ -82,6 +171,7 @@ pub struct MarkdownConfig {
     pub html_config: HtmlConfig,
 }
 
+#[allow(deprecated)]
 impl Default for MarkdownConfig {
     fn default() -> Self {
         Self {
@@ -91,7 +181,25 @@ impl Default for MarkdownConfig {
     }
 }
 
+#[allow(deprecated)]
+impl From<MarkdownConfig> for HtmlConfig {
+    fn from(mc: MarkdownConfig) -> Self {
+        let mut c = mc.html_config;
+        c.encoding = mc.encoding;
+        c
+    }
+}
+
 /// Errors that can occur during configuration.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::ConfigError;
+///
+/// let err = ConfigError::InvalidLanguageCode("xx".into());
+/// assert!(err.to_string().contains("Invalid language code"));
+/// ```
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ConfigError {
@@ -221,6 +329,16 @@ impl fmt::Display for OutputDestination {
 ///
 /// Controls various aspects of the HTML generation process including
 /// syntax highlighting, accessibility features, and output formatting.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::HtmlConfig;
+///
+/// let cfg = HtmlConfig::default();
+/// assert!(cfg.add_aria_attributes);
+/// assert_eq!(cfg.language, "en-GB");
+/// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HtmlConfig {
     /// Enable syntax highlighting for code blocks
@@ -246,19 +364,97 @@ pub struct HtmlConfig {
 
     /// Enable table of contents generation
     pub generate_toc: bool,
+
+    /// Allow raw HTML passthrough in Markdown conversion.
+    ///
+    /// When `false` (the default), raw HTML tags in Markdown input are
+    /// stripped from the output, preventing XSS when processing
+    /// untrusted content. Set to `true` only when the Markdown source
+    /// is fully trusted.
+    pub allow_unsafe_html: bool,
+
+    /// Sanitize raw HTML using ammonia instead of stripping it.
+    ///
+    /// When `true` and `allow_unsafe_html` is also `true`, the library
+    /// runs ammonia over the final output to strip dangerous elements
+    /// (`<script>`, `onclick`, etc.) while preserving safe tags like
+    /// `<div>`, `<span>`, and `<img>`. This provides a secure
+    /// middle-ground for user-authored HTML.
+    ///
+    /// Has no effect when `allow_unsafe_html` is `false` (HTML is
+    /// already stripped by the Markdown renderer).
+    pub sanitize_html: bool,
+
+    /// Wrap output in a full HTML5 document.
+    ///
+    /// When `true`, the pipeline wraps the generated body in:
+    /// ```html
+    /// <!DOCTYPE html>
+    /// <html lang="{language}">
+    /// <head><meta charset="utf-8"><title>…</title>{meta}{json-ld}</head>
+    /// <body>{content}</body>
+    /// </html>
+    /// ```
+    ///
+    /// SEO meta tags and JSON-LD are placed in `<head>`, and the
+    /// `language` field is injected as the `lang` attribute. When
+    /// `false` (the default), only an HTML fragment is returned.
+    pub generate_full_document: bool,
+
+    /// Maximum buffer size for file I/O operations (default: 16MB).
+    ///
+    /// Controls the upper bound on buffer allocation when reading
+    /// input files. Adjust this if you need to process unusually
+    /// large documents or want to constrain memory usage.
+    pub max_buffer_size: usize,
+
+    /// The encoding for file I/O (defaults to "utf-8").
+    ///
+    /// This field is used by [`markdown_file_to_html`] when reading
+    /// or writing files. In-memory functions ignore it.
+    pub encoding: String,
+
+    /// Render `$..$` and `$$..$$` LaTeX math spans to inline MathML.
+    ///
+    /// Pure server-side: no client-side JavaScript bundle required,
+    /// browsers render MathML natively. Powered by `pulldown-latex`
+    /// behind the `math` feature (on by default). When `false`, math
+    /// spans are passed through as-is.
+    pub enable_math: bool,
+
+    /// Rewrite `\u{60}\u{60}\u{60}mermaid` fenced code blocks for client-side
+    /// mermaid.js.
+    ///
+    /// The CommonMark engine emits these as
+    /// `<pre><code class="language-mermaid">…</code></pre>`. With this
+    /// flag on, the post-processing step rewrites them to
+    /// `<pre class="mermaid">…</pre>` so the standard mermaid.js
+    /// loader picks them up. The page must still include
+    /// `<script type="module">…mermaid.initialize…</script>` for the
+    /// diagrams to actually render.
+    pub enable_diagrams: bool,
 }
 
 impl Default for HtmlConfig {
     fn default() -> Self {
         Self {
             enable_syntax_highlighting: true,
-            syntax_theme: Some("github".to_string()),
+            syntax_theme: Some(
+                constants::DEFAULT_SYNTAX_THEME.to_string(),
+            ),
             minify_output: false,
             add_aria_attributes: true,
             generate_structured_data: false,
             max_input_size: constants::DEFAULT_MAX_INPUT_SIZE,
             language: String::from(constants::DEFAULT_LANGUAGE),
             generate_toc: false,
+            allow_unsafe_html: false,
+            sanitize_html: false,
+            generate_full_document: false,
+            max_buffer_size: 16 * 1024 * 1024,
+            encoding: String::from("utf-8"),
+            enable_math: false,
+            enable_diagrams: false,
         }
     }
 }
@@ -290,6 +486,21 @@ impl HtmlConfig {
     ///
     /// Returns `Ok(())` if the configuration is valid, or an appropriate
     /// error if validation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfig;
+    ///
+    /// let cfg = HtmlConfig::default();
+    /// cfg.validate().unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HtmlError::InvalidInput`] if `language`
+    /// is not a valid BCP 47 code or `max_input_size` is below
+    /// [`constants::MIN_INPUT_SIZE`].
     pub fn validate(&self) -> Result<()> {
         if self.max_input_size < constants::MIN_INPUT_SIZE {
             return Err(HtmlError::InvalidInput(format!(
@@ -306,32 +517,45 @@ impl HtmlConfig {
         Ok(())
     }
 
-    /// Validates file path safety to prevent directory traversal attacks.
+    /// Validates a file path before it is opened by
+    /// [`markdown_file_to_html`].
     ///
-    /// # Arguments
+    /// Rejects paths that are empty, too long, contain a NUL byte, contain
+    /// any `..` component (directory traversal), or use an extension other
+    /// than `.md` or `.html`.
     ///
-    /// * `path` - The file path to validate
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the path is safe, or an appropriate error
-    /// if validation fails.
+    /// This validator is defensive only: it does **not** decide whether a
+    /// caller is authorised to read the target file. Callers that expose
+    /// this API to untrusted input must enforce their own authorisation
+    /// (e.g. chroot, a sandbox root directory, or an allow-list) on top
+    /// of this check. Absolute paths are accepted deliberately so that
+    /// CLI tools can be invoked with fully qualified filenames.
     pub(crate) fn validate_file_path(
         path: impl AsRef<Path>,
     ) -> Result<()> {
         let path = path.as_ref();
+        let path_str = path.to_string_lossy();
 
-        if path.to_string_lossy().is_empty() {
+        if path_str.is_empty() {
             return Err(HtmlError::InvalidInput(
                 "File path cannot be empty".to_string(),
             ));
         }
 
-        if path.to_string_lossy().len() > constants::MAX_PATH_LENGTH {
+        if path_str.len() > constants::MAX_PATH_LENGTH {
             return Err(HtmlError::InvalidInput(format!(
                 "File path exceeds maximum length of {} characters",
                 constants::MAX_PATH_LENGTH
             )));
+        }
+
+        // Reject NUL bytes: on Unix, C-string path handling silently
+        // truncates at the first NUL, which is a classic smuggling vector
+        // (e.g. "safe.md\0/etc/passwd").
+        if path_str.as_bytes().contains(&0) {
+            return Err(HtmlError::InvalidInput(
+                "File path must not contain NUL bytes".to_string(),
+            ));
         }
 
         if path.components().any(|c| matches!(c, Component::ParentDir))
@@ -339,13 +563,6 @@ impl HtmlConfig {
             return Err(HtmlError::InvalidInput(
                 "Directory traversal is not allowed in file paths"
                     .to_string(),
-            ));
-        }
-
-        #[cfg(not(test))]
-        if path.is_absolute() {
-            return Err(HtmlError::InvalidInput(
-                "Only relative file paths are allowed".to_string(),
             ));
         }
 
@@ -366,6 +583,19 @@ impl HtmlConfig {
 ///
 /// Provides a fluent interface for creating and customizing HTML
 /// configuration options.
+///
+/// # Examples
+///
+/// ```
+/// use html_generator::HtmlConfigBuilder;
+///
+/// let cfg = HtmlConfigBuilder::new()
+///     .with_language("en-GB")
+///     .with_full_document(true)
+///     .build()
+///     .unwrap();
+/// assert!(cfg.generate_full_document);
+/// ```
 #[derive(Debug, Default)]
 pub struct HtmlConfigBuilder {
     config: HtmlConfig,
@@ -373,6 +603,14 @@ pub struct HtmlConfigBuilder {
 
 impl HtmlConfigBuilder {
     /// Creates a new `HtmlConfigBuilder` with default options.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let _ = HtmlConfigBuilder::new();
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
@@ -383,6 +621,18 @@ impl HtmlConfigBuilder {
     ///
     /// * `enable` - Whether to enable syntax highlighting
     /// * `theme` - Optional theme name for syntax highlighting
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_syntax_highlighting(true, Some("monokai".into()))
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.syntax_theme.as_deref(), Some("monokai"));
+    /// ```
     #[must_use]
     pub fn with_syntax_highlighting(
         mut self,
@@ -391,7 +641,9 @@ impl HtmlConfigBuilder {
     ) -> Self {
         self.config.enable_syntax_highlighting = enable;
         self.config.syntax_theme = if enable {
-            theme.or_else(|| Some("github".to_string()))
+            theme.or_else(|| {
+                Some(constants::DEFAULT_SYNTAX_THEME.to_string())
+            })
         } else {
             None
         };
@@ -400,9 +652,17 @@ impl HtmlConfigBuilder {
 
     /// Sets the language for generated content.
     ///
-    /// # Arguments
+    /// # Examples
     ///
-    /// * `language` - The language code (e.g., "en-GB")
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_language("fr-FR")
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.language, "fr-FR");
+    /// ```
     #[must_use]
     pub fn with_language(
         mut self,
@@ -412,11 +672,136 @@ impl HtmlConfigBuilder {
         self
     }
 
+    /// Enables or disables HTML sanitization via ammonia.
+    ///
+    /// When enabled alongside `allow_unsafe_html`, dangerous elements
+    /// are stripped while safe tags are preserved.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_sanitization(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.sanitize_html);
+    /// ```
+    #[must_use]
+    pub fn with_sanitization(mut self, enable: bool) -> Self {
+        self.config.sanitize_html = enable;
+        self
+    }
+
+    /// Enables or disables full HTML5 document wrapping.
+    ///
+    /// When enabled, the output is wrapped in `<!DOCTYPE html>` with
+    /// `<head>` (containing meta/JSON-LD) and `<body>`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_full_document(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.generate_full_document);
+    /// ```
+    #[must_use]
+    pub fn with_full_document(mut self, enable: bool) -> Self {
+        self.config.generate_full_document = enable;
+        self
+    }
+
+    /// Sets the maximum buffer size for file I/O operations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_max_buffer_size(8 * 1024 * 1024)
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.max_buffer_size, 8 * 1024 * 1024);
+    /// ```
+    #[must_use]
+    pub fn with_max_buffer_size(mut self, size: usize) -> Self {
+        self.config.max_buffer_size = size;
+        self
+    }
+
+    /// Enables or disables server-side LaTeX → MathML rendering.
+    ///
+    /// When enabled, `$..$` and `$$..$$` spans in the rendered HTML
+    /// are replaced with `<math>…</math>` elements. Browsers render
+    /// MathML natively, so no client-side JS is needed. Requires
+    /// the `math` feature (on by default).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_math(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.enable_math);
+    /// ```
+    #[must_use]
+    pub fn with_math(mut self, enable: bool) -> Self {
+        self.config.enable_math = enable;
+        self
+    }
+
+    /// Enables or disables Mermaid diagram passthrough.
+    ///
+    /// When enabled, `\u{60}\u{60}\u{60}mermaid` fenced code blocks are rewritten
+    /// from `<pre><code class="language-mermaid">` to
+    /// `<pre class="mermaid">` so client-side mermaid.js renders
+    /// them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_diagrams(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(cfg.enable_diagrams);
+    /// ```
+    #[must_use]
+    pub fn with_diagrams(mut self, enable: bool) -> Self {
+        self.config.enable_diagrams = enable;
+        self
+    }
+
     /// Builds the configuration, validating all settings.
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// Returns the validated configuration or an error if validation fails.
+    /// ```
+    /// use html_generator::HtmlConfigBuilder;
+    ///
+    /// let cfg = HtmlConfigBuilder::new()
+    ///     .with_language("en-GB")
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(cfg.language, "en-GB");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns the first [`crate::error::HtmlError::InvalidInput`]
+    /// produced by [`HtmlConfig::validate`] (e.g. an unknown language
+    /// code or a `max_input_size` below the minimum).
     pub fn build(self) -> Result<HtmlConfig> {
         self.config.validate()?;
         Ok(self.config)
@@ -455,11 +840,13 @@ impl HtmlConfigBuilder {
 /// assert!(html.contains("<h1>Hello</h1>"));
 /// # Ok::<(), html_generator::error::HtmlError>(())
 /// ```
+#[allow(deprecated)]
 pub fn markdown_to_html(
     content: &str,
     config: Option<MarkdownConfig>,
 ) -> Result<String> {
-    let config = config.unwrap_or_default();
+    let html_config: HtmlConfig =
+        config.map_or_else(HtmlConfig::default, HtmlConfig::from);
 
     if content.is_empty() {
         return Err(HtmlError::InvalidInput(
@@ -467,11 +854,11 @@ pub fn markdown_to_html(
         ));
     }
 
-    if content.len() > config.html_config.max_input_size {
+    if content.len() > html_config.max_input_size {
         return Err(HtmlError::InputTooLarge(content.len()));
     }
 
-    generate_html(content, &config.html_config)
+    generate_html(content, &html_config)
 }
 
 /// Converts a Markdown file to HTML.
@@ -519,6 +906,7 @@ pub fn markdown_to_html(
 /// # Ok::<(), html_generator::error::HtmlError>(())
 /// ```
 #[inline]
+#[allow(deprecated)]
 pub fn markdown_file_to_html(
     input: Option<impl AsRef<Path>>,
     output: Option<OutputDestination>,
@@ -554,41 +942,73 @@ fn validate_paths(
     Ok(())
 }
 
-/// Reads content from the input source
+/// Reads the full contents of `reader` into a UTF-8 string, wrapping
+/// any I/O error as `HtmlError::Io` with the given label for context
+/// (e.g. `"input"` or `"stdin"`).
+///
+/// Extracted so the stdin path of [`read_input`] is testable against
+/// an in-memory reader without needing a child process.
+fn read_all_from_reader<R: Read>(
+    mut reader: R,
+    label: &str,
+) -> Result<String> {
+    let mut content = String::with_capacity(MAX_BUFFER_SIZE);
+    // read_to_string returns the byte count; we only need the String.
+    let _ = reader.read_to_string(&mut content).map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to read from {label}: {e}"),
+        ))
+    })?;
+    Ok(content)
+}
+
+/// Reads content from the input source (a file path, or stdin when
+/// `None`).
 fn read_input(input: Option<impl AsRef<Path>>) -> Result<String> {
     match input {
         Some(path) => {
             let file = File::open(path).map_err(HtmlError::Io)?;
-            let mut reader =
+            let reader =
                 BufReader::with_capacity(MAX_BUFFER_SIZE, file);
-            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
-            let _ =
-                reader.read_to_string(&mut content).map_err(|e| {
-                    HtmlError::Io(io::Error::new(
-                        e.kind(),
-                        format!("Failed to read input: {}", e),
-                    ))
-                })?;
-            Ok(content)
+            read_all_from_reader(reader, "input")
         }
         None => {
             let stdin = io::stdin();
-            let mut reader =
+            let reader =
                 BufReader::with_capacity(MAX_BUFFER_SIZE, stdin.lock());
-            let mut content = String::with_capacity(MAX_BUFFER_SIZE);
-            let _ =
-                reader.read_to_string(&mut content).map_err(|e| {
-                    HtmlError::Io(io::Error::new(
-                        e.kind(),
-                        format!("Failed to read from stdin: {}", e),
-                    ))
-                })?;
-            Ok(content)
+            read_all_from_reader(reader, "stdin")
         }
     }
 }
 
-/// Writes content to the output destination
+/// Writes `content` to `writer`, wrapping any I/O error as
+/// `HtmlError::Io` with a label like `"file '…'"` or `"stdout"`.
+///
+/// Extracted so every destination in [`write_output`] shares one
+/// tested implementation, and so the error paths can be exercised by
+/// a failing in-memory writer.
+fn write_all_to_writer<W: Write>(
+    mut writer: W,
+    content: &[u8],
+    label: &str,
+) -> Result<()> {
+    writer.write_all(content).map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to write to {label}: {e}"),
+        ))
+    })?;
+    writer.flush().map_err(|e| {
+        HtmlError::Io(io::Error::new(
+            e.kind(),
+            format!("Failed to flush {label}: {e}"),
+        ))
+    })?;
+    Ok(())
+}
+
+/// Writes content to the output destination.
 fn write_output(
     output: OutputDestination,
     content: &[u8],
@@ -601,59 +1021,26 @@ fn write_output(
                     format!("Failed to create file '{}': {}", path, e),
                 ))
             })?;
-            let mut writer = BufWriter::new(file);
-            writer.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!(
-                        "Failed to write to file '{}': {}",
-                        path, e
-                    ),
-                ))
-            })?;
-            writer.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!(
-                        "Failed to flush output to file '{}': {}",
-                        path, e
-                    ),
-                ))
-            })?;
+            write_all_to_writer(
+                BufWriter::new(file),
+                content,
+                &format!("file '{path}'"),
+            )
         }
-        OutputDestination::Writer(mut writer) => {
-            let mut buffered = BufWriter::new(&mut writer);
-            buffered.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to write to output: {}", e),
-                ))
-            })?;
-            buffered.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to flush output: {}", e),
-                ))
-            })?;
-        }
+        OutputDestination::Writer(mut writer) => write_all_to_writer(
+            BufWriter::new(&mut writer),
+            content,
+            "output",
+        ),
         OutputDestination::Stdout => {
             let stdout = io::stdout();
-            let mut writer = BufWriter::new(stdout.lock());
-            writer.write_all(content).map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to write to stdout: {}", e),
-                ))
-            })?;
-            writer.flush().map_err(|e| {
-                HtmlError::Io(io::Error::new(
-                    e.kind(),
-                    format!("Failed to flush stdout: {}", e),
-                ))
-            })?;
+            write_all_to_writer(
+                BufWriter::new(stdout.lock()),
+                content,
+                "stdout",
+            )
         }
     }
-    Ok(())
 }
 
 /// Validates that a language code matches the BCP 47 format (e.g., "en-GB").
@@ -683,22 +1070,108 @@ pub fn validate_language_code(lang: &str) -> bool {
     use once_cell::sync::Lazy;
     use regex::Regex;
 
-    // Pre-compiled regex using Lazy<Regex>
     static LANG_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-z]{2}(?:-[A-Z]{2})$")
-            .expect("Failed to compile language code regex")
+        Regex::new(constants::LANGUAGE_CODE_PATTERN)
+            .expect("static LANG_REGEX must compile")
     });
 
-    // Match the input against the pre-compiled regex
     LANG_REGEX.is_match(lang)
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use regex::Regex;
     use std::io::Cursor;
     use tempfile::{tempdir, TempDir};
+
+    /// A reader whose `read` call always fails — used to cover the
+    /// stdin failure branch of [`read_all_from_reader`].
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::other("synthetic read failure"))
+        }
+    }
+
+    /// A writer whose `write` + `flush` both fail — used to cover the
+    /// write/flush error branches of [`write_all_to_writer`].
+    struct FailingWriter {
+        /// If `true`, fail on `flush` only (writes succeed), otherwise
+        /// fail immediately on `write`.
+        flush_only: bool,
+    }
+
+    impl Write for FailingWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if self.flush_only {
+                Ok(buf.len())
+            } else {
+                Err(io::Error::other("synthetic write failure"))
+            }
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("synthetic flush failure"))
+        }
+    }
+
+    #[test]
+    fn test_read_all_from_reader_success() {
+        let input = Cursor::new(b"hello world".to_vec());
+        let s = read_all_from_reader(input, "memory").unwrap();
+        assert_eq!(s, "hello world");
+    }
+
+    #[test]
+    fn test_read_all_from_reader_surfaces_io_error() {
+        let err =
+            read_all_from_reader(FailingReader, "stdin").unwrap_err();
+        match err {
+            HtmlError::Io(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains("Failed to read from stdin"),
+                    "unexpected error: {msg}"
+                );
+            }
+            other => panic!("expected Io, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_write_all_to_writer_success_covers_stdout_path() {
+        let mut buf: Vec<u8> = Vec::new();
+        write_all_to_writer(&mut buf, b"hi", "memory").unwrap();
+        assert_eq!(buf, b"hi");
+    }
+
+    #[test]
+    fn test_write_all_to_writer_surfaces_write_error() {
+        let err = write_all_to_writer(
+            FailingWriter { flush_only: false },
+            b"x",
+            "output",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, HtmlError::Io(ref e) if e.to_string().contains("Failed to write to output"))
+        );
+    }
+
+    #[test]
+    fn test_write_all_to_writer_surfaces_flush_error() {
+        let err = write_all_to_writer(
+            FailingWriter { flush_only: true },
+            b"x",
+            "output",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, HtmlError::Io(ref e) if e.to_string().contains("Failed to flush output"))
+        );
+    }
 
     /// Creates a temporary test directory for file operations.
     ///
@@ -1434,7 +1907,7 @@ fn main() {
             assert!(default.enable_syntax_highlighting);
             assert_eq!(
                 default.syntax_theme,
-                Some("github".to_string())
+                Some(constants::DEFAULT_SYNTAX_THEME.to_string())
             );
             assert!(!default.minify_output);
             assert!(default.add_aria_attributes);
@@ -1480,18 +1953,30 @@ fn main() {
             );
         }
 
-        // Test for relative file path validation
+        /// Absolute paths are deliberately accepted: CLI tools invoke the
+        /// library with fully qualified filenames. Authorisation is the
+        /// caller's responsibility; see [`HtmlConfig::validate_file_path`]
+        /// docs.
         #[test]
-        fn test_relative_file_path_validation() {
-            #[cfg(not(test))]
-            {
-                let absolute_path = "/absolute/path/to/file.md";
-                let result =
-                    HtmlConfig::validate_file_path(absolute_path);
-                assert!(
-                    matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("Only relative file paths are allowed"))
-                );
-            }
+        fn test_absolute_path_is_accepted() {
+            let result = HtmlConfig::validate_file_path(
+                "/absolute/path/to/file.md",
+            );
+            assert!(
+                result.is_ok(),
+                "absolute paths must be accepted, got {result:?}"
+            );
+        }
+
+        /// NUL byte smuggling must be rejected — on Unix, C-string path
+        /// handling silently truncates at the first NUL.
+        #[test]
+        fn test_nul_byte_path_is_rejected() {
+            let result = HtmlConfig::validate_file_path("safe.md\0bad");
+            assert!(
+                matches!(result, Err(HtmlError::InvalidInput(ref msg)) if msg.contains("NUL")),
+                "NUL byte in path must be rejected, got {result:?}"
+            );
         }
     }
 
