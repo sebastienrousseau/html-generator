@@ -9,10 +9,10 @@ name: Release
 #   4. SPDX-JSON SBOM upload
 #   5. `cargo publish` to crates.io
 #
-# The `CRATES_TOKEN` repo secret must be set under
-# Settings → Secrets and variables → Actions for the publish step
-# to succeed. Without it, the publish step errors and the rest of
-# the release artifacts (binaries, SBOM, attestations) still ship.
+# The `CARGO_API_TOKEN` repo secret (already set on this repo
+# since v0.0.1) is forwarded to the reusable workflow as
+# `CRATES_TOKEN`, which is the input name the upstream
+# `pipelines/release.yml` expects.
 #
 # Re-running the workflow on the same tag re-publishes — crates.io
 # rejects re-uploads of an existing version, so this is safe.
@@ -49,4 +49,6 @@ jobs:
           {"target":"x86_64-pc-windows-msvc","os":"windows-latest"}
         ]
     secrets:
-      CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+      # Map the existing `CARGO_API_TOKEN` repo secret onto the
+      # `CRATES_TOKEN` input the reusable workflow expects.
+      CRATES_TOKEN: ${{ secrets.CARGO_API_TOKEN }}
