@@ -36,11 +36,6 @@ pub mod utils;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-// Inlined private YAML serde implementation (upstream:
-// `/Users/seb/Code/Public/Rust/yaml_safe`). Kept private so the
-// crate's external surface is unchanged.
-mod yaml;
-
 // Re-export primary types and functions for convenience
 pub use crate::error::HtmlError;
 pub use accessibility::{add_aria_attributes, validate_wcag};

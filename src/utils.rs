@@ -211,13 +211,13 @@ pub fn extract_front_matter_data(
 }
 
 /// Parses a YAML front matter block into a serde_json Map using
-/// the inlined private `yaml` module (a pure-Rust,
-/// `forbid(unsafe_code)` implementation; see `src/yaml/mod.rs` for
-/// the vendor rationale).
+/// `noyalib`, a pure-Rust, `forbid(unsafe_code)` YAML serde
+/// implementation. Avoids both `serde_yaml` (unmaintained) and
+/// `serde_yml` (RUSTSEC-2025-0068).
 fn parse_yaml_to_map(
     raw: &str,
 ) -> Result<serde_json::Map<String, Value>> {
-    let value: Value = crate::yaml::from_str(raw).map_err(|e| {
+    let value: Value = noyalib::from_str(raw).map_err(|e| {
         HtmlError::InvalidFrontMatterFormat(format!(
             "Invalid YAML front matter: {e}"
         ))

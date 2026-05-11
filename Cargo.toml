@@ -80,6 +80,13 @@ ammonia = "4"
 indexmap = "2"
 log = "0.4"
 minify-html = "0.18"
+# Pure-Rust YAML parser used for front-matter extraction. Replaces the
+# previously inlined `src/yaml/` snapshot. `default-features = false`
+# with `["std"]` drops the `itoa`/`ryu` formatting accelerators we
+# don't need on the parse-only hot path. Pinned to `=0.0.3` while the
+# crate is pre-1.0 so a noyalib patch release can't surprise this
+# crate's `cargo publish --dry-run` gate.
+noyalib = { version = "=0.0.3", default-features = false, features = ["std"] }
 once_cell = "1.21.4"
 pulldown-latex = { version = "0.7", optional = true }
 regex = "1.12.3"
