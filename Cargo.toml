@@ -85,9 +85,9 @@ pulldown-latex = { version = "0.7", optional = true }
 regex = "1.12.3"
 scraper = "0.26.0"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 thiserror = "2.0.18"
-tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"], optional = true }
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros"], optional = true }
 toml = "1.1"
 # WASM bindings (gated behind the `wasm` feature). `js-sys` is
 # pulled in only on `wasm32` targets where it is needed for any
