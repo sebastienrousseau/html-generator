@@ -5,7 +5,11 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.5] — Unreleased
+## [0.0.6] — Unreleased
+
+_No changes yet._
+
+## [0.0.5] — 2026-04-29
 
 ### Added (capability)
 
@@ -296,7 +300,8 @@ Second pre-release iteration.
 
 Initial public release.
 
-[0.0.5]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.4...HEAD
+[0.0.6]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.5
 [0.0.4]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.4
 [0.0.3]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.3
 [0.0.2]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.2
