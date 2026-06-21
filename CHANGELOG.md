@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.6] — Unreleased
 
-_No changes yet._
+### Changed
+
+- **YAML parsing migrated to `noyalib`.** The previously inlined
+  `src/yaml/` snapshot is replaced by a dependency on `noyalib`
+  (`=0.0.3`, `default-features = false`, `features = ["std"]`).
+  Front-matter extraction behaviour is unchanged; the inlined
+  parser is retired so security/perf fixes flow through one
+  upstream crate instead of being maintained twice.
+
+### Dependencies
+
+Absorbed Dependabot bumps from PRs #43 and #45:
+
+- `scraper` 0.26.0 → 0.27.0 (pulls in `cssparser` 0.37.0 +
+  `selectors` 0.38.0)
+- `regex` 1.12.3 → 1.12.4 (compile-time perf for large char
+  classes; transitive `regex-syntax` 0.8.10 → 0.8.11)
+- `serde_json` 1.0.149 → 1.0.150 (reject non-string enum object
+  keys)
+- `log` 0.4.29 → 0.4.32 (transitive; `Value` → string conversions
+  on `kv + std`)
+- `tokio` 1.52.1 → 1.52.3 (transitive; mpsc `len()` underflow
+  fix + `OwnedPermit::release()` receiver-notify fix)
+- `pulldown-cmark` 0.13.3 → 0.13.4 (transitive; `TightParagraph`
+  panic fix)
+
+Supersedes Dependabot PRs #43 and #45.
 
 ## [0.0.5] — 2026-04-29
 
