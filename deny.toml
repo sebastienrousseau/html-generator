@@ -53,7 +53,11 @@ skip-tree = []
 #   syntect (via comrak/mdx-gen), no direct replacement available.
 # RUSTSEC-2024-0320 (yaml-rust):  unmaintained — transitive dep of
 #   syntect (via comrak/mdx-gen), no direct replacement available.
+# RUSTSEC-2026-0173 (proc-macro-error2): unmaintained as of 2026-06-07.
+#   Transitive via mdx-gen → env_logger → jiff → defmt → defmt-macros.
+#   No upstream release of mdx-gen yet drops the chain.
 ignore = [
     "RUSTSEC-2025-0141",
     "RUSTSEC-2024-0320",
+    "RUSTSEC-2026-0173",
 ]
