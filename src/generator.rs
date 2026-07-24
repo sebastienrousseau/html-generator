@@ -475,6 +475,12 @@ fn markdown_to_html_impl(
     //    bits (unsafe HTML + syntax highlighting/theme).
     let mut comrak_options = BASE_COMRAK_OPTIONS.clone();
     comrak_options.render.r#unsafe = config.allow_unsafe_html;
+    // `mdx-gen` unconditionally forces `render.r#unsafe = true` on the
+    // options it receives, which would silently let raw HTML (including
+    // `<script>`) through even when `allow_unsafe_html` is false. comrak
+    // gives `escape` precedence over `r#unsafe`, so setting `escape` here
+    // entity-escapes untrusted raw HTML regardless of the mdx-gen override.
+    comrak_options.render.escape = !config.allow_unsafe_html;
 
     let mut md_options = MarkdownOptions::default()
         .with_comrak_options(comrak_options)
