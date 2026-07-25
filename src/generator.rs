@@ -479,8 +479,10 @@ fn markdown_to_html_impl(
     );
 
     // 3) Convert images with `.class="..."` (no-alloc when no match).
-    let markdown_with_images =
-        process_images_with_classes(&markdown_with_classes, &mut tunnels);
+    let markdown_with_images = process_images_with_classes(
+        &markdown_with_classes,
+        &mut tunnels,
+    );
 
     // 4) Clone the cached Options tree and set the two runtime-varying
     //    bits (unsafe HTML + syntax highlighting/theme).
@@ -599,8 +601,9 @@ fn add_custom_classes<'a>(
 
             // class_name is validated by the \w+ regex — safe to interpolate;
             // inline_html already ran through the escaping inline renderer.
-            let fragment =
-                format!("<div class=\"{class_name}\">{inline_html}</div>");
+            let fragment = format!(
+                "<div class=\"{class_name}\">{inline_html}</div>"
+            );
             let index = tunnels.len();
             tunnels.push(fragment);
             tunnel_sentinel(index)
@@ -1263,7 +1266,8 @@ This is a note with a custom class.
     fn test_invalid_image_syntax() {
         let markdown = "![Image with missing URL]()";
         let mut tunnels = Vec::new();
-        let result = process_images_with_classes(markdown, &mut tunnels);
+        let result =
+            process_images_with_classes(markdown, &mut tunnels);
         assert_eq!(
             result, markdown,
             "Invalid image syntax should remain unchanged"
