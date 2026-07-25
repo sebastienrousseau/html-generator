@@ -461,20 +461,39 @@ fn markdown_to_html_impl(
     let content_without_front_matter = extract_front_matter(markdown)
         .unwrap_or_else(|_| markdown.to_string());
 
+    // Crate-generated HTML (`:::class` wrappers, image-class `<img>`) is
+    // trusted and must survive the escaping render below. Each such fragment
+    // is replaced with an opaque sentinel *before* rendering and restored
+    // *after*. User-authored raw HTML is never turned into a sentinel, so it
+    // still obeys `render.escape`. A user who forges a sentinel can at worst
+    // surface one of *our own* fragments — each built from `\w+`-validated
+    // class names and `escape_html`'d attributes — never arbitrary HTML, so
+    // tunnelling cannot become an XSS vector.
+    let mut tunnels: Vec<String> = Vec::new();
+
     // 2) Convert triple-colon blocks (no-alloc when no `:::` match).
     let markdown_with_classes = add_custom_classes(
         &content_without_front_matter,
         config.allow_unsafe_html,
+        &mut tunnels,
     );
 
     // 3) Convert images with `.class="..."` (no-alloc when no match).
-    let markdown_with_images =
-        process_images_with_classes(&markdown_with_classes);
+    let markdown_with_images = process_images_with_classes(
+        &markdown_with_classes,
+        &mut tunnels,
+    );
 
     // 4) Clone the cached Options tree and set the two runtime-varying
     //    bits (unsafe HTML + syntax highlighting/theme).
     let mut comrak_options = BASE_COMRAK_OPTIONS.clone();
     comrak_options.render.r#unsafe = config.allow_unsafe_html;
+    // `mdx-gen` unconditionally forces `render.r#unsafe = true` on the
+    // options it receives, which would silently let raw HTML (including
+    // `<script>`) through even when `allow_unsafe_html` is false. comrak
+    // gives `escape` precedence over `r#unsafe`, so setting `escape` here
+    // entity-escapes untrusted raw HTML regardless of the mdx-gen override.
+    comrak_options.render.escape = !config.allow_unsafe_html;
 
     let mut md_options = MarkdownOptions::default()
         .with_comrak_options(comrak_options)
@@ -485,9 +504,31 @@ fn markdown_to_html_impl(
     }
 
     // 5) Convert final Markdown to HTML
-    process_markdown(&markdown_with_images, &md_options).map_err(
-        |err| HtmlError::markdown_conversion(err.to_string(), None),
-    )
+    let mut html = process_markdown(&markdown_with_images, &md_options)
+        .map_err(|err| {
+            HtmlError::markdown_conversion(err.to_string(), None)
+        })?;
+
+    // 6) Restore tunnelled crate HTML. Block-level fragments (`:::` divs)
+    //    stood alone, so comrak wrapped the sentinel in a paragraph — strip
+    //    that wrapper to avoid `<p><div>…</div></p>`. Inline fragments
+    //    (images) are swapped in place.
+    for (index, fragment) in tunnels.iter().enumerate() {
+        let sentinel = tunnel_sentinel(index);
+        html = html.replace(&format!("<p>{sentinel}</p>"), fragment);
+        html = html.replace(&sentinel, fragment);
+    }
+
+    Ok(html)
+}
+
+/// Opaque sentinel used to tunnel trusted crate-generated HTML through the
+/// escaping render. Delimited by U+FFFC (OBJECT REPLACEMENT CHARACTER), which
+/// does not occur in normal Markdown and — not being an HTML metacharacter —
+/// is passed through verbatim by comrak regardless of `render.escape`.
+#[cfg(not(target_arch = "wasm32"))]
+fn tunnel_sentinel(index: usize) -> String {
+    format!("\u{FFFC}\u{FFFC}hgtunnel{index}\u{FFFC}\u{FFFC}")
 }
 
 /// WASM-target Markdown → HTML.
@@ -533,13 +574,17 @@ fn markdown_to_html_impl(
 /// # Example
 /// ...
 #[cfg(not(target_arch = "wasm32"))]
-fn add_custom_classes(
-    markdown: &str,
+fn add_custom_classes<'a>(
+    markdown: &'a str,
     allow_unsafe_html: bool,
-) -> Cow<'_, str> {
+    tunnels: &mut Vec<String>,
+) -> Cow<'a, str> {
     // `regex::Regex::replace_all` returns `Cow::Borrowed(markdown)`
     // when there are zero matches — avoiding the allocation
     // entirely for the common case of a document without `:::` blocks.
+    // Each rendered block is stashed in `tunnels` and replaced by a sentinel
+    // so the trusted `<div>` survives the escaping render (see
+    // `markdown_to_html_impl`).
     CUSTOM_CLASS_REGEX.replace_all(
         markdown,
         |caps: &regex::Captures| {
@@ -554,11 +599,14 @@ fn add_custom_classes(
                 Err(_) => block_content.to_string(),
             };
 
-            // class_name is validated by the \w+ regex — safe to interpolate
-            format!(
-                "<div class=\"{}\">{}</div>",
-                class_name, inline_html
-            )
+            // class_name is validated by the \w+ regex — safe to interpolate;
+            // inline_html already ran through the escaping inline renderer.
+            let fragment = format!(
+                "<div class=\"{class_name}\">{inline_html}</div>"
+            );
+            let index = tunnels.len();
+            tunnels.push(fragment);
+            tunnel_sentinel(index)
         },
     )
 }
@@ -593,6 +641,9 @@ fn process_markdown_inline_impl(
     // pipeline; clone from the cached base rather than rebuilding.
     let mut comrak_opts = BASE_COMRAK_OPTIONS.clone();
     comrak_opts.render.r#unsafe = allow_unsafe_html;
+    // Same mdx-gen override guard as the outer pipeline: escape untrusted
+    // raw HTML inside `:::` block content unless unsafe HTML is allowed.
+    comrak_opts.render.escape = !allow_unsafe_html;
 
     let options =
         MarkdownOptions::default().with_comrak_options(comrak_opts);
@@ -614,16 +665,23 @@ fn process_markdown_inline_impl(
 /// Replaces image patterns like
 /// `![Alt text](URL).class="some-class"` with `<img src="URL" alt="Alt text" class="some-class" />`.
 #[cfg(not(target_arch = "wasm32"))]
-fn process_images_with_classes(markdown: &str) -> Cow<'_, str> {
+fn process_images_with_classes<'a>(
+    markdown: &'a str,
+    tunnels: &mut Vec<String>,
+) -> Cow<'a, str> {
     // Borrowed-Cow when the document has no `![alt](url).class="x"`
-    // construct — i.e. every typical document.
+    // construct — i.e. every typical document. Each generated `<img>` is
+    // tunnelled (see `markdown_to_html_impl`) so it survives escaping.
     IMAGE_CLASS_REGEX.replace_all(markdown, |caps: &regex::Captures| {
-        format!(
+        let fragment = format!(
             r#"<img src="{}" alt="{}" class="{}" />"#,
             escape_html(&caps[2]), // URL
             escape_html(&caps[1]), // alt text
             escape_html(&caps[3]), // class attribute
-        )
+        );
+        let index = tunnels.len();
+        tunnels.push(fragment);
+        tunnel_sentinel(index)
     })
 }
 
@@ -1207,10 +1265,16 @@ This is a note with a custom class.
     #[test]
     fn test_invalid_image_syntax() {
         let markdown = "![Image with missing URL]()";
-        let result = process_images_with_classes(markdown);
+        let mut tunnels = Vec::new();
+        let result =
+            process_images_with_classes(markdown, &mut tunnels);
         assert_eq!(
             result, markdown,
             "Invalid image syntax should remain unchanged"
+        );
+        assert!(
+            tunnels.is_empty(),
+            "No image fragments should be tunnelled for invalid syntax"
         );
     }
 

@@ -5,16 +5,41 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.6] — Unreleased
+## [0.0.7] — 2026-07-25
+
+### Fixed (security)
+
+- **`allow_unsafe_html: false` is enforced again on native targets.**
+  `mdx-gen` 0.0.2 unconditionally forces comrak's `render.r#unsafe = true`
+  on the options it receives, so the "safe" default silently passed raw
+  HTML — including `<script>` — straight through. comrak gives `escape`
+  precedence over `r#unsafe`, so the pipeline now sets
+  `render.escape = !allow_unsafe_html` (on both the block and inline
+  renderers); untrusted raw HTML is entity-escaped regardless of the
+  mdx-gen override.
+- **Crate-generated HTML is tunnelled past the escaper.** `:::class`
+  block wrappers and image-class `<img>` tags are trusted crate output;
+  each is replaced by an opaque U+FFFC-delimited sentinel before the
+  escaping render and restored afterwards (unwrapping comrak's paragraph
+  for block-level `<div>`s). Tunnelled fragments are always built from
+  `\w+`-validated class names and `escape_html`'d attributes, so a forged
+  sentinel can only surface safe crate HTML — never user-authored HTML.
 
 ### Changed
 
 - **YAML parsing migrated to `noyalib`.** The previously inlined
   `src/yaml/` snapshot is replaced by a dependency on `noyalib`
-  (`=0.0.3`, `default-features = false`, `features = ["std"]`).
+  (`=0.0.15`, `default-features = false`, `features = ["std"]`).
   Front-matter extraction behaviour is unchanged; the inlined
   parser is retired so security/perf fixes flow through one
   upstream crate instead of being maintained twice.
+
+### Security (dependencies)
+
+- Remediated RUSTSEC advisories: `ammonia` → 4.1.4 (RUSTSEC-2026-0193,
+  -0213), `crossbeam-epoch` → 0.9.20 (RUSTSEC-2026-0204), and
+  `plist` → 1.10.0 which pulls `quick-xml` → 0.41.0 transitively via
+  `syntect` (RUSTSEC-2026-0194, -0195); `anyhow` → latest.
 
 ### Dependencies
 
