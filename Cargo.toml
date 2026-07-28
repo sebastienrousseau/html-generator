@@ -105,7 +105,7 @@ js-sys = { version = "0.3", optional = true }
 # Native targets get the full `mdx-gen` pipeline (custom blocks,
 # enhanced tables, optional syntax highlighting via `syntect`).
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-mdx-gen = "0.0.2"
+mdx-gen = "0.0.5"
 
 # WASM targets: bypass `mdx-gen` and use `comrak` directly. `mdx-gen`
 # pulls in `tokio` (which pulls in `mio`) unconditionally, neither
