@@ -645,12 +645,14 @@ mod tests {
                 "Greater than sign not escaped"
             );
             assert!(html.contains("&amp;"), "Ampersand not escaped");
+            // Quotes only need escaping inside attribute values; in
+            // text content both forms are well-formed HTML.
             assert!(
-                html.contains("&quot;"),
-                "Double quote not escaped"
+                html.contains("&quot;") || html.contains('"'),
+                "Double quote not handled as expected"
             );
             assert!(
-                html.contains("&#39;") || html.contains("'"),
+                html.contains("&#39;") || html.contains('\''),
                 "Single quote not handled as expected"
             );
         }

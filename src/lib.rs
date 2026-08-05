@@ -97,15 +97,21 @@ pub mod constants {
     /// ```
     pub const DEFAULT_LANGUAGE: &str = "en-GB";
 
-    /// Default syntax highlighting theme (`github`).
+    /// Default syntax highlighting theme (`InspiredGitHub`).
+    ///
+    /// Must name a theme bundled with `syntect`, because `mdx-gen`
+    /// validates `syntax_theme` against
+    /// `SyntectAdapter::available_themes()` and rejects anything
+    /// outside that set. `InspiredGitHub` is the bundled
+    /// GitHub-flavoured light theme.
     ///
     /// # Examples
     ///
     /// ```
     /// use html_generator::constants::DEFAULT_SYNTAX_THEME;
-    /// assert_eq!(DEFAULT_SYNTAX_THEME, "github");
+    /// assert_eq!(DEFAULT_SYNTAX_THEME, "InspiredGitHub");
     /// ```
-    pub const DEFAULT_SYNTAX_THEME: &str = "github";
+    pub const DEFAULT_SYNTAX_THEME: &str = "InspiredGitHub";
 
     /// Maximum file path length.
     ///
@@ -2097,7 +2103,11 @@ fn main() {
             assert!(html.contains("Cell 2"));
 
             assert!(html.contains("<blockquote>"));
-            assert!(html.contains("<a href="));
+            // The sanitizer adds `rel="noopener noreferrer"` and the
+            // minifier may reorder/unquote attributes, so assert on the
+            // anchor and its target rather than a literal `<a href=`.
+            assert!(html.contains("<a "));
+            assert!(html.contains("https://example.com"));
 
             Ok(())
         }

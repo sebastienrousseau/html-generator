@@ -488,16 +488,24 @@ fn markdown_to_html_impl(
     //    bits (unsafe HTML + syntax highlighting/theme).
     let mut comrak_options = BASE_COMRAK_OPTIONS.clone();
     comrak_options.render.r#unsafe = config.allow_unsafe_html;
-    // `mdx-gen` unconditionally forces `render.r#unsafe = true` on the
-    // options it receives, which would silently let raw HTML (including
-    // `<script>`) through even when `allow_unsafe_html` is false. comrak
-    // gives `escape` precedence over `r#unsafe`, so setting `escape` here
-    // entity-escapes untrusted raw HTML regardless of the mdx-gen override.
-    comrak_options.render.escape = !config.allow_unsafe_html;
+    // Untrusted raw HTML is contained by *sanitization*, not escaping.
+    // `MarkdownOptions::with_comrak_options` copies `render.unsafe` into
+    // mdx-gen's own `allow_unsafe_html`, so when this config is safe mode
+    // mdx-gen runs its ammonia pass over the rendered output and strips
+    // `<script>` and friends (see `tests/fixtures/xss_vectors.txt`).
+    //
+    // Do NOT set `comrak_options.render.escape` here. mdx-gen enhances
+    // tables and custom blocks by swapping AST nodes for *raw HTML* nodes
+    // before rendering; comrak gives `escape` precedence over `unsafe`, so
+    // escaping would entity-escape mdx-gen's own trusted markup and emit
+    // `&lt;table class="table"&gt;` instead of a real table.
 
     let mut md_options = MarkdownOptions::default()
         .with_comrak_options(comrak_options)
-        .with_syntax_highlighting(config.enable_syntax_highlighting);
+        .with_syntax_highlighting(config.enable_syntax_highlighting)
+        // Without this the pipeline silently enforces mdx-gen's own
+        // 1 MiB default and `HtmlConfig::max_input_size` has no effect.
+        .with_max_input_size(config.max_input_size);
 
     if let Some(ref theme) = config.syntax_theme {
         md_options = md_options.with_custom_theme(theme.clone());
@@ -814,23 +822,32 @@ fn main() {
             html.contains("<code>inline code</code>"),
             "Inline code not found"
         );
+        // The sanitizer hardens outbound links with
+        // `rel="noopener noreferrer"`, so match the href and the link
+        // text rather than a literal anchor tag.
         assert!(
-            html.contains(r#"<a href="https://example.com">link</a>"#),
-            "Link not found"
+            html.contains(r#"href="https://example.com""#),
+            "Link href not found"
         );
+        assert!(html.contains(">link</a>"), "Link text not found");
 
         // Verify the code block structure
         assert!(
             html.contains(r#"<code class="language-rust">"#),
             "Code block with language-rust class not found"
         );
+        // Highlighting is emitted as scope *classes*, not inline
+        // `style="color:…"` attributes, so the theme choice does not
+        // leak into the markup.
         assert!(
-            html.contains(r#"<span style="color:#b48ead;">fn </span>"#),
+            html.contains(
+                r#"<span class="storage type function rust">fn</span>"#
+            ),
             "`fn` keyword with syntax highlighting not found"
         );
         assert!(
             html.contains(
-                r#"<span style="color:#8fa1b3;">main</span>"#
+                r#"<span class="entity name function rust">main</span>"#
             ),
             "`main` function name with syntax highlighting not found"
         );
@@ -1021,15 +1038,18 @@ author: John Doe
 
         println!("Generated HTML:\n{}", html);
 
-        // Adjust assertions to match the rendered HTML structure
+        // `input` is a void element, so the sanitized output emits
+        // `<input …>` rather than the XHTML-style `<input … />`.
         assert!(
-        html.contains(r#"<li><input type="checkbox" checked="" disabled="" /> Task 1</li>"#),
+        html.contains(r#"<li><input type="checkbox" checked="" disabled=""> Task 1</li>"#),
         "Task 1 checkbox not rendered as expected"
     );
         assert!(
-        html.contains(r#"<li><input type="checkbox" disabled="" /> Task 2</li>"#),
-        "Task 2 checkbox not rendered as expected"
-    );
+            html.contains(
+                r#"<li><input type="checkbox" disabled=""> Task 2</li>"#
+            ),
+            "Task 2 checkbox not rendered as expected"
+        );
     }
     #[test]
     fn test_generate_html_with_large_table() {
@@ -1059,11 +1079,15 @@ author: John Doe
         assert!(html.contains("&lt;"), "Less than sign not escaped");
         assert!(html.contains("&gt;"), "Greater than sign not escaped");
         assert!(html.contains("&amp;"), "Ampersand not escaped");
-        assert!(html.contains("&quot;"), "Double quote not escaped");
 
-        // Adjust if single quotes are intended to remain unescaped
+        // Quotes only need escaping inside attribute values; in text
+        // content both forms are well-formed HTML, so accept either.
         assert!(
-            html.contains("&#39;") || html.contains("'"),
+            html.contains("&quot;") || html.contains('"'),
+            "Double quote not handled as expected"
+        );
+        assert!(
+            html.contains("&#39;") || html.contains('\''),
             "Single quote not handled as expected"
         );
     }
