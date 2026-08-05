@@ -4,7 +4,7 @@
 
 [package]
 name = "html-generator"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 rust-version = "1.80.0"
 license = "MIT OR Apache-2.0"
@@ -88,7 +88,7 @@ minify-html = "0.18"
 # crate's `cargo publish --dry-run` gate.
 noyalib = { version = "=0.0.17", default-features = false, features = ["std"] }
 once_cell = "1.21.4"
-pulldown-latex = { version = "0.7", optional = true }
+pulldown-latex = { version = "0.8", optional = true }
 regex = "1.12.4"
 scraper = "0.27.0"
 serde = { version = "1", features = ["derive"] }
