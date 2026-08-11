@@ -982,7 +982,7 @@ dependencies = [
 
 [[package]]
 name = "html-generator"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "ammonia",
  "comrak 0.54.0",
@@ -1408,14 +1408,15 @@ checksum = "610a5acd306ec67f907abe5567859a3c693fb9886eb1f012ab8f2a47bef3db51"
 
 [[package]]
 name = "noyalib"
-version = "0.0.17"
+version = "0.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "179fb3ecf8e64246b67049033e61c739c467c7bb1d79b2c1a65c1ac13f87512a"
+checksum = "2d0ba37b65d8c94344cc44af197654bd0f270bf5729dad540c6eacf3447f50e0"
 dependencies = [
  "indexmap",
  "memchr",
  "rustc-hash",
  "serde",
+ "serde_core",
  "smallvec",
 ]
 
