@@ -46,6 +46,8 @@ pub use generator::{
 };
 #[cfg(feature = "async")]
 pub use performance::async_generate_html;
+#[cfg(feature = "minify")]
+#[cfg_attr(docsrs, doc(cfg(feature = "minify")))]
 pub use performance::{minify_html, minify_html_string};
 pub use seo::{generate_meta_tags, generate_structured_data};
 pub use utils::{

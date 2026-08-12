@@ -12,7 +12,6 @@ use crate::error::HtmlError;
 use crate::{
     accessibility::add_aria_attributes,
     extract_front_matter,
-    performance::minify_html_string,
     seo::{escape_html, generate_structured_data_from_doc},
     utils::generate_table_of_contents,
     Result,
@@ -353,9 +352,10 @@ pub fn generate_html_with_diagnostics(
     }
 
     // Step 7: Minification
+    #[cfg(feature = "minify")]
     if config.minify_output {
         let before_len = html.len();
-        match minify_html_string(&html) {
+        match crate::performance::minify_html_string(&html) {
             Ok(minified) => {
                 let saved = before_len.saturating_sub(minified.len());
                 html = minified;
@@ -383,6 +383,23 @@ pub fn generate_html_with_diagnostics(
                 diagnostics.push(d);
             }
         }
+    }
+
+    // Requesting minification without the `minify` feature is reported
+    // rather than silently ignored — the caller asked for something the
+    // build cannot do.
+    #[cfg(not(feature = "minify"))]
+    if config.minify_output {
+        let d = Diagnostic {
+            step: "minification",
+            level: DiagnosticLevel::Warning,
+            message:
+                "minify_output was requested but this build has the \
+                      `minify` feature disabled; output is unminified"
+                    .to_owned(),
+        };
+        warn!("{d}");
+        diagnostics.push(d);
     }
 
     Ok(HtmlOutput { html, diagnostics })

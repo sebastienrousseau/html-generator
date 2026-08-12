@@ -21,6 +21,8 @@
 //!
 //! Basic HTML minification:
 //! ```no_run
+//! # // Requires the `minify` feature, which is off by default.
+//! # #[cfg(feature = "minify")] {
 //! # use html_generator::performance::minify_html;
 //! # use std::path::Path;
 //! # fn example() -> Result<(), html_generator::error::HtmlError> {
@@ -29,10 +31,14 @@
 //! println!("Minified size: {} bytes", minified.len());
 //! # Ok(())
 //! # }
+//! # }
 //! ```
 
+#[cfg(any(feature = "minify", feature = "async"))]
 use crate::{HtmlError, Result};
+#[cfg(feature = "minify")]
 use minify_html::{minify, Cfg};
+#[cfg(feature = "minify")]
 use std::{fs, path::Path};
 
 #[cfg(feature = "async")]
@@ -57,12 +63,14 @@ pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
 /// Provides a set of minification options that preserve HTML semantics
 /// while reducing file size. The configuration balances compression
 /// with standards compliance.
+#[cfg(feature = "minify")]
 #[derive(Clone)]
 struct MinifyConfig {
     /// Internal minification configuration from minify-html crate
     cfg: Cfg,
 }
 
+#[cfg(feature = "minify")]
 impl Default for MinifyConfig {
     fn default() -> Self {
         let mut cfg = Cfg::new();
@@ -83,6 +91,7 @@ impl Default for MinifyConfig {
     }
 }
 
+#[cfg(feature = "minify")]
 impl std::fmt::Debug for MinifyConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MinifyConfig")
@@ -127,6 +136,8 @@ impl std::fmt::Debug for MinifyConfig {
 /// # Ok(())
 /// # }
 /// ```
+#[cfg(feature = "minify")]
+#[cfg_attr(docsrs, doc(cfg(feature = "minify")))]
 pub fn minify_html(file_path: &Path) -> Result<String> {
     let metadata = fs::metadata(file_path).map_err(|e| {
         HtmlError::MinificationError(format!(
@@ -201,6 +212,8 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
 /// # Ok(())
 /// # }
 /// ```
+#[cfg(feature = "minify")]
+#[cfg_attr(docsrs, doc(cfg(feature = "minify")))]
 pub fn minify_html_string(html: &str) -> Result<String> {
     if html.len() > MAX_FILE_SIZE {
         return Err(HtmlError::MinificationError(format!(
@@ -263,9 +276,14 @@ pub async fn async_generate_html(markdown: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
+    // Used by the minify test helper and the gated test modules.
+    #[cfg(feature = "minify")]
     use std::fs::File;
+    #[cfg(feature = "minify")]
     use std::io::Write;
+    #[cfg(feature = "minify")]
     use tempfile::tempdir;
 
     /// Helper function to create a temporary HTML file for testing.
@@ -277,6 +295,7 @@ mod tests {
     /// # Returns
     ///
     /// A tuple containing the temporary directory and file path.
+    #[cfg(feature = "minify")]
     fn create_test_file(
         content: &str,
     ) -> (tempfile::TempDir, std::path::PathBuf) {
@@ -289,6 +308,7 @@ mod tests {
         (dir, file_path)
     }
 
+    #[cfg(feature = "minify")]
     mod minify_html_tests {
         use super::*;
 
@@ -435,6 +455,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "minify")]
     mod additional_tests {
         use super::*;
         use std::fs::File;

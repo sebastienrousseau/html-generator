@@ -4,7 +4,7 @@
 
 [package]
 name = "html-generator"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 rust-version = "1.80.0"
 license = "MIT OR Apache-2.0"
@@ -79,7 +79,12 @@ crate-type = ["cdylib", "rlib"]
 ammonia = "4"
 indexmap = "2"
 log = "0.4"
-minify-html = "0.18"
+# Optional: pulls lightningcss -> parcel_sourcemap -> rkyv 0.7, which
+# carries RUSTSEC-2026-0235 (out-of-bounds reads). parcel_sourcemap
+# 2.1.1 is the latest and pins rkyv ^0.7, so there is no upstream
+# fix to take. Gated behind `minify` and off by default so consumers
+# that never minify do not inherit the advisory.
+minify-html = { version = "0.18", optional = true }
 # Pure-Rust YAML parser used for front-matter extraction. Replaces the
 # previously inlined `src/yaml/` snapshot. `default-features = false`
 # with `["std"]` drops the `itoa`/`ryu` formatting accelerators we
@@ -164,6 +169,9 @@ wasm-bindgen-test = "0.3"
 # Features that can be enabled or disabled.
 default = ["math"]
 async = ["dep:tokio"]
+# HTML minification via `minify-html`. Off by default: see the note on
+# the dependency. Enable with `features = ["minify"]`.
+minify = ["dep:minify-html"]
 # Server-side LaTeX → MathML rendering for `$..$` and `$$..$$`
 # spans. Pulled in by default because pure-Rust + zero-runtime-JS;
 # disable with `--no-default-features` if you want a smaller binary
@@ -208,6 +216,7 @@ path = "examples/toc.rs"
 [[example]]
 name = "minify"
 path = "examples/minify.rs"
+required-features = ["minify"]
 
 [[example]]
 name = "errors"
@@ -244,6 +253,7 @@ path = "examples/math_and_diagrams.rs"
 [[bench]]                         # Benchmarking configuration.
 name = "html_benchmark"           # Name of the benchmark.
 harness = false                   # Disable the default benchmark harness.
+required-features = ["minify"] # Benchmarks minify_html.
 
 # Competitor comparison: same realistic 8 KB blog payload run through
 # html-generator and three popular CommonMark crates so the README's

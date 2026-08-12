@@ -443,6 +443,10 @@ fn fixture_real_world_blog() {
     );
 }
 
+// Asserts the minified output is smaller than the normal one, which
+// only holds when minification is compiled in. See the `minify`
+// feature.
+#[cfg(feature = "minify")]
 #[test]
 fn fixture_real_world_blog_minified() {
     let md = load_fixture("real_world_blog.txt");

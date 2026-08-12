@@ -258,11 +258,14 @@ println!("Issues found: {}", report.issue_count);
 <summary><b>Minification</b></summary>
 
 ```rust
+# // Requires the `minify` feature, which is off by default.
+# #[cfg(feature = "minify")] {
 use html_generator::performance::minify_html_string;
 
 let html = "<html>  <body>  <p>Hello</p>  </body>  </html>";
 let minified = minify_html_string(html)?;
 assert_eq!(minified, "<html><body><p>Hello</p></body></html>");
+# }
 # Ok::<(), html_generator::error::HtmlError>(())
 ```
 

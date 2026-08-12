@@ -17,8 +17,6 @@ use html_generator::{
     error::{ErrorKind, HtmlError, SeoErrorKind},
     generate_html, generate_html_with_diagnostics,
     generator::{Diagnostic, DiagnosticLevel},
-    minify_html_string,
-    performance::MAX_FILE_SIZE,
     seo::{escape_html, generate_meta_tags, generate_structured_data},
     utils::{extract_front_matter_data, format_header_with_id_class},
     HtmlConfig, HtmlConfigBuilder,
@@ -335,10 +333,12 @@ fn sanitization_runs_when_unsafe_html_and_sanitize_both_enabled() {
 
 // ─── minify_html_string: size-limit error branch ──────────────────
 
+#[cfg(feature = "minify")]
 #[test]
 fn minify_html_string_rejects_oversized_input() {
-    let giant = "<p>".repeat(MAX_FILE_SIZE);
-    let err = minify_html_string(&giant).unwrap_err();
+    let giant =
+        "<p>".repeat(html_generator::performance::MAX_FILE_SIZE);
+    let err = html_generator::minify_html_string(&giant).unwrap_err();
     assert!(
         matches!(err, HtmlError::MinificationError(ref m) if m.contains("exceeds maximum"))
     );
@@ -566,6 +566,9 @@ fn toc_failure_emits_error_diagnostic() {
 
 // ─── generator: minification info on empty input (0-byte path) ───
 
+// With `minify` disabled the step records a Warning instead, so this
+// assertion is feature-specific.
+#[cfg(feature = "minify")]
 #[test]
 fn minification_on_empty_input_records_info() {
     let config = HtmlConfig {
