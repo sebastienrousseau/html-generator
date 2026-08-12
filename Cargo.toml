@@ -4,7 +4,7 @@
 
 [package]
 name = "html-generator"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 rust-version = "1.80.0"
 license = "MIT OR Apache-2.0"
@@ -79,7 +79,6 @@ crate-type = ["cdylib", "rlib"]
 ammonia = "4"
 indexmap = "2"
 log = "0.4"
-minify-html = "0.18"
 # Pure-Rust YAML parser used for front-matter extraction. Replaces the
 # previously inlined `src/yaml/` snapshot. `default-features = false`
 # with `["std"]` drops the `itoa`/`ryu` formatting accelerators we
