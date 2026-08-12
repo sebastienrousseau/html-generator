@@ -31,8 +31,8 @@
 //! # }
 //! ```
 
+use crate::minifier;
 use crate::{HtmlError, Result};
-use minify_html::{minify, Cfg};
 use std::{fs, path::Path};
 
 #[cfg(feature = "async")]
@@ -51,48 +51,6 @@ use tokio::task;
 /// assert_eq!(MAX_FILE_SIZE, 10 * 1024 * 1024);
 /// ```
 pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
-
-/// Configuration for HTML minification with optimized defaults.
-///
-/// Provides a set of minification options that preserve HTML semantics
-/// while reducing file size. The configuration balances compression
-/// with standards compliance.
-#[derive(Clone)]
-struct MinifyConfig {
-    /// Internal minification configuration from minify-html crate
-    cfg: Cfg,
-}
-
-impl Default for MinifyConfig {
-    fn default() -> Self {
-        let mut cfg = Cfg::new();
-        // Preserve HTML semantics and compatibility
-        cfg.minify_doctype = false;
-        cfg.allow_noncompliant_unquoted_attribute_values = false;
-        cfg.keep_closing_tags = true;
-        cfg.keep_html_and_head_opening_tags = true;
-        cfg.allow_removing_spaces_between_attributes = false;
-        // Enable safe minification for non-structural elements
-        cfg.keep_comments = false;
-        cfg.minify_css = true;
-        cfg.minify_js = true;
-        cfg.remove_bangs = true;
-        cfg.remove_processing_instructions = true;
-
-        Self { cfg }
-    }
-}
-
-impl std::fmt::Debug for MinifyConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MinifyConfig")
-            .field("minify_doctype", &self.cfg.minify_doctype)
-            .field("minify_css", &self.cfg.minify_css)
-            .field("minify_js", &self.cfg.minify_js)
-            .field("keep_comments", &self.cfg.keep_comments)
-            .finish()
-    }
-}
 
 /// Minifies HTML content from a file with optimized performance.
 ///
@@ -161,14 +119,13 @@ pub fn minify_html(file_path: &Path) -> Result<String> {
         ))
     })?;
 
-    let config = MinifyConfig::default();
-    let minified = minify(content.as_bytes(), &config.cfg);
+    let minified = minifier::minify(&content)?;
 
     // `minify-html` produces valid UTF-8 whenever the input is valid
     // UTF-8 (guaranteed here because `content` is a `String`), so the
     // fallible decode path is provably unreachable — use `lossy` to
     // skip the dead `Err` arm.
-    Ok(String::from_utf8_lossy(&minified).into_owned())
+    Ok(minified)
 }
 
 /// Minifies an HTML string in memory.
@@ -209,11 +166,10 @@ pub fn minify_html_string(html: &str) -> Result<String> {
         )));
     }
 
-    let config = MinifyConfig::default();
-    let minified = minify(html.as_bytes(), &config.cfg);
+    let minified = minifier::minify(html)?;
 
     // See `minify_html`: the decode cannot fail for UTF-8 input.
-    Ok(String::from_utf8_lossy(&minified).into_owned())
+    Ok(minified)
 }
 
 /// Asynchronously generates HTML from Markdown content.
@@ -441,35 +397,6 @@ mod tests {
         use std::io::Write;
         use tempfile::tempdir;
 
-        /// Test for default MinifyConfig values.
-        #[test]
-        fn test_minify_config_default() {
-            let config = MinifyConfig::default();
-            assert!(!config.cfg.minify_doctype);
-            assert!(config.cfg.minify_css);
-            assert!(config.cfg.minify_js);
-            assert!(!config.cfg.keep_comments);
-        }
-
-        /// Test for custom MinifyConfig values.
-        #[test]
-        fn test_minify_config_custom() {
-            let mut config = MinifyConfig::default();
-            config.cfg.keep_comments = true;
-            assert!(config.cfg.keep_comments);
-        }
-
-        /// Exercises the private `Debug` impl for MinifyConfig, which
-        /// is unreachable from outside the module and so would
-        /// otherwise show up as uncovered.
-        #[test]
-        fn test_minify_config_debug_impl() {
-            let config = MinifyConfig::default();
-            let rendered = format!("{config:?}");
-            assert!(rendered.contains("MinifyConfig"));
-            assert!(rendered.contains("minify_css"));
-        }
-
         /// `minify_html` must surface a `MinificationError` when the
         /// source file cannot be read as UTF-8.
         #[test]
@@ -621,10 +548,16 @@ mod tests {
             let result = minify_html(&file_path);
             assert!(result.is_ok());
             assert_eq!(
-        result.unwrap(),
-        "<div>&lt;Special> & Characters</div>",
-        "Special characters were unexpectedly modified during minification"
-    );
+                result.unwrap(),
+                // Entities are preserved verbatim. minify-html used to
+                // decode `&gt;` to `>` and `&amp;` to `&` here, which
+                // the old expected value recorded — note it contradicted
+                // the assertion message right beside it. Emitting a bare
+                // `&` into text is ambiguous and can produce invalid
+                // HTML, so the native minifier leaves entities alone.
+                "<div>&lt;Special&gt; &amp; Characters</div>",
+                "Character entities must survive minification unchanged"
+            );
             drop(dir);
         }
 

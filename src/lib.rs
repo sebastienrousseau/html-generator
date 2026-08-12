@@ -27,6 +27,7 @@ pub mod emojis;
 pub mod error;
 pub mod generator;
 pub mod math;
+mod minifier;
 pub mod performance;
 pub mod seo;
 pub mod utils;
