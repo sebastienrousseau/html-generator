@@ -71,7 +71,7 @@ fn main() {
             let enhanced = add_aria_attributes(html, None).unwrap();
             let aria_count = enhanced.matches("aria-label").count();
             vec![
-                format!("input buttons  = 2"),
+                "input buttons  = 2".to_string(),
                 format!("aria-labels    = {aria_count}"),
             ]
         },
