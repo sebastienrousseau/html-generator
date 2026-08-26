@@ -48,7 +48,3 @@ jobs:
           {"target":"aarch64-apple-darwin","os":"macos-latest"},
           {"target":"x86_64-pc-windows-msvc","os":"windows-latest"}
         ]
-    secrets:
-      # Map the existing `CARGO_API_TOKEN` repo secret onto the
-      # `CRATES_TOKEN` input the reusable workflow expects.
-      CRATES_TOKEN: ${{ secrets.CARGO_API_TOKEN }}
