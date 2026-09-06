@@ -16,10 +16,11 @@ set -euo pipefail
 # accessibility, SEO and utility surface. The fix belongs upstream in
 # servo_arc; nothing in this repository can make that call sound.
 #
-# `performance` is excluded for a different and simpler reason: every
-# test in it reads or writes a file, and Miri's isolation forbids
-# `open` and `mkdir`. There is nothing left to check once those are
-# skipped.
+# `performance` and `emojis` are excluded for a different and simpler
+# reason: every test in them reads or writes a file, and Miri's
+# isolation forbids `open` and `mkdir`. Running them would report
+# "0 passed; 15 ignored" — a green job that verified nothing, which is
+# worse than an honest exclusion.
 #
 # So Miri runs over the modules that never touch scraper and do no file
 # IO. Everything else is covered by the normal test suite, the fuzz
@@ -28,12 +29,12 @@ set -euo pipefail
 #
 # Usage: scripts/miri.sh [extra cargo-miri args]
 
-MODULES=(elements emojis error math minifier)
+MODULES=(elements error math minifier)
 
 cd "$(cd "$(dirname -- "$0")/.." && pwd)"
 
 echo "miri: covering ${MODULES[*]}"
-echo "miri: skipping accessibility, seo, generator, utils, config (scraper) and performance (file IO) — see the note in this script"
+echo "miri: skipping accessibility, seo, generator, utils, config (scraper) and performance, emojis (file IO) — see the note in this script"
 
 for module in "${MODULES[@]}"; do
   echo "== $module"

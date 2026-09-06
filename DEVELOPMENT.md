@@ -90,7 +90,7 @@ The crate is `#![forbid(unsafe_code)]`, so Miri is not policing this
 crate's own code. It is here to check the *interaction* with
 dependencies that use `unsafe` internally.
 
-`scripts/miri.sh` runs it over `elements`, `emojis`, `error`, `math` and
+`scripts/miri.sh` runs it over `elements`, `error`, `math` and
 `minifier`. Two groups of modules are excluded, and the reasons are
 different:
 
@@ -105,9 +105,10 @@ different:
   belongs upstream in `servo_arc`; nothing here can make that call
   sound, and pretending otherwise by deleting the job would be worse
   than saying so.
-- **`performance` — blocked by isolation.** Every test in it reads or
-  writes a file, and Miri forbids `open` and `mkdir`. Nothing is left to
-  check once those are skipped.
+- **`performance` and `emojis` — blocked by isolation.** Every test in
+  them reads or writes a file, and Miri forbids `open` and `mkdir`.
+  Including them would report "0 passed; 15 ignored": a green job that
+  verified nothing, which is worse than an honest exclusion.
 
 Elsewhere, individual filesystem tests carry
 `#[cfg_attr(miri, ignore = "…")]` with the reason inline.
