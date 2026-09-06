@@ -1,86 +1,105 @@
-# Makefile using cargo for managing builds and dependencies in a Rust project.
+# POSIX-compatible Makefile for html-generator
+# Works on macOS, Linux, and WSL without modification.
+#
+# Usage:
+#   make           — run check + clippy + test (default)
+#   make test      — run all tests (all features)
+#   make clippy    — run clippy lints, warnings denied
+#   make fmt       — check formatting
+#   make lint      — docs lint: markdownlint + codespell + REUSE
+#   make deny      — cargo-deny supply-chain checks
+#   make vet       — cargo-vet provenance check (--locked)
+#   make audit     — cargo-audit advisory check
+#   make doc       — build documentation with warnings denied
+#   make coverage  — line/function coverage via cargo-llvm-cov (nightly)
+#   make miri      — run the lib test suite under Miri (nightly)
+#   make fuzz      — build every fuzz target and replay the corpus (nightly)
+#   make examples  — run every example to completion
+#   make bench-smoke — compile and run each bench once, no measurement
+#   make versions  — every version-bearing file agrees with Cargo.toml
+#   make sbom      — generate a software bill of materials
+#   make clean     — remove build artifacts
 
-# Default target executed when no arguments are given to make.
-.PHONY: all
-all: help ## Display this help.
+.PHONY: all check clippy test fmt lint deny vet audit doc coverage miri fuzz examples bench-smoke versions sbom clean
 
-# Build the project including all workspace members.
-.PHONY: build
-build: ## Build the project.
-	@echo "Building all project components..."
-	@cargo build --all
+all: check clippy test
 
-# Lint the project with stringent rules using Clippy, install Clippy if not present.
-.PHONY: lint
-lint: ensure-clippy ## Lint the project with Clippy.
-	@echo "Linting with Clippy..."
-	@cargo clippy --all-features --all-targets --all -- \
-		--deny clippy::dbg_macro --deny clippy::unimplemented --deny clippy::todo --deny warnings \
-		--deny missing_docs --deny broken_intra_doc_links --forbid unused_must_use --deny clippy::result_unit_err
+check:
+	cargo check --all-features --all-targets
 
-# Run all unit and integration tests in the project.
-.PHONY: test
-test: ## Run tests for the project.
-	@echo "Running tests..."
-	@cargo test
+clippy:
+	cargo clippy --all-features --all-targets -- -D warnings
 
-# Check the project for errors without producing outputs.
-.PHONY: check
-check: ## Check the project for errors without producing outputs.
-	@echo "Checking code formatting..."
-	@cargo check
+test:
+	cargo test --all-features
 
-# Format all code in the project according to rustfmt's standards, install rustfmt if not present.
-.PHONY: format
-format: ensure-rustfmt ## Format the code.
-	@echo "Formatting all project components..."
-	@cargo fmt --all
+fmt:
+	cargo fmt --all -- --check
 
-# Check code formatting without making changes, with verbose output, install rustfmt if not present.
-.PHONY: format-check-verbose
-format-check-verbose: ensure-rustfmt ## Check code formatting with verbose output.
-	@echo "Checking code format with verbose output..."
-	@cargo fmt --all -- --check --verbose
+# Docs lint: structure only for Markdown, British spellings allowed,
+# REUSE 3.3 compliance. `reuse` runs through uvx so the gate does not
+# depend on a system Python install.
+lint:
+	npx --yes markdownlint-cli2 "**/*.md" "!target/**" "!fuzz/**" "!node_modules/**"
+	uvx codespell
+	uvx --with chardet reuse lint
 
-# Apply fixes to the project using cargo fix, install cargo-fix if necessary.
-.PHONY: fix
-fix: ensure-cargo-fix ## Automatically fix Rust lint warnings using cargo fix.
-	@echo "Applying cargo fix..."
-	@cargo fix --all
+deny:
+	cargo deny check
 
-# Use cargo-deny to check for security vulnerabilities, licensing issues, and more, install if not present.
-.PHONY: deny
-deny: ensure-cargo-deny ## Run cargo deny checks.
-	@echo "Running cargo deny checks..."
-	@cargo deny check
+vet:
+	cargo vet --locked
 
-# Check for outdated dependencies only for the root package, install cargo-outdated if necessary.
-.PHONY: outdated
-outdated: ensure-cargo-outdated ## Check for outdated dependencies for the root package only.
-	@echo "Checking for outdated dependencies..."
-	@cargo outdated --root-deps-only
+audit:
+	cargo audit --deny warnings
 
-# Installation checks and setups
-.PHONY: ensure-clippy ensure-rustfmt ensure-cargo-fix ensure-cargo-deny ensure-cargo-outdated
-ensure-clippy:
-	@cargo clippy --version || rustup component add clippy
+doc:
+	RUSTDOCFLAGS='-D warnings' cargo doc --no-deps --all-features
 
-ensure-rustfmt:
-	@cargo fmt --version || rustup component add rustfmt
+# Coverage as CI measures it. The gate is 98 % lines; the rationale is
+# in DEVELOPMENT.md.
+# `src/wasm.rs` is excluded: it is `#[wasm_bindgen]` glue behind
+# `#[cfg(feature = "wasm")]` for wasm32 targets, verified by
+# `tests/wasm_smoke.rs` under wasm-pack, and unreachable by a native
+# coverage run. Counting it would make the number a measure of how much
+# wasm glue exists rather than of how well the library is tested.
+coverage:
+	cargo +nightly llvm-cov --all-features \
+	  --ignore-filename-regex 'src/wasm\.rs' --fail-under-lines 98
 
-ensure-cargo-fix:
-	@cargo fix --version || rustup component add rustfix
+# Scoped: see the note at the top of scripts/miri.sh for why the
+# scraper-backed modules cannot be verified.
+miri:
+	./scripts/miri.sh
 
-ensure-cargo-deny:
-	@command -v cargo-deny || cargo install cargo-deny
+# Build every target, then replay the seed corpus and the regression
+# inputs without generating new ones. Mirrors the per-push CI gate.
+fuzz:
+	cd fuzz && cargo +nightly fuzz build
+	cd fuzz && for t in $$(cargo +nightly fuzz list); do \
+	  cargo +nightly fuzz run "$$t" -- -runs=0 "corpus/$$t" "regressions/$$t" || exit 1; \
+	done
 
-ensure-cargo-outdated:
-	@command -v cargo-outdated || cargo install cargo-outdated
+# Every declared [[example]] target. `examples/support.rs` is a shared
+# display helper the others `mod`-include, not an example, so the list
+# comes from cargo metadata rather than from the directory listing.
+examples:
+	@cargo metadata --no-deps --format-version 1 \
+	  | python3 -c 'import json,sys; print("\n".join(t["name"] for p in json.load(sys.stdin)["packages"] for t in p["targets"] if "example" in t["kind"]))' \
+	  | while read -r name; do \
+	      echo "== $$name"; \
+	      cargo run --quiet --all-features --example "$$name" >/dev/null || exit 1; \
+	    done
 
-# Help target to display callable targets and their descriptions.
-.PHONY: help
-help: ## Display this help.
-	@echo "Usage: make [target]..."
-	@echo ""
-	@echo "Targets:"
-	@awk 'BEGIN {FS = ":.*?##"} /^[a-zA-Z_-]+:.*?##/ {printf "  %-30s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+bench-smoke:
+	cargo bench --all-features -- --test
+
+versions:
+	./scripts/verify-release-versions.sh
+
+sbom:
+	cargo tree --edges normal --prefix depth --format '{p} {l}' > SBOM.txt
+	@echo "SBOM written to SBOM.txt"
+
+clean:
+	cargo clean

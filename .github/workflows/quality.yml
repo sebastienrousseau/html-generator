@@ -1,0 +1,178 @@
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# The gates the repository standard requires that `ci.yml` does not
+# cover: coverage threshold, Miri, fuzz corpus replay, docs lint,
+# cargo-vet provenance, version consistency, examples and benches.
+#
+# Kept separate from ci.yml so the shared `rust-ci.yml` call there stays
+# a straight upgrade path when the pipelines repo changes.
+
+name: Quality
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage-gate:
+    name: coverage (98% lines)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4, installs cargo-llvm-cov
+        with:
+          tool: cargo-llvm-cov
+      # The threshold and its rationale live in DEVELOPMENT.md. A number
+      # chosen once and defended beats chasing 100%.
+      # `src/wasm.rs` is excluded: `#[wasm_bindgen]` glue behind
+      # `#[cfg(feature = "wasm")]`, verified by tests/wasm_smoke.rs under
+      # wasm-pack and unreachable by a native coverage run.
+      - run: |
+          cargo llvm-cov --all-features --locked \
+            --ignore-filename-regex 'src/wasm\.rs' --fail-under-lines 98
+
+  miri:
+    name: miri
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: nightly
+          components: miri
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      # Scoped by the script: the scraper-backed modules cannot be
+      # verified (servo_arc violates both borrow models) and the
+      # performance module is entirely file IO, which Miri's isolation
+      # forbids. The reasons are in the script and in DEVELOPMENT.md.
+      - run: ./scripts/miri.sh
+
+  fuzz-replay:
+    name: fuzz build + corpus replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+        with:
+          workspaces: fuzz
+      # From source, deliberately. The prebuilt binary taiki-e ships is
+      # a musl build and mis-infers the fuzz target triple, so it emits
+      # sanitized fuzzers for x86_64-unknown-linux-musl and dies on
+      # "sanitizer is incompatible with statically linked libc".
+      - run: cargo install --locked cargo-fuzz
+      # -runs=0 replays the committed inputs without generating new
+      # ones: the seeds prove the targets still build and run, and
+      # fuzz/regressions/ proves a fixed crash cannot come back.
+      - name: Build every target and replay the corpus
+        working-directory: fuzz
+        run: |
+          set -euo pipefail
+          cargo +nightly fuzz build
+          for target in $(cargo +nightly fuzz list); do
+            echo "== $target"
+            dirs=("corpus/$target")
+            [ -d "regressions/$target" ] && dirs+=("regressions/$target")
+            cargo +nightly fuzz run "$target" -- -runs=0 "${dirs[@]}"
+          done
+
+  docs-lint:
+    name: docs lint (markdownlint, codespell, REUSE)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - run: npx --yes markdownlint-cli2 "**/*.md" "!target/**" "!fuzz/**"
+      - run: uvx codespell
+      - run: uvx --with chardet reuse lint
+
+  cargo-vet:
+    name: cargo-vet
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          # Pinned by SHA, the action cannot read the toolchain from the
+          # ref, so it is named here.
+          toolchain: stable
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      # Pinned: releases before 0.10 reject a `[[trusted.*]]` entry that
+      # names a `trusted-publisher` instead of a `user-id`, which is how
+      # a crates.io Trusted Publishing release is attested.
+      - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4, installs cargo-vet
+        with:
+          tool: cargo-vet@0.10.2
+      - run: cargo vet --locked
+      # Exemptions may shrink, never grow. A new dependency arrives with
+      # an audit or a trust entry, not with another exemption.
+      - name: Exemption ratchet
+        run: |
+          set -euo pipefail
+          baseline="$(tr -d '[:space:]' < supply-chain/exemptions-baseline.txt)"
+          current="$(cargo vet --locked 2>&1 | grep -oE '[0-9]+ exempted' | grep -oE '[0-9]+')"
+          echo "exempted: $current (baseline $baseline)"
+          if [ "$current" -gt "$baseline" ]; then
+            echo "::error::exemptions grew from $baseline to $current"
+            exit 1
+          fi
+
+  release-hygiene:
+    name: versions, examples, benches
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          # Pinned by SHA, the action cannot read the toolchain from the
+          # ref, so it is named here.
+          toolchain: stable
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      # Every version-bearing file must agree with Cargo.toml before a
+      # tag exists, not after the release workflow rejects the tag.
+      - run: ./scripts/verify-release-versions.sh
+      # Docs that run: an example that stops working fails the build.
+      - run: make examples
+      # Benches stay compiling and runnable; no measurement is asserted.
+      - run: cargo bench --all-features -- --test
+      - name: rustdoc with warnings denied
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --all-features --locked

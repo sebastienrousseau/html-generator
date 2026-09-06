@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 html-generator
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Feature request
+description: Suggest a new capability or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and where does html-generator fall short today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: The API, flag, or behaviour you'd like. Sketch a signature or example if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - Library (html-generator)
+        - CLI — noyafmt
+        - CLI — noyavalidate
+        - LSP (html-generator-lsp)
+        - MCP (html-generator-mcp)
+        - WASM (html-generator-wasm)
+        - Cross-cutting / not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for a similar request.
+          required: true
+        - label: This fits a YAML 1.2 toolchain (not a YAML spec change request).
+          required: false

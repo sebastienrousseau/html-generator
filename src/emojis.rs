@@ -195,6 +195,10 @@ mod tests {
         file
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_basic() {
         let test_data = r#"
@@ -215,6 +219,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_empty_file() {
         let test_data = "";
@@ -226,6 +234,10 @@ mod tests {
         assert!(result.unwrap().is_empty());
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_with_comments_and_blanks() {
         let test_data = r#"
@@ -248,6 +260,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_no_comment_label() {
         let test_data = r#"
@@ -269,6 +285,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_invalid_hex_code() {
         let test_data = r#"
@@ -287,6 +307,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_multi_codepoint() {
         let test_data = r#"
@@ -304,6 +328,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_missing_label() {
         let test_data = r#"
@@ -325,6 +353,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_handles_empty_and_whitespace() {
         let test_data = r#"
@@ -346,6 +378,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_handles_trailing_whitespace() {
         let test_data = r#"
@@ -365,6 +401,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_skip_invalid_lines() {
         let test_data = r#"
@@ -385,6 +425,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_split_behavior() {
         let test_data = r#"
@@ -406,6 +450,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_parenthesis_variations() {
         let test_data = r#"
@@ -430,6 +478,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_unparseable_sequences() {
         let test_data = r#"
@@ -450,6 +502,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_empty_fields() {
         let test_data = r#"
@@ -469,6 +525,10 @@ mod tests {
         assert_eq!(result, expected);
     }
 
+    #[cfg_attr(
+        miri,
+        ignore = "touches the filesystem; Miri isolation forbids it"
+    )]
     #[test]
     fn test_load_emoji_sequences_whitespace_variations() {
         let test_data = r#"

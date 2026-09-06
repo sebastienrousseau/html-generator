@@ -14,7 +14,7 @@ If you're interested in making a more direct contribution, there are several way
 
 Your feedback is incredibly valuable to us, and we're always looking for ways to make `html-generator` better. If you have ideas, suggestions, or questions about `html-generator`, we'd love to hear them. Here's how you can provide feedback:
 
-- Click [here][02] to submit a new feedback.
+- Click [the documentation][02] to submit a new feedback.
 - Use a descriptive title that clearly summarizes your feedback.
 - Provide a detailed description of the issue or suggestion.
 - Be patient while we review and respond to your feedback.
@@ -23,7 +23,7 @@ Your feedback is incredibly valuable to us, and we're always looking for ways to
 
 If you encounter a bug while using `html-generator`, please let us know so we can fix it. Here's how you can submit a bug report:
 
-- Click [here][02] to submit a new issue.
+- Click [the documentation][02] to submit a new issue.
 - Use a descriptive title that clearly summarizes the bug.
 - Provide a detailed description of the issue, including steps to reproduce it.
 - Be patient while we review and respond to your bug report.

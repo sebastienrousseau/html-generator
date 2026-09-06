@@ -1,0 +1,14 @@
+{
+  "name": "html-generator",
+  "image": "mcr.microsoft.com/devcontainers/rust:1",
+  "postCreateCommand": "rustup toolchain install nightly --component miri && cargo install --locked cargo-hack cargo-deny cargo-vet cargo-llvm-cov cargo-fuzz && make",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "DavidAnson.vscode-markdownlint"
+      ]
+    }
+  }
+}
