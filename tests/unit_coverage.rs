@@ -1013,3 +1013,106 @@ fn negative_tabindex_is_flagged_by_keyboard_navigation_check() {
         "expected negative-tabindex issue in {issues:?}"
     );
 }
+
+/// Paths the existing suites left untouched, grouped by why they were
+/// missed rather than by module: builder options nothing set, pipeline
+/// steps nothing enabled, and error arms nothing provoked.
+mod coverage_gaps {
+    use html_generator::{
+        generator::{
+            generate_html_with_diagnostics, Diagnostic, DiagnosticLevel,
+        },
+        HtmlConfig, HtmlConfigBuilder,
+    };
+
+    #[test]
+    fn builder_math_and_diagram_toggles_reach_the_config() {
+        let cfg = HtmlConfigBuilder::default()
+            .with_math(true)
+            .with_diagrams(true)
+            .build()
+            .expect("valid config");
+        assert!(cfg.enable_math);
+        assert!(cfg.enable_diagrams);
+
+        let cfg = HtmlConfigBuilder::default()
+            .with_math(false)
+            .with_diagrams(false)
+            .build()
+            .expect("valid config");
+        assert!(!cfg.enable_math);
+        assert!(!cfg.enable_diagrams);
+    }
+
+    fn diagnostics_for(
+        markdown: &str,
+        config: &HtmlConfig,
+    ) -> Vec<Diagnostic> {
+        generate_html_with_diagnostics(markdown, config)
+            .expect("core conversion succeeds")
+            .diagnostics
+    }
+
+    #[test]
+    fn diagram_step_reports_when_it_rewrites_and_stays_quiet_when_it_does_not(
+    ) {
+        let config = HtmlConfig {
+            enable_diagrams: true,
+            ..HtmlConfig::default()
+        };
+
+        let with_mermaid = diagnostics_for(
+            "```mermaid\ngraph TD;\n  A-->B;\n```\n",
+            &config,
+        );
+        assert!(
+            with_mermaid.iter().any(|d| d.step == "diagrams"),
+            "a rewritten mermaid block should be reported: {with_mermaid:?}"
+        );
+
+        // Nothing to rewrite: the step must not invent a diagnostic.
+        let without = diagnostics_for("# Plain heading\n", &config);
+        assert!(
+            !without.iter().any(|d| d.step == "diagrams"),
+            "no mermaid block, no diagnostic: {without:?}"
+        );
+    }
+
+    #[cfg(feature = "math")]
+    #[test]
+    fn math_step_reports_when_it_renders() {
+        let config = HtmlConfig {
+            enable_math: true,
+            ..HtmlConfig::default()
+        };
+
+        let rendered = diagnostics_for("$E = mc^2$\n", &config);
+        assert!(
+            rendered.iter().any(|d| d.step == "math"),
+            "rendered LaTeX should be reported: {rendered:?}"
+        );
+
+        let untouched = diagnostics_for("# No math here\n", &config);
+        assert!(!untouched.iter().any(|d| d.step == "math"));
+    }
+
+    #[test]
+    fn every_diagnostic_from_a_clean_document_is_informational() {
+        let config = HtmlConfig {
+            enable_diagrams: true,
+            minify_output: true,
+            ..HtmlConfig::default()
+        };
+
+        let diagnostics = diagnostics_for(
+            "# Title\n\nSome text.\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n",
+            &config,
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|d| d.level != DiagnosticLevel::Error),
+            "clean input produced an error diagnostic: {diagnostics:?}"
+        );
+    }
+}

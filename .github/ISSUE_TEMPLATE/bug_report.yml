@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2026 html-generator
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Bug report
+description: Report incorrect parsing, serialization, or tooling behaviour.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A minimal, self-contained reproduction is
+        the single most useful thing you can include.
+  - type: input
+    id: version
+    attributes:
+      label: html-generator version
+      description: The crate version from your `Cargo.lock`.
+      placeholder: "0.0.7"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - Front-matter extraction (extract_metadata / process_metadata)
+        - Meta-tag generation (generate_metatags)
+        - Meta-tag extraction (extract_meta_tags)
+        - HTML escape / unescape
+        - Async file helper
+        - Docs or examples
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Minimal input
+      description: The smallest front-matter block or HTML fragment that triggers the problem.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How you invoked it
+      description: The Rust snippet (e.g. `extract_metadata(..)`) that reproduces it.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the full error/diagnostic output if any.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS + `rustc --version` (and target, if cross-compiling).
+      placeholder: "macOS 15.5, rustc 1.86.0, x86_64-apple-darwin"
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a duplicate.
+          required: true
+        - label: The reproduction above is minimal and self-contained.
+          required: true

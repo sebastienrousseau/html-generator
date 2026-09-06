@@ -1,0 +1,18 @@
+
+# cargo-vet audits file
+
+[audits]
+
+[[trusted.noyalib]]
+criteria = "safe-to-deploy"
+user-id = 186843
+start = "2026-05-10"
+end = "2027-07-26"
+notes = "Same-author crate, pinned exactly."
+
+[[trusted.noyalib]]
+criteria = "safe-to-deploy"
+trusted-publisher = "github:sebastienrousseau/noyalib"
+start = "2026-09-01"
+end = "2027-07-26"
+notes = "Same-author crate, pinned exactly."

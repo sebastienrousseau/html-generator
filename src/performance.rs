@@ -247,7 +247,6 @@ mod tests {
 
     mod minify_html_tests {
         use super::*;
-
         #[test]
         fn test_minify_basic_html() {
             let html =
@@ -261,7 +260,6 @@ mod tests {
             );
             drop(dir);
         }
-
         #[test]
         fn test_minify_with_comments() {
             let html =
@@ -275,7 +273,6 @@ mod tests {
             );
             drop(dir);
         }
-
         #[test]
         fn test_minify_invalid_path() {
             let result = minify_html(Path::new("nonexistent.html"));
@@ -285,7 +282,6 @@ mod tests {
                 Err(HtmlError::MinificationError(_))
             ));
         }
-
         #[test]
         fn test_minify_exceeds_max_size() {
             let large_content = "a".repeat(MAX_FILE_SIZE + 1);
@@ -299,7 +295,6 @@ mod tests {
             assert!(err_msg.contains("exceeds maximum"));
             drop(dir);
         }
-
         #[test]
         fn test_minify_invalid_utf8() {
             let dir =
@@ -321,7 +316,6 @@ mod tests {
             assert!(err_msg.contains("Invalid UTF-8 in input file"));
             drop(dir);
         }
-
         #[test]
         fn test_minify_non_utf8_failure_path_via_directory_path() {
             // Pointing `minify_html` at a directory exercises the
@@ -344,7 +338,6 @@ mod tests {
             );
             drop(dir);
         }
-
         #[test]
         fn test_minify_utf8_content() {
             let html = "<html><body><p>Test 你好 🦀</p></body></html>";
@@ -362,7 +355,6 @@ mod tests {
     #[cfg(feature = "async")]
     mod async_generate_html_tests {
         use super::*;
-
         #[tokio::test]
         async fn test_async_generate_html() {
             let markdown = "# Test\n\nThis is a test.";
@@ -372,14 +364,12 @@ mod tests {
             assert!(html.contains("<h1>Test</h1>"));
             assert!(html.contains("<p>This is a test.</p>"));
         }
-
         #[tokio::test]
         async fn test_async_generate_html_empty() {
             let result = async_generate_html("").await;
             assert!(result.is_ok());
             assert!(result.unwrap().is_empty());
         }
-
         #[tokio::test]
         async fn test_async_generate_html_large_content() {
             let large_markdown =
@@ -512,7 +502,6 @@ mod tests {
                 );
             }
         }
-
         #[test]
         fn test_minify_html_empty_content() {
             let html = "";
@@ -525,7 +514,6 @@ mod tests {
             );
             drop(dir);
         }
-
         #[test]
         fn test_minify_html_unusual_whitespace() {
             let html =
@@ -540,7 +528,6 @@ mod tests {
             );
             drop(dir);
         }
-
         #[test]
         fn test_minify_html_with_special_characters() {
             let html = "<div>&lt;Special&gt; &amp; Characters</div>";

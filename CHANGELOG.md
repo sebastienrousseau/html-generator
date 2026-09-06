@@ -5,6 +5,88 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] — 2026-09-06
+
+The repository-standard release: the layout, gates and documents every
+crate in the family shares, plus the `noyalib` move that lets ssg carry
+one copy instead of three.
+
+### Changed
+
+- **`noyalib` pinned at `=0.0.37`** (from `=0.0.28`). The pin stays
+  exact; the version is the one the whole family converges on.
+- **`build.rs` removed.** It enforced a Rust floor with a hand-written
+  error message while `rust-version` in `Cargo.toml` already declares
+  one and Cargo enforces it without a build script.
+- **`Cargo.lock` is committed** and CI builds `--locked`, per the
+  repository standard.
+
+### Added
+
+- **Fuzz harness** (`fuzz/`): `fuzz_markdown` drives the whole
+  Markdown-to-HTML pipeline with every optional step on,
+  `fuzz_front_matter` covers extraction, and `fuzz_accessibility`
+  covers ARIA enrichment plus WCAG validation — the pass that rewrites
+  markup by byte offset, where this crate's slice-boundary bugs have
+  lived. A committed seed corpus and a `regressions/` directory replay
+  on every push. 3.4 million cases across the three targets found
+  nothing further.
+- **`quality.yml`**, a second CI workflow holding the gates the shared
+  pipeline does not cover: the coverage threshold, Miri, the fuzz build
+  and corpus replay, the docs lint (markdownlint, codespell, REUSE),
+  cargo-vet with an exemption ratchet, and release hygiene (version
+  consistency, every example run, bench smoke, rustdoc with warnings
+  denied). Nothing in this release is enforced only by a local `make`
+  target.
+- **Coverage gate at 98 % lines**, excluding `src/wasm.rs`. Tests for
+  the math and diagram builder toggles and the two pipeline steps behind
+  them lifted coverage from 97.7 % to 98.1 %. The exclusion is argued in
+  `DEVELOPMENT.md` rather than assumed: `wasm.rs` is `#[wasm_bindgen]`
+  glue for `wasm32` targets that a native coverage run cannot execute,
+  and it is verified by `tests/wasm_smoke.rs` under `wasm-pack`.
+- Repository standard layout: `DEVELOPMENT.md`, `docs/ARCHITECTURE.md`,
+  `docs/adr/`, `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, `SECURITY.md`,
+  `SUPPORT.md`, `AGENTS.md`, `CITATION.cff`, `KEYS.asc`, `REUSE.toml`
+  (REUSE 3.3 compliant, 1,426 files), `rust-toolchain.toml`,
+  `.devcontainer/`, `.pre-commit-config.yaml`, `.codespellrc`,
+  `.markdownlint.yaml`, issue and PR templates.
+- `scripts/verify-release-versions.sh`: every version-bearing file is
+  checked against `Cargo.toml` before a tag exists.
+- `supply-chain/`: cargo-vet with the family's import registries and a
+  trust entry for `noyalib`, plus an exemption baseline the CI ratchet
+  cannot exceed.
+- **README rewritten** to the family's structural template, with every
+  code block a doctest that runs in CI.
+
+### Removed
+
+- `.deepsource.toml`, configuration for a service the family does not
+  use.
+
+## [0.0.10] — 2026-08-11
+
+### Changed
+
+- **The HTML minifier is native.** `minify-html` is replaced by
+  `src/minifier.rs`, a single-pass minifier written for this crate's
+  output. The dependency graph loses roughly 1,300 lines of lockfile
+  (#65).
+
+## [0.0.9] — 2026-08-11
+
+A dependency release, consolidated in #63. No library change.
+
+## [0.0.8] — 2026-08-04
+
+A dependency release, consolidated in #61: `comrak` 0.50 → 0.54,
+`mdx-gen` 0.0.2 → 0.0.5, `noyalib` 0.0.15 → 0.0.17, and the
+minor-and-patch group. GitHub Actions bumps are grouped into one
+Dependabot PR from this release on. No library change.
+
+> These three releases shipped without changelog entries at the time;
+> they are reconstructed here from the merge history rather than left
+> as a gap, and no content is invented beyond what those commits did.
+
 ## [0.0.7] — 2026-07-25
 
 ### Fixed (security)
@@ -104,9 +186,9 @@ Supersedes Dependabot PRs #43 and #45.
   `comrak`, and `pulldown-cmark` so the README can cite measured
   numbers, not estimates. Numbers (Apple M-series, `cargo bench
   --bench competitors --quick`):
-    * `pulldown-cmark` parse only: **45 µs**
-    * `comrak` parse only: **172 µs**
-    * `html-generator` full pipeline: **2.09 ms**
+  * `pulldown-cmark` parse only: **45 µs**
+  * `comrak` parse only: **172 µs**
+  * `html-generator` full pipeline: **2.09 ms**
   Pure parsers are faster but produce raw HTML you still need to
   post-process; the html-generator number includes ARIA, TOC,
   JSON-LD, and minification in one pass.

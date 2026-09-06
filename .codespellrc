@@ -1,0 +1,4 @@
+[codespell]
+# British spellings are house style; crate/tech names are not typos.
+ignore-words-list = crate,statics,unparseable,ser,de,deser,serde,noyalib,ammonia,scraper,ba,nd,toml,behaviour,behavioural,colour,favour,initialise,serialise,serialiser,serialisation,deserialise,deserialiser,deserialisation,normalise,normalised,standardise,standardised,ot
+skip = ./target,./data,./tests/fixtures,./fuzz/corpus,./Cargo.lock,./fuzz/target,./fuzz/corpus,./fuzz/artifacts,./.git

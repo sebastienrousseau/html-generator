@@ -1,0 +1,40 @@
+[package]
+name = "html-generator-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.html-generator]
+path = ".."
+
+# The harness is its own workspace so nightly + sanitizer flags never
+# leak into the main build.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_markdown"
+path = "fuzz_targets/fuzz_markdown.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_front_matter"
+path = "fuzz_targets/fuzz_front_matter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_accessibility"
+path = "fuzz_targets/fuzz_accessibility.rs"
+test = false
+doc = false
+bench = false

@@ -23,6 +23,10 @@ allow = [
     "ISC",
     "MPL-2.0",
     "Unicode-3.0",
+    # The header above has named this since the policy was written; it
+    # was missing from the list itself, so `finl_unicode` (via comrak)
+    # was rejected by a rule the documentation said allowed it.
+    "Unicode-DFS-2016",
     "BSL-1.0",
 ]
 # `WITH LLVM-exception` (Apache-2.0 + LLVM Exception) on `target-lexicon`

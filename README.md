@@ -15,26 +15,38 @@
   <a href="https://crates.io/crates/html-generator"><img src="https://img.shields.io/crates/v/html-generator.svg?style=for-the-badge&color=fc8d62&logo=rust" alt="Crates.io" /></a>
   <a href="https://docs.rs/html-generator"><img src="https://img.shields.io/badge/docs.rs-html--generator-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" alt="Docs.rs" /></a>
   <a href="https://codecov.io/gh/sebastienrousseau/html-generator"><img src="https://img.shields.io/codecov/c/github/sebastienrousseau/html-generator?style=for-the-badge&logo=codecov" alt="Coverage" /></a>
-  <a href="https://lib.rs/crates/html-generator"><img src="https://img.shields.io/badge/lib.rs-v0.0.7-orange.svg?style=for-the-badge" alt="lib.rs" /></a>
+  <a href="https://lib.rs/crates/html-generator"><img src="https://img.shields.io/badge/lib.rs-html--generator-orange.svg?style=for-the-badge" alt="lib.rs" /></a>
 </p>
 
 ---
 
 ## Contents
 
-- [Install](#install) -- Cargo, source
-- [Quick Start](#quick-start) -- convert Markdown to HTML in 5 lines
-- [Overview](#overview) -- what html-generator does
-- [Features](#features) -- capability matrix
-- [Library Usage](#library-usage) -- pipeline, front matter, TOC, SEO, accessibility
-- [Configuration](#configuration) -- HtmlConfig options
-- [Examples](#examples) -- 14 branded examples
-- [Performance](#performance) -- comparative benchmarks vs comrak / pulldown-cmark
-- [Math and diagrams](#math-and-diagrams) -- LaTeX → MathML, Mermaid passthrough
-- [WebAssembly](#webassembly) -- browser, Workers, Edge bindings
-- [FAQ](#faq) -- common questions and design decisions
-- [Development](#development) -- make targets, CI
-- [Security](#security) -- safety guarantees
+**Getting started**
+
+- [Install](#install) — Cargo, source, optional features
+- [Requirements](#requirements) — toolchain floor, platforms
+- [Quick Start](#quick-start) — Markdown to accessible HTML in five lines
+
+**Library reference**
+
+- [Overview](#overview) — what the pipeline does, step by step
+- [Features](#features) — capability matrix
+- [Library Usage](#library-usage) — pipeline, front matter, TOC, SEO, accessibility
+- [Configuration](#configuration) — every `HtmlConfig` option
+- [Math and diagrams](#math-and-diagrams) — LaTeX to MathML, Mermaid passthrough
+- [WebAssembly](#webassembly) — browser, Workers and Edge bindings
+- [Benchmarks](#benchmarks) — measured numbers with the host stated
+- [Examples](#examples) — runnable example index
+
+**Operational**
+
+- [When not to use html-generator](#when-not-to-use-html-generator) — limitations
+- [Development](#development) — make targets, fuzzing, Miri, CI
+- [Security](#security) — hardening, fuzzing, supply chain
+- [Documentation](#documentation) — all reference docs
+- [Stability guarantees](#stability-guarantees) — SemVer axis, output stability
+- [Minimum-toolchain policy](#minimum-toolchain-policy)
 - [License](#license)
 
 ---
@@ -43,14 +55,14 @@
 
 ```toml
 [dependencies]
-html-generator = "0.0.7"
+html-generator = "0.0.11"
 ```
 
 ### Optional async support
 
 ```toml
 [dependencies]
-html-generator = { version = "0.0.6", features = ["async"] }
+html-generator = { version = "0.0.11", features = ["async"] }
 ```
 
 ### Build from source
@@ -62,6 +74,20 @@ make          # check + clippy + test
 ```
 
 Requires **Rust 1.80.0+**. Tested on Linux, macOS, and Windows.
+
+---
+
+## Requirements
+
+- **Rust 1.80.0 or newer.** `rust-version` in `Cargo.toml` is the floor
+  and Cargo enforces it; CI builds on stable across Linux, macOS and
+  Windows. See the [minimum-toolchain policy](#minimum-toolchain-policy)
+  for when and why it may move.
+- **A `std` platform**, or `wasm32` with the `wasm` feature. The crate
+  uses `std` unconditionally; there is no `no_std` build.
+- **No async runtime is required.** Every entry point is synchronous
+  unless you enable the `async` feature, which adds a Tokio-based
+  wrapper for callers who already run one.
 
 ---
 
@@ -102,7 +128,7 @@ html-generator converts Markdown into production-ready HTML with a configurable 
 | **Source** | ~12,900 lines across 11 modules (`src/yaml/` is a vendored snapshot, see FAQ) |
 | **Test suite** | 533 unit/integration tests + 163 doctests + 4 WASM smoke tests = **700 total** |
 | **Coverage** | 98.18% line coverage (`cargo llvm-cov`); Codecov project ≥95%, patch ≥90% gates |
-| **Examples** | 14 branded examples covering every public surface |
+| **Examples** | 14 runnable examples, all executed in CI |
 | **Dependencies** | 13 native runtime + 1 optional async (`tokio`) + 2 optional WASM (`wasm-bindgen`, `js-sys`) |
 | **MSRV** | Rust 1.80.0 |
 | **WASM bundle** | 5.8 MB raw / **2.0 MB gzipped** (after `wasm-opt -Os`) |
@@ -372,23 +398,24 @@ let config = HtmlConfig::builder()
 | `math_and_diagrams` | LaTeX → MathML and `\u{60}\u{60}\u{60}mermaid` passthrough |
 | `async` | Asynchronous generation via tokio (requires `--features async`) |
 
-Run any example:
+Run any of them with `cargo run --example <name>`, or all fourteen with
+`make examples`. CI does the same on every push, so an example that
+stops working fails the build.
 
 ```bash
 cargo run --example hello
-cargo run --example pipeline
-cargo run --example accessibility
-cargo run --example math_and_diagrams
 cargo run --example async --features async
 ```
 
 ---
 
-## Performance
+## Benchmarks
 
-Comparative throughput on the same realistic 8 KB blog payload (Apple
-M-series, criterion `--quick`, `[profile.bench]` with `opt-level = 3`
-+ fat LTO):
+Comparative throughput on the same realistic 8 KB blog payload,
+measured with Criterion (`--quick`) on an Apple M-series CPU with
+`[profile.bench]` at `opt-level = 3` and fat LTO. Numbers are worth
+nothing without the host they came from; reproduce them on yours with
+`cargo bench --bench competitors`.
 
 | Engine | Time / iter | What it does |
 | :--- | ---: | :--- |
@@ -522,160 +549,29 @@ The CI's `wasm-build` job exercises this exact command on every push.
 
 ---
 
-## FAQ
+## When not to use html-generator
 
-<details>
-<summary><b>Why this crate over `comrak`, `pulldown-cmark`, or `markdown-it`?</b></summary>
+Cases where something else fits better, listed because the honest answer
+is "not yet" or "by design" rather than a disagreement about priorities.
 
-Those are pure CommonMark parsers — they hand you raw HTML. html-generator
-is the layer above: parse + ARIA injection + JSON-LD structured data +
-table of contents + math + mermaid + minification, all in one call.
-The benchmarks in [Performance](#performance) show the trade-off
-explicitly. If you only need parse-to-HTML, prefer `pulldown-cmark` (45 µs
-on the same payload) and write your own post-processing. If you want a
-2026-grade content pipeline that ships WCAG 2.1 + SEO out of the box,
-this is it.
-
-</details>
-
-<details>
-<summary><b>Is the output really WCAG-compliant?</b></summary>
-
-Yes for the structural conformance items: ARIA labels, roles, landmarks,
-heading hierarchy, language declarations. `validate_wcag(html, &config,
-None)` returns an `AccessibilityReport` with any remaining issues
-(missing alt text, color contrast — which html-generator can't infer
-from Markdown). Output passes WCAG 2.1 Levels A and AA out of the box;
-Level AAA requires opt-in via `WcagLevel::AAA` in the config because some
-AAA criteria (heading-jump strictness, contrast ratio 7.0:1) reject
-otherwise-valid documents.
-
-</details>
-
-<details>
-<summary><b>How do I render math without a JavaScript bundle?</b></summary>
-
-Set `enable_math: true` (it's behind the `math` feature, on by default).
-`$..$` and `$$..$$` LaTeX spans become `<math>...</math>` MathML, which
-modern browsers render natively — no MathJax, no KaTeX, no client-side
-script tag. Parse errors are encoded inline as `<merror>` markers so
-broken LaTeX is visible in the page rather than crashing the build.
-Currency-style `$5` is left literal (the matcher requires a non-digit
-after the closing `$`).
-
-</details>
-
-<details>
-<summary><b>Do I have to manage Mermaid rendering myself?</b></summary>
-
-For Mermaid, yes — html-generator only rewrites the markup so the standard
-`mermaid.js` bundle finds it. Set `enable_diagrams: true` and the
-pipeline emits `<pre class="mermaid">` instead of
-`<pre><code class="language-mermaid">`. Then drop a single
-`<script type="module">import mermaid from "https://…/mermaid.esm.mjs";
-mermaid.initialize({startOnLoad:true});</script>` in your page.
-Server-side mermaid rendering would require running a headless browser
-or porting the diagram engine to Rust — out of scope for this crate.
-
-</details>
-
-<details>
-<summary><b>Can I run this in Cloudflare Workers / Vercel Edge / a browser?</b></summary>
-
-Yes — `wasm-pack build --release --target web --no-default-features
---features wasm,math` produces a 5.8 MB raw / 2.0 MB gzipped bundle plus
-~13 KB of JS bindings. The exposed JS surface is `generateHtml`,
-`generateHtmlFullDocument`, and `generateHtmlWithOptions(markdown,
-optionsJson)`. Workers' paid plan allows 10 MB compressed scripts,
-fitting comfortably; the free tier (1 MB compressed) requires further
-trimming and is not currently a supported configuration.
-
-</details>
-
-<details>
-<summary><b>What's missing on the WASM target compared to native?</b></summary>
-
-Three things, all from `mdx-gen`'s extension layer (which doesn't compile
-to `wasm32-unknown-unknown` because of an unconditional `tokio` dep):
-`:::class` custom blocks, image-class syntax (`![alt](url).class="…"`),
-and `syntect` syntax highlighting. CommonMark + GFM (tables,
-strikethrough, autolinks, tasklists, superscript) plus the full ARIA /
-TOC / JSON-LD / math / mermaid post-processing renders identically.
-
-</details>
-
-<details>
-<summary><b>Why is raw HTML in Markdown stripped by default?</b></summary>
-
-Untrusted Markdown that contains raw `<script>` tags is an XSS vector.
-`HtmlConfig::default()` sets `allow_unsafe_html = false` so `<script>` and
-friends never make it to the output. If you control the Markdown source
-(e.g. site authors you trust), set `allow_unsafe_html = true`. For
-user-submitted Markdown, set both `allow_unsafe_html = true` and
-`sanitize_html = true` — the pipeline runs `ammonia` over the final HTML
-to strip dangerous elements while keeping safe ones.
-
-</details>
-
-<details>
-<summary><b>Why does the same Markdown produce identical HTML on every run now?</b></summary>
-
-Earlier versions (≤ 0.0.4) used `uuid::Uuid::new_v4()` for
-auto-generated ARIA IDs, so two runs over the same input produced
-different HTML — bad for content-addressable caching, deterministic
-builds, and snapshot testing. v0.0.5 replaced UUIDs with per-call
-counters so byte-identical input produces byte-identical output. The
-`uuid` runtime dependency was dropped in the same commit.
-
-</details>
-
-<details>
-<summary><b>How does the pipeline handle errors gracefully?</b></summary>
-
-Use `generate_html_with_diagnostics` instead of `generate_html`. It
-returns an `HtmlOutput` with `html: String` and `diagnostics:
-Vec<Diagnostic>`. Each diagnostic records which pipeline step
-(`accessibility`, `toc`, `structured_data`, `minification`, etc.)
-emitted it and at what severity. Non-fatal failures degrade rather than
-abort — e.g., if ARIA injection fails on malformed HTML the unenhanced
-HTML is returned with an `Error`-level diagnostic, and the rest of the
-pipeline continues.
-
-</details>
-
-<details>
-<summary><b>What's `src/yaml/`? It's massive.</b></summary>
-
-A vendored, pure-Rust YAML parser kept verbatim from upstream
-(`yaml_safe@0.1.0`, in turn a fork-and-rename of `serde_yml` away from
-the unsound `libyml` C dependency). It exists as a private `mod yaml`
-inside the crate (~2 700 lines) so the crate compiles without taking
-on the unsound `serde_yml` registry dependency or its
-`RUSTSEC-2025-0068` advisory. Excluded from coverage and clippy in CI;
-not part of the public API surface. Will be replaced with the
-crates.io-published `yaml_safe = "0.1"` registry dependency once that
-ships.
-
-</details>
-
-<details>
-<summary><b>Is `cargo publish` supported?</b></summary>
-
-Yes — `cargo publish --dry-run` succeeds as of v0.0.5. The earlier
-blocker (path-only `crates/yaml_safe/` without a `version =` field) was
-closed by inlining the YAML implementation into `src/yaml/`.
-
-</details>
-
-<details>
-<summary><b>What's the MSRV policy?</b></summary>
-
-Rust 1.80.0 is the floor. Bumps require a minor-version increment and
-a CHANGELOG entry. Linting and formatting follow the latest stable
-(`cargo fmt --all -- --check` and `cargo clippy -- -D warnings` are
-expected to pass on the toolchain pinned in `mise.toml`/the CI config).
-
-</details>
+- **You only need Markdown to HTML.** Use `comrak` or
+  `pulldown-cmark` directly. They are the parsers underneath, they are
+  an order of magnitude faster, and everything this crate adds on top is
+  overhead you would not be using.
+- **You need `no_std`.** The crate uses `std` unconditionally. The
+  `wasm32` build is the only non-native target it supports, and it still
+  needs `std`.
+- **You need a full HTML parser's error recovery.** The accessibility
+  and SEO passes read the generated document with `scraper`; they are
+  built for markup this crate produced, not for arbitrary broken HTML
+  from the wild.
+- **You need WCAG conformance as a legal guarantee.** `validate_wcag`
+  checks the rules it implements: heading order, image alt text, form
+  labels, landmark structure, link text. Conformance is a property of a
+  whole site and its content, and no library can certify it for you.
+- **You want raw HTML in Markdown to pass through untouched by
+  default.** It does not, and that is deliberate. See
+  [Security](#security).
 
 ---
 
@@ -683,38 +579,171 @@ expected to pass on the toolchain pinned in `mise.toml`/the CI config).
 
 ```bash
 make              # check + clippy + test
-make build        # cargo build
-make test         # run all tests
-make lint         # clippy with strict flags
-make format       # rustfmt
-make deny         # supply-chain audit
-make outdated     # dependency freshness check
-make help         # list all targets
+make test         # all tests, all features
+make clippy       # lints, warnings denied
+make fmt          # formatting check
+make lint         # markdownlint + codespell + REUSE
+make doc          # rustdoc with warnings denied
+make coverage     # line coverage gate (98%, excluding src/wasm.rs)
+make miri         # lib tests under Miri
+make fuzz         # build every target, replay corpus and regressions
+make examples     # run all fourteen examples
+make bench-smoke  # compile and run each bench once
+make versions     # every version-bearing file agrees
+make deny / vet / audit   # supply chain
+```
+
+[`DEVELOPMENT.md`](DEVELOPMENT.md) maps each CI job to its local
+equivalent and explains the gotchas.
+
+### Fuzzing
+
+Three `cargo-fuzz` targets live under `fuzz/fuzz_targets/`:
+
+```bash
+cargo +nightly fuzz run fuzz_markdown       # the whole pipeline, every step on
+cargo +nightly fuzz run fuzz_front_matter   # extraction
+cargo +nightly fuzz run fuzz_accessibility  # ARIA enrichment + WCAG validation
+```
+
+`fuzz_accessibility` is the one that matters most: the enrichment pass
+rewrites markup by byte offset, which is where this crate's
+slice-boundary bugs have lived. `fuzz/corpus/<target>` holds the
+committed seeds and `fuzz/regressions/<target>` every fixed-bug input;
+both replay on each push, so a fixed crash cannot silently return.
+
+cargo-fuzz must be **installed from source** (`cargo install --locked
+cargo-fuzz`): the prebuilt binary is a musl build and infers its own
+build triple as the fuzz target.
+
+### Miri
+
+The crate is `#![forbid(unsafe_code)]`, so Miri does not police its own
+code. The job exists to check the interaction with dependencies that do
+use `unsafe` internally.
+
+```bash
+make miri     # cargo +nightly miri test --lib
 ```
 
 ### CI
 
 | Workflow | Trigger | Purpose |
 | :--- | :--- | :--- |
-| `ci.yml` | push, PR | Clippy, fmt, test (all features), coverage, audit |
-| `docs.yml` | push to main | Build and deploy API docs to GitHub Pages |
-| `security.yml` | push, PR | Dependency review, CodeQL, cargo-audit, cargo-deny |
+| `ci.yml` | push, PR | clippy, fmt, tests across three OSes, coverage, audit |
+| `quality.yml` | push, PR | coverage gate, Miri, fuzz replay, docs lint, cargo-vet ratchet, release hygiene |
+| `docs.yml` | push to main | build and deploy API docs to GitHub Pages |
+| `release.yml` | tag `v*` | validate, build, GitHub Release |
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for signed commits and PR guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for signed commits and PR
+guidelines.
 
 ---
 
 ## Security
 
-- `#![forbid(unsafe_code)]` at crate root and in `Cargo.toml` lints
-- Raw HTML stripped by default — opt-in via `allow_unsafe_html: true`
-- All user-controlled attributes escaped via `escape_html`
-- Directory traversal (`..`) blocked in file path validation
-- Input size limits enforced at all boundaries
-- `cargo audit` clean (transitive advisory ignores documented in `.cargo/audit.toml`)
-- `cargo deny` -- license, advisory, and ban checks
-- SPDX license headers on all source files
-- Signed commits enforced via CI
+**Reporting:** never open a public issue for a vulnerability. See
+[`SECURITY.md`](SECURITY.md) for the private channel and disclosure
+policy.
+
+This crate turns untrusted Markdown into HTML a site will serve, so
+injection is the first-order risk and the reason for most of what
+follows.
+
+### Injection
+
+Raw HTML in Markdown is **off by default**: `allow_unsafe_html` is
+`false`, so embedded markup is escaped and nothing a document author
+writes reaches the page as live HTML. `sanitize_html` is a **separate
+switch, also off by default**, and has no effect on its own: it runs the
+output through `ammonia`, an allow-list sanitiser, only when
+`allow_unsafe_html` is `true`. If you enable one, enable both. Every
+user-controlled attribute value is escaped on the way out.
+
+### Architectural posture
+
+- `#![forbid(unsafe_code)]` — the compiler proves the absence of unsafe
+  blocks.
+- No C dependencies, no FFI, no network I/O. File access happens only
+  where the caller names a path, and `..` traversal is rejected.
+- Input size limits at every boundary: a per-call `max_input_size`
+  (5 MiB by default), a 1 MB cap on the HTML the accessibility and SEO
+  passes will rewrite, and a 16 MiB reader buffer.
+
+### Supply chain
+
+- `cargo-deny` and `cargo-audit` in CI; documented advisory exemptions
+  live in `.cargo/audit.toml` with the upstream reason for each.
+- `cargo-vet` provenance in `supply-chain/`, with an exemption baseline
+  the CI ratchet cannot exceed.
+- `noyalib` pinned exactly (`=0.0.X`); a bump is a deliberate release.
+- `Cargo.lock` committed; CI builds `--locked`. Actions pinned by SHA.
+- REUSE 3.3 compliant, linted in CI.
+- Commits on `main` are signed; releases are signed tags
+  ([`KEYS.asc`](KEYS.asc)).
+
+---
+
+## Documentation
+
+The four entry points, identical across every repo in the family:
+
+- **[API reference](https://docs.rs/html-generator)** — rustdoc on docs.rs
+- **[Developer docs](DEVELOPMENT.md)** — toolchain, task map, reproducing
+  every CI gate locally
+- **[Architecture](docs/ARCHITECTURE.md)** — module map, pipeline, design
+  decisions
+- **[Decision records](docs/adr/README.md)** — the choices that would be
+  expensive to reverse
+
+| Document | Covers |
+|---|---|
+| [`CHANGELOG.md`](CHANGELOG.md) | per-release notes, Keep a Changelog format |
+| [`SECURITY.md`](SECURITY.md) | disclosure policy, injection posture, resource limits, supply chain |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | branch and commit conventions, PR expectations, code standards |
+| [`GOVERNANCE.md`](GOVERNANCE.md) | who decides what, how changes land |
+| [`SUPPORT.md`](SUPPORT.md) | where to ask, what to expect |
+| [`AGENTS.md`](AGENTS.md) | invariants for AI-assisted contributions |
+
+---
+
+## Stability guarantees
+
+- **Versioning.** [SemVer](https://semver.org), with the pre-1.0 posture
+  that the patch number is the breaking axis during `0.0.x`. Releases
+  increment by `+0.0.1` and every breaking change is called out in
+  [`CHANGELOG.md`](CHANGELOG.md).
+- **Output stability.** For a generator, output *is* API: a change to
+  the HTML produced for a given Markdown input — the ARIA attributes
+  added, the heading ids emitted, the JSON-LD shape, what the minifier
+  collapses — is treated as breaking even when no Rust signature moves.
+- **Determinism.** The same Markdown and the same `HtmlConfig` produce
+  byte-identical HTML on every run and every platform. Anything else is
+  a bug, not a tolerance.
+- **Deprecations** live for at least two releases with a `#[deprecated]`
+  note naming the replacement before removal.
+- **Version-bearing files** are checked against the manifest by
+  `scripts/verify-release-versions.sh` before a tag exists, so an
+  install snippet cannot go stale.
+
+---
+
+## Minimum-toolchain policy
+
+The floor is **Rust 1.80.0**, declared as `rust-version` in
+`Cargo.toml` so Cargo refuses older toolchains with a clear message.
+
+- **When it may rise:** only on a release, never silently, and always
+  with the reason in the changelog entry.
+- **Why it is where it is:** the floor follows the highest requirement
+  in the dependency graph, not an aspiration. It moves when a dependency
+  the crate needs moves it.
+- **What is verified:** CI builds and tests on stable. The floor is the
+  version Cargo enforces from the manifest.
+
+No claim is made about distro-LTS toolchains. Making one would require a
+table mapping current distro versions to this floor, and an aspirational
+claim there is worse than none.
 
 ---
 
