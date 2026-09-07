@@ -261,31 +261,6 @@ https://source.chromium.org/chromium/chromium/src/+/28841c33c77833cc30b286f9ae24
 """
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.indexmap]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "2.7.1"
-notes = '''
-Grepped for `-i cipher`, `-i crypto`, `'\bfs\b'`, `'\bnet\b'`
-and there were no hits.
-
-There is a little bit of `unsafe` Rust code - the audit can be found at
-https://chromium-review.googlesource.com/c/chromium/src/+/6187726/2
-'''
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.indexmap]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "2.7.1 -> 2.8.0"
-notes = """
-No `unsafe` introduced or affected in:
-* `indexmap_with_default!` and `indexset_with_default!` macros
-* New `PartialEq` implementations
-* `fn slice_eq` in `util.rs`
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
 [[audits.google.audits.smallvec]]
 who = "Manish Goregaokar <manishearth@google.com>"
 criteria = "safe-to-deploy"
@@ -494,17 +469,6 @@ delta = "1.2.0 -> 1.2.1"
 who = "edgul <ed.guloien@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "1.2.1 -> 1.2.2"
-
-[[audits.mozilla.audits.indexmap]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "2.8.0 -> 2.11.4"
-
-[[audits.mozilla.audits.indexmap]]
-who = "Ben Dean-Kawamura <bdk@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "2.11.4 -> 2.14.0"
-notes = "Mostly internal refactorings.  No new unsafe code."
 
 [[audits.mozilla.audits.linked-hash-map]]
 who = "Aria Beingessner <a.beingessner@gmail.com>"
