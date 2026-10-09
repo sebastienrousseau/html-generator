@@ -109,7 +109,7 @@ version = "0.52.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.comrak]]
-version = "0.54.0"
+version = "0.55.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.crc32fast]]
@@ -570,10 +570,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.shell-words]]
 version = "1.1.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.shlex]]
-version = "2.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.simd-adler32]]
