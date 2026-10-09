@@ -39,7 +39,8 @@ jobs:
           toolchain: nightly
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
-      - uses: taiki-e/install-action@4076c08d76dba979c11a7285295b0716c1d67908 # v2.87.4, installs cargo-llvm-cov
+      # Installs cargo-llvm-cov.
+      - uses: taiki-e/install-action@4076c08d76dba979c11a7285295b0716c1d67908 # v2.87.15
         with:
           tool: cargo-llvm-cov
       # The threshold and its rationale live in DEVELOPMENT.md. A number
@@ -134,7 +135,8 @@ jobs:
       # Pinned: releases before 0.10 reject a `[[trusted.*]]` entry that
       # names a `trusted-publisher` instead of a `user-id`, which is how
       # a crates.io Trusted Publishing release is attested.
-      - uses: taiki-e/install-action@4076c08d76dba979c11a7285295b0716c1d67908 # v2.87.4, installs cargo-vet
+      # Installs cargo-vet.
+      - uses: taiki-e/install-action@4076c08d76dba979c11a7285295b0716c1d67908 # v2.87.15
         with:
           tool: cargo-vet@0.10.2
       - run: cargo vet --locked
