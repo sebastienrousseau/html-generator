@@ -2,7 +2,8 @@
 #
 # The gates the repository standard requires that `ci.yml` does not
 # cover: coverage threshold, Miri, fuzz corpus replay, docs lint,
-# cargo-vet provenance, version consistency, examples and benches.
+# cargo-vet provenance, version consistency, examples, benches and the
+# declared minimum Rust version.
 #
 # Kept separate from ci.yml so the shared `rust-ci.yml` call there stays
 # a straight upgrade path when the pipelines repo changes.
@@ -178,3 +179,31 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps --all-features --locked
+
+  msrv:
+    name: msrv (rust-version builds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The floor is read from Cargo.toml, so the manifest stays the one
+      # place it is declared. Until v0.0.12 nothing built on it, and it
+      # sat at 1.80.0 while the locked graph needed 1.88.0.
+      - id: msrv
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      # `+<version>` overrides rust-toolchain.toml, which names stable.
+      # The library only: the floor is a promise to consumers, so a
+      # dev-dependency (a bench engine, a test helper) may need newer.
+      - env:
+          MSRV: ${{ steps.msrv.outputs.version }}
+        run: cargo "+$MSRV" check --all-features --locked

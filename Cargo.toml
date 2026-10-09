@@ -6,7 +6,7 @@
 name = "html-generator"
 version = "0.0.11"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.88.0"
 license = "MIT OR Apache-2.0"
 description = """
 A robust Rust library designed for transforming Markdown into SEO-optimized, accessible HTML. Featuring front matter extraction, custom header processing, table of contents generation, and performance optimization for web projects of any scale.

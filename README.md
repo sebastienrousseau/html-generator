@@ -74,13 +74,13 @@ cd html-generator
 make          # check + clippy + test
 ```
 
-Requires **Rust 1.80.0+**. Tested on Linux, macOS, and Windows.
+Requires **Rust 1.88.0+**. Tested on Linux, macOS, and Windows.
 
 ---
 
 ## Requirements
 
-- **Rust 1.80.0 or newer.** `rust-version` in `Cargo.toml` is the floor
+- **Rust 1.88.0 or newer.** `rust-version` in `Cargo.toml` is the floor
   and Cargo enforces it; CI builds on stable across Linux, macOS and
   Windows. See the [minimum-toolchain policy](#minimum-toolchain-policy)
   for when and why it may move.
@@ -131,7 +131,7 @@ html-generator converts Markdown into production-ready HTML with a configurable 
 | **Coverage** | 98.18% line coverage (`cargo llvm-cov`); Codecov project ≥95%, patch ≥90% gates |
 | **Examples** | 14 runnable examples, all executed in CI |
 | **Dependencies** | 13 native runtime + 1 optional async (`tokio`) + 2 optional WASM (`wasm-bindgen`, `js-sys`) |
-| **MSRV** | Rust 1.80.0 |
+| **MSRV** | Rust 1.88.0 |
 | **WASM bundle** | 5.8 MB raw / **2.0 MB gzipped** (after `wasm-opt -Os`) |
 | **CI gates** | 10 distinct checks including end-to-end `wasm-pack test --node` against Node 20 |
 
@@ -731,7 +731,7 @@ The four entry points, identical across every repo in the family:
 
 ## Minimum-toolchain policy
 
-The floor is **Rust 1.80.0**, declared as `rust-version` in
+The floor is **Rust 1.88.0**, declared as `rust-version` in
 `Cargo.toml` so Cargo refuses older toolchains with a clear message.
 
 - **When it may rise:** only on a release, never silently, and always
@@ -739,8 +739,10 @@ The floor is **Rust 1.80.0**, declared as `rust-version` in
 - **Why it is where it is:** the floor follows the highest requirement
   in the dependency graph, not an aspiration. It moves when a dependency
   the crate needs moves it.
-- **What is verified:** CI builds and tests on stable. The floor is the
-  version Cargo enforces from the manifest.
+- **What is verified:** CI builds and tests on stable, and a `msrv`
+  job builds the library on the `rust-version` toolchain itself, so
+  the declared floor cannot drift below what the dependency graph
+  needs.
 
 No claim is made about distro-LTS toolchains. Making one would require a
 table mapping current distro versions to this floor, and an aspirational
