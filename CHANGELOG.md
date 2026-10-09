@@ -142,6 +142,27 @@ Absorbed Dependabot bumps from PRs #43 and #45:
 
 Supersedes Dependabot PRs #43 and #45.
 
+## [0.0.6] - 2026-06-22
+
+### Changed
+
+- **The inlined `src/yaml/` module is replaced by a `noyalib`
+  dependency**, a pure-Rust YAML serde implementation under
+  `#![forbid(unsafe_code)]`, which drops the unmaintained YAML chain.
+- Dependencies: `scraper` 0.26 to 0.27 (#43), the minor-and-patch group
+  (#45), `toml` 0.8 to 1.1 (#41), `actions/setup-node` 4 to 6 (#39).
+- CI moves to the shared `sebastienrousseau/pipelines` workflows, and a
+  tag-triggered `release.yml` publishes to crates.io.
+
+### Fixed
+
+- The documentation site's root redirect points at `/html_generator/`
+  (the library identifier) rather than `/html-generator/`, which 404ed.
+
+> This release shipped without a changelog entry; it is reconstructed
+> from the v0.0.6 release page and the commits between v0.0.5 and
+> v0.0.6, and nothing is added beyond what they record.
+
 ## [0.0.5] — 2026-04-29
 
 ### Added (capability)
@@ -433,7 +454,12 @@ Second pre-release iteration.
 
 Initial public release.
 
-[0.0.6]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.5...HEAD
+[0.0.11]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.10...v0.0.11
+[0.0.10]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.9...v0.0.10
+[0.0.9]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.8...v0.0.9
+[0.0.8]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.6...v0.0.7
+[0.0.6]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.5
 [0.0.4]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.4
 [0.0.3]: https://github.com/sebastienrousseau/html-generator/releases/tag/v0.0.3
