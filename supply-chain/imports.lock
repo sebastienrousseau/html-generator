@@ -1,6 +1,10 @@
 
 # cargo-vet imports lock
 
+[[unpublished.html-generator]]
+version = "0.0.12"
+audited_as = "0.0.11"
+
 [[publisher.bumpalo]]
 version = "3.20.3"
 when = "2026-05-22"

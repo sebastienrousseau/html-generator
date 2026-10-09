@@ -5,6 +5,70 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2026-10-09
+
+A security release: `noyalib` moves past RUSTSEC-2026-0333, the
+declared toolchain floor becomes the one the dependency graph actually
+needs, and the open Dependabot updates are folded in.
+
+### Security
+
+- **`noyalib` pinned at `=0.0.56`** (from `=0.0.37`) for
+  RUSTSEC-2026-0333 (GHSA-4xcc-23fx-w2wj). Before 0.0.53, noyalib
+  skipped most `ParserConfig` budgets on the typed deserialization path
+  that `extract_front_matter_data` uses, so 591 bytes of YAML front
+  matter (anchored sequences of aliases) were accepted and expanded to
+  3.4 MB of JSON. Such front matter is now refused with
+  `HtmlError::InvalidFrontMatterFormat`, and
+  `tests/front_matter_budgets.rs` keeps it that way. Front matter
+  within noyalib's default budgets parses as before. The pin stays
+  exact (ADR 0005).
+- **`ammonia` 4.1.4 to 4.1.5**, the 4.1-line backport of the CSS
+  sanitisation fix in 4.2.1 (#82).
+
+### Changed
+
+- **MSRV is 1.88.0** (declared as 1.80.0 until now). The locked graph
+  has needed 1.88 since `mdx-gen` 0.0.5, so 0.0.11 could not build on
+  anything older either; only the declaration changes. A new `msrv`
+  job in `quality.yml` (and `make msrv`) builds the library on the
+  declared toolchain, so the floor cannot drift again. With the floor
+  at 1.88, two `map_or(true, ..)` calls become `is_none_or`.
+- Dependencies: `comrak` 0.55 for the `wasm32` pipeline and the
+  benches (#78); `indexmap` 2.14.2, `thiserror` 2.0.21, `toml` 1.1.6
+  and `test-case` 3.4.0 (#82); the GitHub Actions group (#80).
+  `Cargo.lock` is now lockfile format v4, which Cargo writes once the
+  declared floor allows it.
+- `ammonia` stays on 4.1. 4.2 moves to `html5ever` 0.40 and
+  `cssparser` 0.38 while `scraper` 0.27, its latest release, stays on
+  0.39 and 0.37, so taking it would ship two copies of the HTML parser
+  stack.
+- cargo-vet: comrak's and the patch releases' exemptions move to the
+  new versions, Mozilla's imported audits now cover `shlex`, and the
+  exemption baseline falls from 204 to 203.
+
+### Removed
+
+- Waivers nothing matches any more: the RUSTSEC-2026-0173 ignore in
+  `deny.toml` and `.cargo/audit.toml`, the RUSTSEC-2026-0235 ignore in
+  `.cargo/audit.toml` (its crate left with `minify-html` in 0.0.10),
+  and the `BSL-1.0` and `target-lexicon` licence entries.
+
+### Fixed
+
+- **The wasm smoke tests run in CI.** `tests/wasm_smoke.rs` was
+  configured for browsers only, so `wasm-pack test --node` skipped all
+  four and still passed. Once running, one expected raw `<button>`
+  HTML to pass through, which the safe default (`allow_unsafe_html:
+  false`) rightly drops; the test now asserts that. The wasm-build job
+  fails if the suite is ever skipped again and runs clippy on the
+  `wasm32` target, which also caught a lint in a `performance` test.
+- The `taiki-e/install-action` comments in `quality.yml` named
+  v2.87.4 while the pinned commit is v2.87.15; they now carry the bare
+  tag, which Dependabot keeps current.
+- `CHANGELOG.md` gains the 0.0.6 entry it shipped without, and a
+  compare link for every version from 0.0.6 on.
+
 ## [0.0.11] — 2026-09-06
 
 The repository-standard release: the layout, gates and documents every
@@ -454,6 +518,7 @@ Second pre-release iteration.
 
 Initial public release.
 
+[0.0.12]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.9...v0.0.10
 [0.0.9]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.8...v0.0.9
