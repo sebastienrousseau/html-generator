@@ -9,8 +9,8 @@ user-login = "fitzgen"
 user-name = "Nick Fitzgerald"
 
 [[publisher.noyalib]]
-version = "0.0.37"
-when = "2026-09-06"
+version = "0.0.56"
+when = "2026-10-08"
 trusted-publisher = "github:sebastienrousseau/noyalib"
 
 [[publisher.unicode-normalization]]
