@@ -393,10 +393,8 @@ mod tests {
         fn test_minify_html_rejects_non_utf8_path_content() {
             let dir = tempdir().expect("failed to create temp dir");
             let file_path = dir.path().join("non-utf8.html");
-            let mut f = File::create(&file_path).expect("create file");
-            f.write_all(&[0xFF, 0xFE, 0xFD, 0xFC])
+            fs::write(&file_path, [0xFF, 0xFE, 0xFD, 0xFC])
                 .expect("write bytes");
-            drop(f);
             let err = minify_html(&file_path).unwrap_err();
             assert!(matches!(err, HtmlError::MinificationError(_)));
         }

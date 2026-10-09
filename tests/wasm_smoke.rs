@@ -20,7 +20,10 @@ use html_generator::wasm::{
 };
 use wasm_bindgen_test::wasm_bindgen_test;
 
-wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+// No `wasm_bindgen_test_configure!(run_in_browser)`: CI runs these with
+// `wasm-pack test --node`, which skips a browser-only suite outright
+// ("only configured to run in a browser ... skipping") and still
+// reports success. Node is the default runner.
 
 #[wasm_bindgen_test]
 fn renders_basic_markdown() {
@@ -38,14 +41,18 @@ fn full_document_wraps_doctype() {
 }
 
 #[wasm_bindgen_test]
-fn options_json_disables_aria() {
+fn options_json_disables_aria_and_keeps_raw_html_out() {
     let html = generate_html_with_options_wasm(
         "<button>Save</button>",
         r#"{"add_aria_attributes": false}"#,
     )
     .unwrap();
-    // ARIA was disabled, so the button keeps its bare form.
-    assert!(html.contains("<button>Save</button>"));
+    // The options JSON cannot enable raw HTML, so the safe default
+    // (`allow_unsafe_html: false`) drops the tag and keeps its text;
+    // with ARIA off, nothing is injected in its place.
+    assert!(!html.contains("<button"), "raw HTML leaked: {html}");
+    assert!(!html.contains("aria-"), "ARIA was injected: {html}");
+    assert!(html.contains("Save"), "text was lost: {html}");
 }
 
 #[wasm_bindgen_test]
