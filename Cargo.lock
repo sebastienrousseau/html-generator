@@ -285,23 +285,6 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "comrak"
-version = "0.52.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aac0b255932a9cd52fbfd664b67957f9f2e095ae4711cb0e41b4e291edef94c2"
-dependencies = [
- "caseless",
- "entities",
- "finl_unicode",
- "jetscii",
- "phf",
- "phf_codegen",
- "rustc-hash",
- "smallvec",
- "typed-arena",
-]
-
-[[package]]
-name = "comrak"
 version = "0.55.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daa3d1ea6b01ce72405fa3f826768f51c7a44917527c89b37856ffdd17ee57e4"
@@ -704,7 +687,7 @@ name = "html-generator"
 version = "0.0.12"
 dependencies = [
  "ammonia",
- "comrak 0.55.0",
+ "comrak",
  "criterion",
  "getrandom 0.3.4",
  "indexmap",
@@ -961,12 +944,12 @@ dependencies = [
 
 [[package]]
 name = "mdx-gen"
-version = "0.0.5"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d560bc015983c7fba2518d5fab5d336f3d8f2ae19f5e232fa102fdae5cdea581"
+checksum = "af73bcb7bde476cc627a6cc8654ac833d0b4f8af228a569b618e0ff6998cb820"
 dependencies = [
  "ammonia",
- "comrak 0.52.0",
+ "comrak",
  "html-escape",
  "log",
  "regex",

@@ -127,7 +127,7 @@ html-generator converts Markdown into production-ready HTML with a configurable 
 | Metric | Value |
 | :--- | :--- |
 | **Source** | ~12,900 lines across 11 modules (`src/yaml/` is a vendored snapshot, see FAQ) |
-| **Test suite** | 484 unit/integration tests + 163 doctests + 4 WASM smoke tests = **651 total** |
+| **Test suite** | 485 unit/integration tests + 163 doctests + 4 WASM smoke tests = **652 total** |
 | **Coverage** | 98.08% line coverage (`cargo llvm-cov`); Codecov project ≥95%, patch ≥90% gates |
 | **Examples** | 14 runnable examples, all executed in CI |
 | **Dependencies** | 13 native runtime + 1 optional async (`tokio`) + 2 optional WASM (`wasm-bindgen`, `js-sys`) |

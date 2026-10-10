@@ -1,7 +1,11 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.mdx-gen]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.0.5 -> 0.0.6"
+notes = "Delta 0.0.5 -> 0.0.6 (18 files, +134/-23): comrak 0.52 -> 0.55 for GHSA-xg9p-p4jc-c46g; examples gated on syntax_highlighting; tests. Crate keeps forbid(unsafe_code); no new unsafe, no build script, no new dependency."
 
 [[trusted.noyalib]]
 criteria = "safe-to-deploy"

@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.12] - 2026-10-09
 
-A security release: `noyalib` moves past RUSTSEC-2026-0333, the
-declared toolchain floor becomes the one the dependency graph actually
-needs, and the open Dependabot updates are folded in.
+A security release: `noyalib` moves past RUSTSEC-2026-0333 and
+`mdx-gen` past GHSA-xg9p-p4jc-c46g, the declared toolchain floor
+becomes the one the dependency graph actually needs, and the open
+Dependabot updates are folded in.
 
 ### Security
 
@@ -23,6 +24,21 @@ needs, and the open Dependabot updates are folded in.
   `tests/front_matter_budgets.rs` keeps it that way. Front matter
   within noyalib's default budgets parses as before. The pin stays
   exact (ADR 0005).
+- **`mdx-gen` 0.0.6** (from 0.0.5) for GHSA-xg9p-p4jc-c46g. The
+  native pipeline renders through `mdx-gen` with comrak's autolink
+  extension on, and comrak 0.52, which `mdx-gen` 0.0.5 used, linked
+  bare email addresses by recursing once per address: 3,000 of them in
+  one paragraph overflowed a 512 KiB worker-thread stack and aborted
+  the process, which no caller can catch. `mdx-gen` 0.0.6 requires
+  comrak 0.55, which links them in a loop and also stops a URL
+  followed by many `)` from taking quadratic time.
+  `tests/autolink_stack.rs` renders that paragraph through
+  `generate_html` on a 512 KiB thread; it aborts on 0.0.5 and passes
+  on 0.0.6. The `wasm32` pipeline already used comrak 0.55 (#78).
+  Neither pipeline sets comrak's `tagfilter` (deprecated in 0.55), so
+  raw HTML handling is unchanged: with `allow_unsafe_html: false` (the
+  default) `mdx-gen`'s ammonia pass strips it, as
+  `tests/fixtures/xss_vectors.txt` checks.
 - **`ammonia` 4.1.4 to 4.1.5**, the 4.1-line backport of the CSS
   sanitisation fix in 4.2.1 (#82).
 
@@ -45,7 +61,9 @@ needs, and the open Dependabot updates are folded in.
   stack.
 - cargo-vet: comrak's and the patch releases' exemptions move to the
   new versions, Mozilla's imported audits now cover `shlex`, and the
-  exemption baseline falls from 204 to 203.
+  exemption baseline falls from 204 to 201. `mdx-gen` 0.0.6 is covered
+  by an entry in `supply-chain/audits.toml`, not an exemption, and the
+  comrak 0.52.0 exemption left with `mdx-gen` 0.0.5.
 
 ### Removed
 
