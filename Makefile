@@ -17,10 +17,11 @@
 #   make examples  — run every example to completion
 #   make bench-smoke — compile and run each bench once, no measurement
 #   make versions  — every version-bearing file agrees with Cargo.toml
+#   make msrv      — build the library on the declared rust-version
 #   make sbom      — generate a software bill of materials
 #   make clean     — remove build artifacts
 
-.PHONY: all check clippy test fmt lint deny vet audit doc coverage miri fuzz examples bench-smoke versions sbom clean
+.PHONY: all check clippy test fmt lint deny vet audit doc coverage miri fuzz examples bench-smoke versions msrv sbom clean
 
 all: check clippy test
 
@@ -96,6 +97,13 @@ bench-smoke:
 
 versions:
 	./scripts/verify-release-versions.sh
+
+# The toolchain named by `rust-version` in Cargo.toml, so the declared
+# floor is one that actually builds. The library only: dev-dependencies
+# may need newer. Needs that toolchain installed.
+msrv:
+	cargo +$$(sed -n 's/^rust-version = "\(.*\)"$$/\1/p' Cargo.toml) \
+	  check --all-features --locked
 
 sbom:
 	cargo tree --edges normal --prefix depth --format '{p} {l}' > SBOM.txt

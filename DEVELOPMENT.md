@@ -63,6 +63,7 @@ repository standard requires that the shared pipeline does not cover.
 | `docs-lint` | `make lint` | British spellings are house style; see `.codespellrc` |
 | `cargo-vet` | `make vet` | after a dep change: `cargo vet regenerate exemptions`; the count must not exceed `supply-chain/exemptions-baseline.txt` |
 | `release-hygiene` | `make versions && make examples && make bench-smoke && make doc` | |
+| `msrv` | `make msrv` | needs the `rust-version` toolchain installed (`rustup toolchain install <version>`) |
 | `cargo-audit` | `make audit` | if a local cargo alias named `audit` shadows the subcommand, run `cargo-audit audit` |
 
 ## Coverage: the threshold and why

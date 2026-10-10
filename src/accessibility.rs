@@ -716,7 +716,7 @@ pub fn validate_wcag(
     let document = Html::parse_document(html);
 
     if disable_checks
-        .map_or(true, |d| !d.contains(&IssueType::LanguageDeclaration))
+        .is_none_or(|d| !d.contains(&IssueType::LanguageDeclaration))
     {
         AccessibilityReport::check_language_attributes(
             &document,

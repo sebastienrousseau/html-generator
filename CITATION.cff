@@ -9,7 +9,7 @@ authors:
 repository-code: "https://github.com/sebastienrousseau/html-generator"
 url: "https://github.com/sebastienrousseau/html-generator"
 license: "Apache-2.0 OR MIT"
-version: 0.0.11
-date-released: "2026-09-06"
+version: 0.0.12
+date-released: "2026-10-09"
 abstract: >-
   A Rust library that turns Markdown into accessible, SEO-ready HTML: heading structure, meta tags, WCAG checks, minification and math rendering.

@@ -258,9 +258,7 @@ fn tag_name_at(input: &str, idx: usize) -> Option<String> {
 fn is_block(name: Option<&str>) -> bool {
     // No tag on that side means a document boundary, where whitespace
     // is not rendered either.
-    // `map_or` rather than `is_none_or`: the latter is stable only
-    // from 1.82 and this crate's MSRV is 1.80.
-    name.map_or(true, |n| BLOCK_ELEMENTS.contains(&n))
+    name.is_none_or(|n| BLOCK_ELEMENTS.contains(&n))
 }
 
 #[cfg(test)]
