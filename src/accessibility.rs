@@ -1835,15 +1835,18 @@ fn add_aria_to_inputs(
     Ok(html_builder)
 }
 
-// Helper function to check for associated labels (using string manipulation)
+static LABEL_FOR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"<label\b[^>]*\bfor=["']([^"']+)["'][^>]*>"#)
+        .expect("static LABEL_FOR_REGEX must compile")
+});
+
+// Helper function to check for associated labels (using static regex matcher)
 fn has_associated_label(input_tag: &str, html_content: &str) -> bool {
     if let Some(id_match) = INPUT_ID_REGEX.captures(input_tag) {
         let id = &id_match[1];
-        Regex::new(&format!(
-            r#"<label\s+for="{}"\s*>"#,
-            regex::escape(id)
-        ))
-        .is_ok_and(|r| r.is_match(html_content))
+        LABEL_FOR_REGEX
+            .captures_iter(html_content)
+            .any(|cap| cap.get(1).is_some_and(|m| m.as_str() == id))
     } else {
         false
     }
