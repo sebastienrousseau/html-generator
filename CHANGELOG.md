@@ -5,6 +5,16 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - Unreleased
+
+### Changed
+
+- **The MSRV is now Rust 1.89.0** (was 1.88.0), the floor shared by the
+  maintainer's Rust crates; the dependency graph alone still needs
+  1.88.0. The README, CONTRIBUTING.md and the PR and bug templates move
+  with `rust-version`, and `scripts/verify-release-versions.sh` now
+  fails when any of them disagrees with it.
+
 ## [0.0.12] - 2026-10-09
 
 A security release: `noyalib` moves past RUSTSEC-2026-0333 and
