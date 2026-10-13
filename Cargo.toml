@@ -115,7 +115,7 @@ mdx-gen = "0.0.6"
 # pipeline is identical because `mdx-gen` itself wraps `comrak`.
 # `getrandom` needs `wasm_js` so transitive uses compile.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-comrak = { version = "0.55", default-features = false }
+comrak = { version = "0.56", default-features = false }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # -----------------------------------------------------------------------------
@@ -143,7 +143,7 @@ criterion = "0.8"
 # Comparative-bench dependencies — competitor markdown engines
 # benchmarked side-by-side in `benches/competitors.rs`. Pinned to
 # major versions stable on crates.io as of v0.0.5.
-comrak = "0.55"
+comrak = "0.56"
 pulldown-cmark = "0.13"
 
 # WASM headless test harness — only used when the `wasm` feature
