@@ -1,11 +1,77 @@
 
 # cargo-vet audits file
 
+[[audits.ammonia]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "4.1.5 -> 4.2.1"
+notes = "Delta 4.1.5 -> 4.2.1 (8 files, +133/-51; 2 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped."
+
+[[audits.comrak]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.55.0 -> 0.56.0"
+notes = "Delta 0.55.0 -> 0.56.0 (41 files, +2034/-777; 32 .rs files): unsafe-mentioning lines +2/-2; build.rs unchanged; adds memchr-n; drops jetscii. Read the unsafe hunks before certifying."
+
+[[audits.emojis]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.8.2 -> 0.9.0"
+notes = "Delta 0.8.2 -> 0.9.0 (7 files, +4131/-3960; 4 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped."
+
+[[audits.fearless_simd]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+version = "1.1.0"
+notes = "Full audit of fearless_simd 1.1.0 (33 files, 23 .rs files, 124608 lines of Rust): 120 lines mention unsafe (most in src/transmute.rs: 58, src/generated/neon.rs: 22, src/lib.rs: 17, src/kernel_macros.rs: 6, src/macros.rs: 4); no build.rs; dependencies: libm."
+
+[[audits.fearless_simd_macros]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+version = "0.1.0"
+notes = "Full audit of fearless_simd_macros 0.1.0 (8 files, 1 .rs files, 619 lines of Rust): 7 lines mention unsafe (most in src/lib.rs: 7); no build.rs; proc-macro crate (runs in the compiler); dependencies: proc-macro2, quote, syn."
+
+[[audits.html5ever]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.39.0 -> 0.40.1"
+notes = "Delta 0.39.0 -> 0.40.1 (5 files, +1613/-566; 4 .rs files): unsafe-mentioning lines +0/-0; no build.rs; adds memchr."
+
+[[audits.markup5ever]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.39.0 -> 0.40.0"
+notes = "Delta 0.39.0 -> 0.40.0 (1 files, +3/-3; 0 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped."
+
 [[audits.mdx-gen]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "0.0.5 -> 0.0.6"
 notes = "Delta 0.0.5 -> 0.0.6 (18 files, +134/-23): comrak 0.52 -> 0.55 for GHSA-xg9p-p4jc-c46g; examples gated on syntax_highlighting; tests. Crate keeps forbid(unsafe_code); no new unsafe, no build script, no new dependency."
+
+[[audits.memchr-n]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+version = "0.1.9"
+notes = "Full audit of memchr-n 0.1.9 (24 files, 8 .rs files, 5447 lines of Rust): 59 lines mention unsafe (most in src/search.rs: 29, src/vector/mod.rs: 16, src/swar/mod.rs: 10, src/lib.rs: 4); no build.rs; dependencies: fearless_simd, fearless_simd_macros."
+
+[[audits.string_cache]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.9.0 -> 0.11.0"
+notes = "Delta 0.9.0 -> 0.11.0 (8 files, +237/-153; 5 .rs files): unsafe-mentioning lines +18/-9; no build.rs; no dependency added or dropped. Read the unsafe hunks before certifying."
+
+[[audits.string_cache_codegen]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.6.1 -> 0.11.2"
+notes = "Delta 0.6.1 -> 0.11.2 (2 files, +65/-47; 1 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped."
+
+[[audits.web_atoms]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.2.6 -> 0.3.0"
+notes = "Delta 0.2.6 -> 0.3.0 (1 files, +6/-6; 0 .rs files): unsafe-mentioning lines +0/-0; build.rs unchanged; no dependency added or dropped."
 
 [[trusted.noyalib]]
 criteria = "safe-to-deploy"
@@ -20,3 +86,51 @@ trusted-publisher = "github:sebastienrousseau/noyalib"
 start = "2026-09-01"
 end = "2027-07-26"
 notes = "Same-author crate, pinned exactly."
+
+[[trusted.phf]]
+criteria = "safe-to-deploy"
+user-id = 51017 # Yuki Okushi (JohnTitor)
+start = "2021-06-17"
+end = "2027-10-14"
+
+[[trusted.phf_codegen]]
+criteria = "safe-to-deploy"
+user-id = 51017 # Yuki Okushi (JohnTitor)
+start = "2021-06-17"
+end = "2027-10-14"
+
+[[trusted.phf_generator]]
+criteria = "safe-to-deploy"
+user-id = 51017 # Yuki Okushi (JohnTitor)
+start = "2021-06-17"
+end = "2027-10-14"
+
+[[trusted.phf_shared]]
+criteria = "safe-to-deploy"
+user-id = 51017 # Yuki Okushi (JohnTitor)
+start = "2021-06-17"
+end = "2027-10-14"
+
+[[trusted.serde_spanned]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-01-20"
+end = "2027-10-14"
+
+[[trusted.syn]]
+criteria = "safe-to-deploy"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-03-01"
+end = "2027-10-14"
+
+[[trusted.tokio]]
+criteria = "safe-to-deploy"
+user-id = 6741 # Alice Ryhl (Darksonn)
+start = "2020-12-25"
+end = "2027-10-14"
+
+[[trusted.toml]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2022-12-14"
+end = "2027-10-14"
