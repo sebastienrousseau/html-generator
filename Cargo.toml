@@ -75,7 +75,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Dependencies required for building and running the project.
-ammonia = "4"
+ammonia = "4.2.3"
 indexmap = "2"
 log = "0.4"
 # Pure-Rust YAML parser used for front-matter extraction. Replaces the

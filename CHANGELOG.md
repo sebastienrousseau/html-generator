@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `rust-version`, and `scripts/verify-release-versions.sh` now
   fails when any of them disagrees with it.
 
+### Security
+
+- **ammonia 4.2.3** (was 4.2.1) for RUSTSEC-2021-0157 and
+  RUSTSEC-2021-0158: CSS `url()` values were not escaped when the URL
+  scheme left quotes alone, and three SVG animation elements were missing
+  from the list that strips `href` targets. `Cargo.toml` now requires
+  4.2.3 at least.
+
 ## [0.0.12] - 2026-10-09
 
 A security release: `noyalib` moves past RUSTSEC-2026-0333 and
