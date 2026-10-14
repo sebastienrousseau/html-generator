@@ -171,6 +171,39 @@ for f in snippet_files:
     else:
         ok(rel, "install snippets current")
 
+# The MSRV: `rust-version` is its single source, and every prose
+# statement of the floor must agree with it. A raised floor that left
+# one README line behind is how a stale claim ships.
+msrv = package_field("rust-version")
+
+
+def floor(v):
+    return tuple(int(x) for x in (v.split(".") + ["0", "0"])[:3])
+
+
+MSRV_PATTERNS = (
+    r"MSRV[- ]v?(\d+\.\d+(?:\.\d+)?)",
+    r"MSRV \((\d+\.\d+(?:\.\d+)?)\)",
+    r"Rust (\d+\.\d+(?:\.\d+)?)(?:\+| or newer| or later)",
+    r"floor is \*\*Rust (\d+\.\d+(?:\.\d+)?)\*\*",
+    r"\*\*MSRV\*\* \| Rust (\d+\.\d+(?:\.\d+)?)",
+)
+if not msrv:
+    bad("rust-version", "missing from Cargo.toml")
+else:
+    for rel in ("README.md", "CONTRIBUTING.md", "DEVELOPMENT.md", "SUPPORT.md",
+                "GOVERNANCE.md", ".github/PULL_REQUEST_TEMPLATE.md"):
+        f = root / rel
+        if not f.is_file():
+            continue
+        text = f.read_text(encoding="utf-8")
+        found = {v for p in MSRV_PATTERNS for v in re.findall(p, text)}
+        stale = sorted(v for v in found if floor(v) != floor(msrv))
+        if stale:
+            bad(f"{rel} MSRV", "says " + ", ".join(stale) + f", rust-version is {msrv}")
+        elif found:
+            ok(f"{rel} MSRV", msrv)
+
 print()
 if failed:
     print("Version mismatch. Fix these before tagging — a tag that fails the")

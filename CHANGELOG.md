@@ -5,6 +5,24 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - Unreleased
+
+### Changed
+
+- **The MSRV is now Rust 1.89.0** (was 1.88.0), the floor shared by the
+  maintainer's Rust crates; the dependency graph alone still needs
+  1.88.0. The README, CONTRIBUTING.md and the PR and bug templates move
+  with `rust-version`, and `scripts/verify-release-versions.sh` now
+  fails when any of them disagrees with it.
+
+### Security
+
+- **ammonia 4.2.3** (was 4.2.1) for RUSTSEC-2021-0157 and
+  RUSTSEC-2021-0158: CSS `url()` values were not escaped when the URL
+  scheme left quotes alone, and three SVG animation elements were missing
+  from the list that strips `href` targets. `Cargo.toml` now requires
+  4.2.3 at least.
+
 ## [0.0.12] - 2026-10-09
 
 A security release: `noyalib` moves past RUSTSEC-2026-0333 and

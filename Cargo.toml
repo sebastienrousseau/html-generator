@@ -6,7 +6,7 @@
 name = "html-generator"
 version = "0.0.12"
 edition = "2021"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 license = "MIT OR Apache-2.0"
 description = """
 A robust Rust library designed for transforming Markdown into SEO-optimized, accessible HTML. Featuring front matter extraction, custom header processing, table of contents generation, and performance optimization for web projects of any scale.
@@ -75,7 +75,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Dependencies required for building and running the project.
-ammonia = "4"
+ammonia = "4.2.3"
 indexmap = "2"
 log = "0.4"
 # Pure-Rust YAML parser used for front-matter extraction. Replaces the
@@ -86,7 +86,7 @@ log = "0.4"
 # crate's `cargo publish --dry-run` gate. The floor is 0.0.53:
 # earlier releases skipped most `ParserConfig` budgets on the typed
 # path this crate uses (RUSTSEC-2026-0333).
-noyalib = { version = "=0.0.56", default-features = false, features = ["std"] }
+noyalib = { version = "=0.0.57", default-features = false, features = ["std"] }
 once_cell = "1.21.4"
 pulldown-latex = { version = "0.8", optional = true }
 regex = "1.12.4"
@@ -115,7 +115,7 @@ mdx-gen = "0.0.6"
 # pipeline is identical because `mdx-gen` itself wraps `comrak`.
 # `getrandom` needs `wasm_js` so transitive uses compile.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-comrak = { version = "0.55", default-features = false }
+comrak = { version = "0.56", default-features = false }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # -----------------------------------------------------------------------------
@@ -143,7 +143,7 @@ criterion = "0.8"
 # Comparative-bench dependencies — competitor markdown engines
 # benchmarked side-by-side in `benches/competitors.rs`. Pinned to
 # major versions stable on crates.io as of v0.0.5.
-comrak = "0.55"
+comrak = "0.56"
 pulldown-cmark = "0.13"
 
 # WASM headless test harness — only used when the `wasm` feature

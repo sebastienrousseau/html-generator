@@ -4,7 +4,7 @@ Contributions are welcome. This guide covers the essentials.
 
 ## Prerequisites
 
-- **Rust 1.88.0+** (the `rust-version` in `Cargo.toml`; Cargo refuses
+- **Rust 1.89.0+** (the `rust-version` in `Cargo.toml`; Cargo refuses
   older toolchains).
 - Git with [commit signing](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits)
   configured.
