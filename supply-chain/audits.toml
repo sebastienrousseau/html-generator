@@ -7,6 +7,12 @@ criteria = "safe-to-deploy"
 delta = "4.1.5 -> 4.2.1"
 notes = "Delta 4.1.5 -> 4.2.1 (8 files, +133/-51; 2 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped."
 
+[[audits.ammonia]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "4.2.1 -> 4.2.3"
+notes = "Delta 4.2.1 -> 4.2.3 (4 files, +96/-11; 2 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped. Security release for RUSTSEC-2021-0157 and RUSTSEC-2021-0158: CSS url() values are escaped when the scheme leaves quotes alone, and animateMotion, animateTransform and animateColor join the SVG animation elements whose href is rewritten."
+
 [[audits.comrak]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
