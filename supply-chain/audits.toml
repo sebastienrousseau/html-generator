@@ -73,12 +73,6 @@ criteria = "safe-to-deploy"
 delta = "0.0.6 -> 0.0.7"
 notes = "Delta 0.0.6 -> 0.0.7: comrak 0.55 -> 0.56, serde_json 1.0.154, MSRV 1.89.0; forbid(unsafe_code) preserved, no build.rs, no new dependencies."
 
-[[audits.mdx-gen]]
-who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
-criteria = "safe-to-deploy"
-delta = "0.0.6 -> 0.0.7"
-notes = "Delta 0.0.6 -> 0.0.7: comrak 0.55 -> 0.56, serde_json 1.0.154, MSRV 1.89.0; forbid(unsafe_code) preserved, no build.rs, no new dependencies."
-
 [[audits.memchr-n]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
