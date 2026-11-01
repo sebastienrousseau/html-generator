@@ -4,7 +4,7 @@
 
 [package]
 name = "html-generator"
-version = "0.0.12"
+version = "0.0.14"
 edition = "2021"
 rust-version = "1.89.0"
 license = "MIT OR Apache-2.0"
@@ -75,7 +75,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Dependencies required for building and running the project.
-ammonia = "4.2.3"
+ammonia = "4.2.4"
 indexmap = "2"
 log = "0.4"
 # Pure-Rust YAML parser used for front-matter extraction. Replaces the
@@ -86,7 +86,7 @@ log = "0.4"
 # crate's `cargo publish --dry-run` gate. The floor is 0.0.53:
 # earlier releases skipped most `ParserConfig` budgets on the typed
 # path this crate uses (RUSTSEC-2026-0333).
-noyalib = { version = "=0.0.57", default-features = false, features = ["std"] }
+noyalib = { version = "=0.0.58", default-features = false, features = ["std"] }
 once_cell = "1.21.4"
 pulldown-latex = { version = "0.8", optional = true }
 regex = "1.12.4"

@@ -13,6 +13,12 @@ criteria = "safe-to-deploy"
 delta = "4.2.1 -> 4.2.3"
 notes = "Delta 4.2.1 -> 4.2.3 (4 files, +96/-11; 2 .rs files): unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped. Security release for RUSTSEC-2021-0157 and RUSTSEC-2021-0158: CSS url() values are escaped when the scheme leaves quotes alone, and animateMotion, animateTransform and animateColor join the SVG animation elements whose href is rewritten."
 
+[[audits.ammonia]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "4.2.3 -> 4.2.4"
+notes = "Delta 4.2.3 -> 4.2.4: unsafe-mentioning lines +0/-0; no build.rs; no dependency added or dropped. Security release for RUSTSEC-2026-0373: match CSS url() case-insensitively."
+
 [[audits.comrak]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -60,6 +66,18 @@ who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 version = "0.1.9"
 notes = "Full audit of memchr-n 0.1.9 (24 files, 8 .rs files, 5447 lines of Rust): 59 lines mention unsafe (most in src/search.rs: 29, src/vector/mod.rs: 16, src/swar/mod.rs: 10, src/lib.rs: 4); no build.rs; dependencies: fearless_simd, fearless_simd_macros."
+
+[[audits.pulldown-cmark]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-run"
+delta = "0.13.4 -> 0.13.6"
+notes = "Delta 0.13.4 -> 0.13.6: dev-dependency transitive; no new unsafe or build.rs changes."
+
+[[audits.serde_json]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.0.151 -> 1.0.154"
+notes = "Delta 1.0.151 -> 1.0.154: patch maintenance updates by David Tolnay; no new dependencies."
 
 [[audits.string_cache]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"

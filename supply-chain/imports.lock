@@ -2,7 +2,7 @@
 # cargo-vet imports lock
 
 [[unpublished.html-generator]]
-version = "0.0.12"
+version = "0.0.14"
 audited_as = "0.0.11"
 
 [[publisher.bumpalo]]
@@ -13,8 +13,8 @@ user-login = "fitzgen"
 user-name = "Nick Fitzgerald"
 
 [[publisher.noyalib]]
-version = "0.0.57"
-when = "2026-10-09"
+version = "0.0.58"
+when = "2026-10-15"
 trusted-publisher = "github:sebastienrousseau/noyalib"
 
 [[publisher.phf]]
@@ -95,8 +95,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.tokio]]
-version = "1.53.2"
-when = "2026-10-03"
+version = "1.54.1"
+when = "2026-10-21"
 user-id = 6741
 user-login = "Darksonn"
 user-name = "Alice Ryhl"
