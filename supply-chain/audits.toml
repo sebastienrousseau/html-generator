@@ -43,6 +43,12 @@ criteria = "safe-to-deploy"
 version = "0.1.0"
 notes = "Full audit of fearless_simd_macros 0.1.0 (8 files, 1 .rs files, 619 lines of Rust): 7 lines mention unsafe (most in src/lib.rs: 7); no build.rs; proc-macro crate (runs in the compiler); dependencies: proc-macro2, quote, syn."
 
+[[audits.html-escape]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.2.15 -> 0.3.0"
+notes = "Delta 0.2.15 -> 0.3.0: transitive dependency via mdx-gen 0.0.7; no new dependencies or build.rs changes."
+
 [[audits.html5ever]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -60,6 +66,18 @@ who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "0.0.5 -> 0.0.6"
 notes = "Delta 0.0.5 -> 0.0.6 (18 files, +134/-23): comrak 0.52 -> 0.55 for GHSA-xg9p-p4jc-c46g; examples gated on syntax_highlighting; tests. Crate keeps forbid(unsafe_code); no new unsafe, no build script, no new dependency."
+
+[[audits.mdx-gen]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.0.6 -> 0.0.7"
+notes = "Delta 0.0.6 -> 0.0.7: comrak 0.55 -> 0.56, serde_json 1.0.154, MSRV 1.89.0; forbid(unsafe_code) preserved, no build.rs, no new dependencies."
+
+[[audits.mdx-gen]]
+who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.0.6 -> 0.0.7"
+notes = "Delta 0.0.6 -> 0.0.7: comrak 0.55 -> 0.56, serde_json 1.0.154, MSRV 1.89.0; forbid(unsafe_code) preserved, no build.rs, no new dependencies."
 
 [[audits.memchr-n]]
 who = "Sebastien Rousseau <sebastienrousseau@users.noreply.github.com>"
