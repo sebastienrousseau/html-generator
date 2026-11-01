@@ -404,23 +404,7 @@ criteria = "safe-to-deploy"
 version = "0.9.12"
 criteria = "safe-to-deploy"
 
-[[exemptions.phf]]
-version = "0.13.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.phf_codegen]]
-version = "0.13.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.phf_generator]]
-version = "0.13.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.phf_macros]]
-version = "0.13.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.phf_shared]]
 version = "0.13.1"
 criteria = "safe-to-deploy"
 
@@ -592,14 +576,6 @@ criteria = "safe-to-deploy"
 version = "0.6.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.syn]]
-version = "2.0.119"
-criteria = "safe-to-deploy"
-
-[[exemptions.syn]]
-version = "3.0.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.synstructure]]
 version = "0.13.2"
 criteria = "safe-to-deploy"
@@ -656,16 +632,8 @@ criteria = "safe-to-deploy"
 version = "1.12.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.tokio]]
-version = "1.53.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.tokio-macros]]
 version = "2.7.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.toml]]
-version = "1.1.6+spec-1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.toml_datetime]]

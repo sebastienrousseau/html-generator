@@ -5,6 +5,27 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - 2026-11-01
+
+### Changed
+
+- **The MSRV is now Rust 1.89.0** (was 1.88.0), the floor shared by the
+  maintainer's Rust crates; the dependency graph alone still needs
+  1.88.0. The README, CONTRIBUTING.md and the PR and bug templates move
+  with `rust-version`, and `scripts/verify-release-versions.sh` now
+  fails when any of them disagrees with it.
+- **`noyalib` pinned at `=0.0.58`** (from `=0.0.56`), **`comrak` `0.56.0`**
+  (from `0.55.0`), **`tokio` `1.54.1`**, **`serde_json` `1.0.154`**,
+  **`toml` `1.1.8`**, and **`pulldown-cmark` `0.13.5`**.
+
+### Security
+
+- **ammonia 4.2.4** (was 4.2.1) for RUSTSEC-2026-0373 (case-sensitive CSS
+  `url()` matching), RUSTSEC-2021-0157 (CSS `url()` values not escaped
+  when the URL scheme left quotes alone), and RUSTSEC-2021-0158 (three
+  SVG animation elements missing from the list that strips `href`
+  targets). `Cargo.toml` now requires 4.2.4 at least.
+
 ## [0.0.12] - 2026-10-09
 
 A security release: `noyalib` moves past RUSTSEC-2026-0333 and

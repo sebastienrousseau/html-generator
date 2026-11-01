@@ -24,4 +24,4 @@
 - [ ] Public API changes are documented and reflected in `CHANGELOG.md`
 - [ ] No new `unsafe` (the workspace is `#![forbid(unsafe_code)]`)
 - [ ] Commits are signed (CI verifies this)
-- [ ] Considered MSRV (1.86) and `no_std` impact, where relevant
+- [ ] Considered MSRV (1.89) and `no_std` impact, where relevant
