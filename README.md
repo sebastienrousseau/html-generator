@@ -56,14 +56,14 @@
 
 ```toml
 [dependencies]
-html-generator = "0.0.14"
+html-generator = "0.0.15"
 ```
 
 ### Optional async support
 
 ```toml
 [dependencies]
-html-generator = { version = "0.0.14", features = ["async"] }
+html-generator = { version = "0.0.15", features = ["async"] }
 ```
 
 ### Build from source

@@ -5,6 +5,12 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.15] - 2026-11-01
+
+### Changed
+
+- **`mdx-gen` 0.0.7** (from `0.0.6`), bringing `comrak` `0.56.0` on the native Markdown pipeline (matching the `wasm32` pipeline) and the `1.89.0` MSRV floor.
+
 ## [0.0.14] - 2026-11-01
 
 ### Changed
