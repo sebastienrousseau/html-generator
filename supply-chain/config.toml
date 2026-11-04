@@ -108,6 +108,10 @@ criteria = "safe-to-deploy"
 version = "0.55.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.comrak]]
+version = "0.59.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.crc32fast]]
 version = "1.5.0"
 criteria = "safe-to-deploy"
@@ -312,10 +316,6 @@ criteria = "safe-to-run"
 version = "1.0.18"
 criteria = "safe-to-deploy"
 
-[[exemptions.jetscii]]
-version = "0.5.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.js-sys]]
 version = "0.3.104"
 criteria = "safe-to-deploy"
@@ -405,7 +405,7 @@ version = "0.9.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.phf_macros]]
-version = "0.13.1"
+version = "0.14.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.pin-project-lite]]
@@ -521,11 +521,11 @@ version = "1.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.scraper]]
-version = "0.27.0"
+version = "0.29.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.selectors]]
-version = "0.38.0"
+version = "0.41.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.serde]]
@@ -545,7 +545,7 @@ version = "1.0.151"
 criteria = "safe-to-deploy"
 
 [[exemptions.servo_arc]]
-version = "0.4.3"
+version = "0.5.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.shell-words]]
