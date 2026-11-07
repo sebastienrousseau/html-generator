@@ -5,6 +5,23 @@ All notable changes to **html-generator** are recorded in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.16] - Unreleased
+
+### Changed
+
+- **`scraper` 0.29.0** (from `0.27.0`) and **`comrak` 0.59** (from
+  `0.56`) on the `wasm32` pipeline and the comparative benches.
+
+### Tests
+
+- **`tests/path_validation.rs`** pins what `markdown_file_to_html`
+  accepts as a path: any `..` component is refused, in the input or
+  the output path, even one that stays inside the starting directory;
+  absolute paths, `.` components and names such as `a..b.md` pass. The
+  check is a traversal ban, not containment under a root, so
+  `euxis-commons`' `path::safe_join` (which accepts `a/../b.md` and
+  refuses absolute paths) was not adopted in its place.
+
 ## [0.0.15] - 2026-11-01
 
 ### Changed
@@ -563,6 +580,8 @@ Second pre-release iteration.
 
 Initial public release.
 
+[0.0.15]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.14...v0.0.15
+[0.0.14]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.13...v0.0.14
 [0.0.12]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/sebastienrousseau/html-generator/compare/v0.0.9...v0.0.10

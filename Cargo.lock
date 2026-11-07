@@ -294,7 +294,7 @@ dependencies = [
  "finl_unicode",
  "memchr-n",
  "phf 0.14.0",
- "phf_codegen 0.14.0",
+ "phf_codegen",
  "rustc-hash",
  "smallvec",
  "typed-arena",
