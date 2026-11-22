@@ -60,8 +60,8 @@ user-login = "JohnTitor"
 user-name = "Yuki Okushi"
 
 [[publisher.serde_spanned]]
-version = "1.1.2"
-when = "2026-10-08"
+version = "1.1.3"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -88,8 +88,8 @@ user-login = "Darksonn"
 user-name = "Alice Ryhl"
 
 [[publisher.toml]]
-version = "1.1.8+spec-1.1.0"
-when = "2026-10-09"
+version = "1.2.1+spec-1.1.0"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -547,21 +547,6 @@ who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
 version = "1.0.7"
 notes = "Simple hasher implementation with no unsafe code."
-
-[[audits.mozilla.audits.form_urlencoded]]
-who = "Valentin Gosu <valentin.gosu@gmail.com>"
-criteria = "safe-to-deploy"
-version = "1.2.0"
-
-[[audits.mozilla.audits.form_urlencoded]]
-who = "Valentin Gosu <valentin.gosu@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "1.2.0 -> 1.2.1"
-
-[[audits.mozilla.audits.form_urlencoded]]
-who = "edgul <ed.guloien@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "1.2.1 -> 1.2.2"
 
 [[audits.mozilla.audits.linked-hash-map]]
 who = "Aria Beingessner <a.beingessner@gmail.com>"
