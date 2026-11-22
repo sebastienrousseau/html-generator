@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.16] - Unreleased
 
+### Security
+
+- **ammonia 4.2.5 or newer**, which fixes a mutation XSS that combined
+  MathML and SVG. html-generator sanitizes with ammonia, so the
+  requirement floor moves from `4.2.4` to `4.2.5`.
+- **url 2.5.9** (RUSTSEC-2026-0592, stack overflow in `Url::origin()`
+  on nested `blob:` URLs) and **rustix 1.1.6** (RUSTSEC-2026-0486,
+  unsound xattr functions) in `Cargo.lock`. `url` arrives through
+  ammonia; `rustix` only through the `tempfile` dev-dependency.
+
 ### Changed
+
+- `log` 0.4.35, `toml` 1.2.1, `test-case` 3.4.1 and
+  `taiki-e/install-action` 2.90.2, from Dependabot.
 
 - **`scraper` 0.29.0** (from `0.27.0`) and **`comrak` 0.59** (from
   `0.56`) on the `wasm32` pipeline and the comparative benches.
