@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`scraper` 0.29.0** (from `0.27.0`) and **`comrak` 0.59** (from
   `0.56`) on the `wasm32` pipeline and the comparative benches.
 
+- **`comrak` 1.1** (from `0.59`) on the `wasm32` pipeline and the
+  comparative benches; the native pipeline still reaches `comrak` 0.59
+  through `mdx-gen`.
+- **`noyalib` pinned at `=0.0.63`** (from `=0.0.58`), `regex` 1.13.2,
+  `taiki-e/install-action` 2.90.6 and `astral-sh/setup-uv` 10.4.0, from
+  Dependabot.
+
 ### Tests
 
 - **`tests/path_validation.rs`** pins what `markdown_file_to_html`
