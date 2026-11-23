@@ -330,7 +330,7 @@ criteria = "safe-to-deploy"
 
 [[exemptions.libm]]
 version = "0.2.16"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[exemptions.linux-raw-sys]]
 version = "0.12.1"
