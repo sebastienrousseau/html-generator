@@ -104,14 +104,6 @@ criteria = "safe-to-deploy"
 version = "1.0.5"
 criteria = "safe-to-deploy"
 
-[[exemptions.comrak]]
-version = "0.55.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.comrak]]
-version = "0.59.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.crc32fast]]
 version = "1.5.0"
 criteria = "safe-to-deploy"
@@ -330,7 +322,7 @@ criteria = "safe-to-deploy"
 
 [[exemptions.libm]]
 version = "0.2.16"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[exemptions.linux-raw-sys]]
 version = "0.12.1"
@@ -486,18 +478,6 @@ criteria = "safe-to-run"
 
 [[exemptions.redox_syscall]]
 version = "0.5.18"
-criteria = "safe-to-deploy"
-
-[[exemptions.regex]]
-version = "1.13.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.regex-automata]]
-version = "0.4.18"
-criteria = "safe-to-deploy"
-
-[[exemptions.regex-syntax]]
-version = "0.8.11"
 criteria = "safe-to-deploy"
 
 [[exemptions.rustc-hash]]
