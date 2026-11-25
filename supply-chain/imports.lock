@@ -12,6 +12,20 @@ user-id = 696
 user-login = "fitzgen"
 user-name = "Nick Fitzgerald"
 
+[[publisher.comrak]]
+version = "0.56.0"
+when = "2026-10-06"
+user-id = 6356
+user-login = "kivikakk"
+user-name = "Asherah Connor"
+
+[[publisher.comrak]]
+version = "1.1.0"
+when = "2026-11-20"
+user-id = 6356
+user-login = "kivikakk"
+user-name = "Asherah Connor"
+
 [[publisher.noyalib]]
 version = "0.0.63"
 when = "2026-11-19"
@@ -58,6 +72,27 @@ when = "2026-06-21"
 user-id = 51017
 user-login = "JohnTitor"
 user-name = "Yuki Okushi"
+
+[[publisher.regex]]
+version = "1.13.2"
+when = "2026-11-18"
+user-id = 189
+user-login = "BurntSushi"
+user-name = "Andrew Gallant"
+
+[[publisher.regex-automata]]
+version = "0.4.19"
+when = "2026-11-18"
+user-id = 189
+user-login = "BurntSushi"
+user-name = "Andrew Gallant"
+
+[[publisher.regex-syntax]]
+version = "0.8.12"
+when = "2026-11-18"
+user-id = 189
+user-login = "BurntSushi"
+user-name = "Andrew Gallant"
 
 [[publisher.serde_spanned]]
 version = "1.1.3"
